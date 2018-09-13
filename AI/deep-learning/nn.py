@@ -97,9 +97,10 @@ class Function:
     """ Base class for a function, must be overridden
 
     All functions take an input, do something, and return an output.
+
     The only shared property of a Function is __call__,
-     though Function provides a simple initialization function
-     for any number of attributes passed as kwargs
+    but Function provides a simple initialization function
+    for any number of attributes passed as kwargs
 
     """
     def __init__(self, **kwargs):
@@ -176,13 +177,13 @@ class MathFunction(Function):
 
 class ReductionFunction(MathFunction):
     """ Reduction functions are functions like
-    sum or mean that reduces the dimensionality of
+    sum or max that reduces the dimensionality of
     a matrix.
 
     They constitute their own subclass of
-    MathFunction because of attributes
-    that require nontrivial changes to how
-    a normal MathFunction performs `backward`s
+    MathFunction because their dimensionality changes
+    require nontrivial changes to how a normal
+    MathFunction performs `backward`s
 
     # Attributes
     #-----------
@@ -193,26 +194,36 @@ class ReductionFunction(MathFunction):
 
     """
     dims = []
-    axis = []
+    axes = []
 
     def reset_stored_data(self,):
         self.dims = []
         self.axis = []
 
-    def restore_shape(self, x):
-        """ Restores a variable x to the original shape of
-        this function's input.
+    def restore_shape(self, y):
+        """ Restores a variable y to the original shape of the input """
+        # no-return map func
+        def _apply(fn, L): for i in L: fn(i);
 
-        This feature is the primary difference between a
-        RotationFunction and a normal MathFunction.
+        # Dimension vars
+        dims_input = self.dims
+        dims_y = y.shape
+        axes = self.axes
 
-        """
-        dims, ax = self.dims, self.ax
-        if len(dims) == len(ax):
+        # Get reshape dims
+        #-----------------
+        # reshape_dims will have a 1 for whatever axes were reduced
+        # and will be all 1s if no axes were given
+        reshape_dims = list(dims) if dims_y else [1]*len(dims_input)
+        _apply(lambda i: reshape_dims.__setitem__(i, 1), list(axes))
+
+        # Restore the dimensionality of y
+        y = np.broadcast_to(y.reshape(reshape_dims), dims_input)
+        return y
 
 
     @NOTIMPLEMENTED
-    def forward(self, axis=None):
+    def forward(self, axis=None, keepdims=False):
         pass
 
     @NOTIMPLEMENTED
