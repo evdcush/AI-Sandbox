@@ -30,7 +30,7 @@ Model : an interface to a Network
 
 Optimizer : optimizes the model hyperparameters
     Optimizers receive the model output, and the error from a loss function
-    and adjusts model hyperparameters to improve model accuracy
+    and adjusts model hyperparameters to improve model fn_varsuracy
 
 
 """
@@ -48,11 +48,13 @@ from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 """ submodule imports
 utils :
-    TODO : decorator
+    `TODO` : decorator
         serves as comment and call safety
-    NOTIMPLEMENTED : decorator
+
+    `NOTIMPLEMENTED` : decorator
         raises NotImplementedErrorforces if class func has not been overridden
-    INSPECT : decorator
+
+    `INSPECT` : decorator
         interrupts computation and enters interactive shell,
         where the user can evaluate the input and output to func
 """
@@ -95,12 +97,12 @@ utils :
 # ========================================
 class Function:
     """ Base class for a function, must be overridden
+    # All functions take an input, do something, and return an output.
 
-    All functions take an input, do something, and return an output.
-
-    The only shared property of a Function is __call__,
-    but Function provides a simple initialization function
-    for any number of attributes passed as kwargs
+    Instance methods are all expected to be overridden. However,
+      Function provides a useful initialization function
+      for assigning an arbitrary number of attributes that most
+      Function child instances will utilize
 
     """
     def __init__(self, **kwargs):
@@ -124,32 +126,41 @@ class Function:
 # ========================================
 class MathFunction(Function):
     """ Function for various mathematical ops
-    # Function ops
-    #-------------
+
+    Function ops
+    -------------
     MathFunctions have two parts:
         forward : function
             the typical form of any given function
         backward : gradient function
             the derivative of the function
 
-    It's likely most MathFunction subclasses will also store
-    their inputs for use during the backward process
+    Attributes
+    ----------
+    fn_vars : (no defined type)
+        the variables stored by functions for use in backprop
 
     # Callee dispatch
     #----------------
-    MathFunction callers should ideally only __call__
-    MathFunctions dispatch, ideally on some kwarg,
-      eg Y = self.my_function(X, fwd=True):
+    Callers of MathFunction instances will only
+    use MathFunction.__call__
 
-    __call__ : *args, **kwargs
-        forward  : *args **kwargs
-        backward : *args **kwargs
+    MathFunction.__call__ will then dispatch to
+    forward or backward based on the caller-specified
+    'backprop' kwarg.
 
     """
-    acc = None
+    _fn_vars = None
 
-    def reset_stored_data(self,):
-        self.acc = None
+    @property
+    def fn_vars(self,):
+        return _fn_vars
+
+    def set_fn_vars(self, fvars):
+        self._fn_vars = fvars
+
+    def reset_fn_vars(self,):
+        self._fn_vars = None
 
     @NOTIMPLEMENTED
     def forward(self):
@@ -167,55 +178,79 @@ class MathFunction(Function):
 #------------------------------------------------------------------------------
 # Atomic math functions
 #------------------------------------------------------------------------------
-''' # Necessary atomic funcs:
-- sum
-- max
-- power
-- log
-- where?
-'''
 
 class ReductionFunction(MathFunction):
     """ Reduction functions are functions like
     sum or max that reduces the dimensionality of
     a matrix.
 
-    They constitute their own subclass of
-    MathFunction because their dimensionality changes
-    require nontrivial changes to how a normal
-    MathFunction performs `backward`s
+    ReductionFunctions are their own subclass
+      because the mutability of their dimensions
+      would require nontrivial changes to the normal
+      backprop function as an instance of a MathFunction
 
     # Attributes
     #-----------
     dims : list (int)
         the original shape of the input before reduction
-    axis : list (int)
-        the axis or axes that were reduced
+    axes : list (int)
+        the axes or axis that were reduced
 
     """
-    dims = []
-    axes = []
+    _dims = []
+    _axes = []
 
-    def reset_stored_data(self,):
-        self.dims = []
-        self.axis = []
+    def get_reduction_vars(self):
+        return _dims, _axes
 
-    def restore_shape(self, y):
-        """ Restores a variable y to the original shape of the input """
-        # no-return map func
-        def _apply(fn, L): for i in L: fn(i);
+    def set_reduction_vars(self, dims, axes):
+        self._dims = list(dims)
+        self._axes = list(axes)
 
+    def reset_reduction_vars(self,):
+        self._dims = []
+        self._axes = []
+
+    @staticmethod
+    def apply(fn, L):
+        """ a map function with no return """
+        for i in L:
+            fn(i)
+
+    def restore_shape(self, Y):
+        """ Restores a variable Y to the original
+            shape of the input var X
+
+        Restore_shape is called in self.backward, during backpropagation
+
+        # There are three parts to restore_shape:
+        # - - - - - - - - - - - - - - - - - - - -
+        1 - The dimensions (shape) of the original input X and the
+            axes used to reduce Y are retrieved
+
+        2 - The current dimensions of Y have any missing axes
+            restored
+            For example:
+                if X.shape = (8, 32, 32, 3) and
+                Y = a_reduction_function(X, axis=2)
+                    (so Y.shape = (8, 32, 3))
+                Y would first have axis 2 restored,
+                so that Y.shape --> (8, 32, 1, 3)
+
+        3 - Y has the full original shape of the input X restored by
+            broadcasting
+
+        """
         # Dimension vars
-        dims_input = self.dims
+        dims_x, axes = self.get_reduction_vars()
         dims_y = y.shape
-        axes = self.axes
 
         # Get reshape dims
         #-----------------
         # reshape_dims will have a 1 for whatever axes were reduced
-        # and will be all 1s if no axes were given
-        reshape_dims = list(dims) if dims_y else [1]*len(dims_input)
-        _apply(lambda i: reshape_dims.__setitem__(i, 1), list(axes))
+        #   (will be all 1s if no axes were given)
+        reshape_dims = list(dims_x) if dims_y else [1]*len(dims_x)
+        apply(lambda i: reshape_dims.__setitem__(i, 1), list(axes))
 
         # Restore the dimensionality of y
         y = np.broadcast_to(y.reshape(reshape_dims), dims_input)
@@ -227,7 +262,8 @@ class ReductionFunction(MathFunction):
         pass
 
     @NOTIMPLEMENTED
-    def backward(self):
+    def backward(self, gY):
+        # Restore gY dims here!
         pass
 
     def __call__(self, *args, backprop=False, **kwargs):
@@ -239,110 +275,112 @@ class ReductionFunction(MathFunction):
 
 class Sum(MathFunction):
     """ Elementwise exponential function """
-    acc = None
+    fn_vars = None
 
     def rebroadcast_dims(self, x):
         x
 
     def forward(self, x, axis=None):
-        self.acc = axis
+        self.fn_vars = axis
 
         return h
 
-    def backward(self, grad):
+    def backward(self, gY):
         """ exp'(x) = exp(x) """
-        dL_wrt_exp_x = self.acc * grad
+        gX = self.fn_vars * gY
         self.reset_stored_data()
-        return dL_wrt_exp_x
+        return gX
 
 @TODO
 class Max(MathFunction):
     """ Elementwise exponential function """
-    acc = None
+    fn_vars = None
 
     def forward(self, x):
         h = np.exp(x)
-        self.acc = h
+        self.fn_vars = h
         return h
 
-    def backward(self, grad):
+    def backward(self, gY):
         """ exp'(x) = exp(x) """
-        dL_wrt_exp_x = self.acc * grad
+        gexp_x = self.fn_vars * gY
         self.reset_stored_data()
-        return dL_wrt_exp_x
+        return gexp_x
 
 @TODO
 class Power(MathFunction):
     """ Elementwise exponential function """
-    acc = None
+    fn_vars = None
 
     def forward(self, x):
         h = np.exp(x)
-        self.acc = h
+        self.fn_vars = h
         return h
 
-    def backward(self, grad):
+    def backward(self, gY):
         """ exp'(x) = exp(x) """
-        dL_wrt_exp_x = self.acc * grad
+        gexp_x = self.fn_vars * gY
         self.reset_stored_data()
-        return dL_wrt_exp_x
+        return gexp_x
 
 @TODO
 class Log(MathFunction):
     """ Elementwise exponential function """
-    acc = None
+    fn_vars = None
 
     def forward(self, x):
         h = np.exp(x)
-        self.acc = h
+        self.fn_vars = h
         return h
 
-    def backward(self, grad):
+    def backward(self, gY):
         """ exp'(x) = exp(x) """
-        dL_wrt_exp_x = self.acc * grad
+        gexp_x = self.fn_vars * gY
         self.reset_stored_data()
-        return dL_wrt_exp_x
+        return gexp_x
 @TODO
 class Where(MathFunction):
     """ Elementwise exponential function """
-    acc = None
+    fn_vars = None
 
     def forward(self, x):
         h = np.exp(x)
-        self.acc = h
+        self.fn_vars = h
         return h
 
-    def backward(self, grad):
+    def backward(self, gY):
         """ exp'(x) = exp(x) """
-        dL_wrt_exp_x = self.acc * grad
+        gexp_x = self.fn_vars * gY
         self.reset_stored_data()
-        return dL_wrt_exp_x
+        return gexp_x
 
+#------------------------------------------------------------------------------
+# Atomic math functions
+#------------------------------------------------------------------------------
 class Exp(MathFunction):
     """ Elementwise exponential function """
-    acc = None
+    fn_vars = None
 
     def forward(self, x):
         h = np.exp(x)
-        self.acc = h
+        self.fn_vars = h
         return h
 
-    def backward(self, grad):
+    def backward(self, gY):
         """ exp'(x) = exp(x) """
-        dL_wrt_exp_x = self.acc * grad
+        gexp_x = self.fn_vars * gY
         self.reset_stored_data()
-        return dL_wrt_exp_x
+        return gexp_x
 
 
 class Bias(MathFunction):
-    """ Adds bias b to some data"""
-    def forward(self, x, b):
-        return x + b
+    """ Adds bias B to some data"""
+    def forward(self, X, B):
+        return X + B
 
-    def backward(self, grad):
-        dL_wrt_b = grad.sum(0)
-        return dL_dexp
-
+    def backward(self, gY):
+        gB = gY.sum(0)
+        return gB
 
 
 class MatMul(MathFunction):
@@ -351,43 +389,43 @@ class MatMul(MathFunction):
 
     # Matmul assumptions
     #-------------------
-    x : external data sample
-        x is to be saved for use in backprop
-      shape : (N, m)
-          N : int
-              number of samples
-          m : int
-              arbitrary numberf of current features
-    w : weight matrix
-        w is the target for optimization update during backprop
-      shape : (m, k)
-          m : int
-              input dims
-          k : int
-              output dims
+    X : external data sample
+        X is the gradient chained through the network
+        shape : (N, m)
+            N : int
+                number of samples
+            m : int
+                arbitrary numberf of current features
+
+    W : weight matrix
+        shape : (m, k)
+            m : int
+                input dims
+            k : int
+                output dims
     """
-    acc = None
+    fn_vars = None
 
-    def matmul(self, a, b):
-        return np.matmul(a, b)
+    def matmul(self, X, W):
+        return np.matmul(X, W)
 
-    def forward(self, x, w):
+    def forward(self, X, W):
         """ matmul on x,w, assumes x.shape[-1] == w.shape[0] """
-        self.acc = (x, w)
-        h = self.matmul(x, w)
-        return h
+        self.fn_vars = (X, W)
+        Y = self.matmul(X, W)
+        return Y
 
-    def backward(self, grad):
-        """ dw_dx =  x """
-        x_in, w_in = self.acc
+    def backward(self, gY):
+        """  """
+        X_in, W_in = self.fn_vars
 
-        # The derivative of x is what will continue being propagated
-        dL_wrt_mmul_x = self.matmul(w_in, grad)
+        # The derivative of X is what will continue being propagated
+        gX = self.matmul(W_in, gY)
 
-        # The derivative of w is what will be used for opt updates
-        dL_wrt_mmul_w = self.matmul(x_in, grad)
+        # The derivative of W is what will be used for opt updates
+        gW = self.matmul(X_in, gY)
         self.reset_stored_data()
-        return dL_wrt_mmul_x, dL_wrt_mmul_w
+        return gX, gW
 
 
 #------------------------------------------------------------------------------
@@ -422,34 +460,39 @@ class Linear(MathFunction):
     def bias(self,):
         return self._bias
 
-    def forward(self, X, W, b):
-        """ Computes h = X.W + b, eg h = bias(MatMul(X,W), b) """
-        h_mul  = self.matmul(X, W)
-        h = self.bias(h_mul, b)
-        return h
+    def reset(self,):
+        self._matmul.reset_fn_vars()
+        self._bias.reset_fn_vars()
 
-    def backward(self, grad):
+    def forward(self, X, W, b):
+        """ Computes Y = X.W + b, eg Y = bias(MatMul(X,W), b) """
+        XW = self.matmul(X, W)
+        B  = self.bias(XW, b)
+        Y = XW + B
+        return Y
+
+    def backward(self, gY):
         """ backprop through linear func
 
         Parameters:
         -----------
-        grad : ndarray
+        gY : ndarray
             current backprop gradient from loss
 
         Returns:
         --------
-        dL_wrt_X : ndarray
-            updated backprop gradient
-        dL_wrt_W : ndarray
+        gX : ndarray
+            chained backprop gradient
+        gW : ndarray
             gradient of weight var W for update
-        dL_wrt_b : ndarray
+        gb : ndarray
             gradient of bias var b for update
 
         """
-        dL_wrt_X, dL_wrt_W = self.matmul(grad, backprop=True)
-        dL_wrt_b = self.bias(grad, backprop=True)
+        gX, gW = self.matmul(gY, backprop=True)
+        gb = self.bias(gY, backprop=True)
 
-        return dL_wrt_X, (dL_wrt_W, dL_wrt_b)
+        return gX, (gW, gb)
 
 
 #==============================================================================
@@ -471,11 +514,10 @@ class ActivationFunction(MathFunction):
 
 
 class AttrDict(dict):
-    """ simply a dict accessed/mutated by attribute instead of index """
+    """ simply a dict fn_varsessed/mutated by attribute instead of index """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
 
-#https://docs.chainer.org/en/latest/reference/functions.html#activation-functions
 
 #------------------------------------------------------------------------------
 # ReLU family
@@ -493,7 +535,7 @@ class RRelU(ReLU):
     pass
 
 class SeLU(ReLU):
-    pass #https://docs.chainer.org/en/latest/reference/generated/chainer.functions.selu.html#chainer.functions.selu
+    pass
 
 
 from chainer.functions.activation import elu
@@ -530,24 +572,9 @@ class Softplus(ActivationFunction):
     pass
 
 
-'''
-sigm
-hard_sigm
-tanh https://docs.chainer.org/en/latest/reference/generated/chainer.functions.tanh.html#chainer.functions.tanh
-softmax https://docs.chainer.org/en/latest/reference/generated/chainer.functions.softmax.html#chainer.functions.softmax
-softplus https://docs.chainer.org/en/latest/reference/generated/chainer.functions.softplus.html#chainer.functions.softplus
-swish https://docs.chainer.org/en/latest/reference/generated/chainer.functions.swish.html#chainer.functions.swish
-'''
-
-
-
 
 class Sigmoid(ActivationFunction):
-    """ Sigmoid blah blah
-
-    NOTE: backprop assumes it is receiving the sigmoid activations from fwd
-
-    """
+    pass
 
 
 #==============================================================================
@@ -662,7 +689,7 @@ class MomentumOptimizer(Optimizer):
     pass
 
 
-class StochasticGradientDescent(VanillaGradientDescent):
+class StochasticgradientDescent(VanillagradientDescent):
     pass
 
 '''
