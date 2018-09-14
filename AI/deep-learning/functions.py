@@ -1,3 +1,136 @@
+""" All math functions and ops used by a model
+
+This module provides the foundation of functions and operations
+to build a network and optimize models.
+
+It contains only the units that would used within a model.
+Other functions, for training or data processing, can be found in `utils.py`
+
+Module components
+=================
+Function : base class for all functions
+    MathFunction : base class for math ops
+        AtomicFunction : elementary functions and factors
+            : Log, Square, Exp, Power, Scale, Bias, Matmul, Sqrt, Abs,
+              Clip, Scale
+        CompositeFunction :
+        ReductionFunction :
+    ManipulationFunctions :
+        : Where, Reshape, ExpandDims, Concat
+    NoiseInjections :
+        Dropout, GumbelSoftmax, Gaussian
+    Normalization :
+        LayerNorm
+    Pooling :
+        : AveragePooling, Unpooling
+    Activation :
+        Relu, ClippedRelu, Crelu, Elu, sigmid, Leaky Relu,
+        Log_softmax, prelu, selu, sigm, tanh, swish, softplus,
+
+
+
+#
+Initializers:
+    - Constant, Zero, One, (HeNormal), Glorot, Uniform
+
+
+# Components of the module
+#-------------------------
+Functions : a collection of base functions
+    Mostly activation and mathematic ops
+
+Layers : the primary architectural feature of a network
+    Layers use a set of hyperparameters (like weights), Functions,
+    and data to produce an output
+
+Network : manages data flow through a series of layers
+    The relation of Networks to Layers is analogous to Layers and Functions
+    However, a Network also manages the data flow for the forward and backward
+    stages of data
+
+Model : an interface to a Network
+    Models are typically composed of a single Network, and are more
+    task-specific, such as a "discriminative" Model or "generative," though
+    any given task would also require structural changes down the hierarchy.
+
+Optimizer : optimizes the model hyperparameters
+    Optimizers receive the model output, and the error from a loss function
+    and adjusts model hyperparameters to improve model fn_varsuracy
+
+
+"""
+
+
+import os
+import sys
+import code
+from functools import wraps
+from pprint import PrettyPrinter as ppr
+
+import numpy as np
+
+from utils import TODO, NOTIMPLEMENTED, INSPECT
+
+""" submodule imports
+utils :
+    `TODO` : decorator
+        serves as comment and call safety
+
+    `NOTIMPLEMENTED` : decorator
+        raises NotImplementedErrorforces if class func has not been overridden
+
+    `INSPECT` : decorator
+        interrupts computation and enters interactive shell,
+        where the user can evaluate the input and output to func
+"""
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                              Network ops
+#------------------------------------------------------------------------------
+#==============================================================================
+
+#==============================================================================
+# Layers
+#==============================================================================
+@TODO
+class NetworkLayer:
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        # init weights if None
+        pass
+@TODO
+class Dense(NetworkLayer):
+    """ Fully connected linear layer
+    """
+    def __init__(self,):
+        pass
+
+    def __call__(self, x):
+        pass
+
+''' # TODO
+batch-norm
+layernorm
+
+'''
+
+
+''' # IF TIME:
+- LSTM
+- Conv2D
+dropuout
+'''
+
+
+
+
+
+
+
 """
 ###############################################################################
 #                                                                             #
