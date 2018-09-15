@@ -145,6 +145,7 @@ dropuout
 
 - All of the function "interfaces" or initializers for the Functions
   - eg: for Sum, we need to make it's consituent `sum` that calls Sum
+- maybe make a reset_fn_vars decorator for the MathFunction backward
 
 
 """
@@ -286,25 +287,19 @@ class ReductionFunction(MathFunction):
 
     # Attributes
     #-----------
-    dims : list (int)
-        the original shape of the input before reduction
-    axes : list (int)
-        the axes or axis that were reduced
-
+    fn_vars : (dims, axes)
+        dims : list (int)
+            the original shape of the input before reduction
+        axes : list (int)
+            the axes or axis that were reduced
     """
-    _dims = []
-    _axes = []
+    def set_fn_vars(self, *fvars):
+        dims, axes = fvars
+        self._fn_vars = list(dims), list(axes)
 
-    def get_reduction_vars(self):
-        return _dims, _axes
-
-    def set_reduction_vars(self, dims, axes):
-        self._dims = list(dims)
-        self._axes = list(axes)
-
-    def reset_reduction_vars(self,):
-        self._dims = []
-        self._axes = []
+    @NOTIMPLEMENTED
+    def forward(self, X, axis=None, keepdims=False):
+        pass
 
     @staticmethod
     def apply(fn, L):
@@ -336,7 +331,7 @@ class ReductionFunction(MathFunction):
             broadcasting
         """
         # Dimension vars
-        dims_x, axes = self.get_reduction_vars()
+        dims_x, axes = self.fn_vars
         dims_y = y.shape
 
         # Get reshape dims
@@ -355,44 +350,105 @@ class ReductionFunction(MathFunction):
 #==============================================================================
 # Derived functions
 #==============================================================================
+
 #------------------------------------------------------------------------------
 # Atomic math functions
 #------------------------------------------------------------------------------
 
 
+#------------------------------------------------------------------------------
+# Reduction functions: Sum, Mean, Prod, Max, Min
+#------------------------------------------------------------------------------
 class Sum(ReductionFunction):
-    """ """
-    fn_vars = None
+    """ Compute sum along axis or axes """
 
-    def rebroadcast_dims(self, x):
-        x
-
-    def forward(self, x, axis=None):
-        self.fn_vars = axis
-
-        return h
+    def forward(self, X, axis=None, keepdims=False):
+        shape_in = X.shape
+        self.set_fn_vars(shape_in, axis)
+        Y = np.sum(X, axis, keepdims)
+        return Y
 
     def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gX = self.fn_vars * gY
-        self.reset_stored_data()
+        gX = self.restore_shape(gY)
+        self.reset_fn_vars()
         return gX
 
-@TODO
-class Max(MathFunction):
-    """ Elementwise exponential function """
-    fn_vars = None
 
-    def forward(self, x):
-        h = np.exp(x)
-        self.fn_vars = h
-        return h
+class Mean(ReductionFunction):
+    """ Compute mean along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        shape_in = X.shape
+        self.set_fn_vars(shape_in, axis)
+        Y = np.mean(X, axis, keepdims)
+        return Y
 
     def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gexp_x = self.fn_vars * gY
-        self.reset_stored_data()
-        return gexp_x
+        """ Gradient func nearly same as sum, but multiplying
+        back the number of elements averaged over axes
+        """
+        shape_in, axes = self.fn_vars
+        if axes:
+            num_elements_avgd = np.prod([shape_in[i] for i in axes])
+        else:
+            # if axes is empty, mean was taken over all elements
+            num_elements_avgd = np.prod(shape_in)
+
+        gX = self.restore_shape(gY) / num_elements_avgd
+        self.reset_fn_vars()
+        return gX
+
+class Prod(ReductionFunction):
+    """ Compute product along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        shape_in = X.shape
+        self.set_fn_vars(shape_in, axis)
+        Y = np.prod(X, axis, keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def backward(self, gY):
+        dims, axes = self.fn_vars
+        X = self.X; Y = self.Y;
+        gX = self.restore_shape(gY*Y) / X
+        self.reset_fn_vars()
+        return gX
+
+
+class MaxMin(ReductionFunction):
+    """ Compute sum along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        shape_in = X.shape
+        self.set_fn_vars(shape_in, axis)
+        X_sum = np.sum(X, axis, keepdims)
+        return X_sum
+
+    def backward(self, gY):
+        gX = self.restore_shape(gY)
+        self.reset_fn_vars()
+        return gX
+
+class Sum(ReductionFunction):
+    """ Compute sum along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        shape_in = X.shape
+        self.set_fn_vars(shape_in, axis)
+        X_sum = np.sum(X, axis, keepdims)
+        return X_sum
+
+    def backward(self, gY):
+        gX = self.restore_shape(gY)
+        self.reset_fn_vars()
+        return gX
+
 
 @TODO
 class Power(MathFunction):
