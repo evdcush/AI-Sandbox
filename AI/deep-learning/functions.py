@@ -153,6 +153,8 @@ dropuout
 ## concrete stuff:
 - docstrings minmax class
 - test min and max
+- tets atomic funcs
+
 
 
 
@@ -192,7 +194,8 @@ dropuout
 
 
 #==============================================================================
-# Base Function classes : Function, MathFunction, ReductionFunction
+# Base Function classes :
+#  Function, MathFunction, ReductionFunction
 #==============================================================================
 
 # Function
@@ -263,8 +266,8 @@ class MathFunction(Function):
     def fn_vars(self,):
         return self._fn_vars
 
-    def set_fn_vars(self, fvars):
-        self._fn_vars = fvars
+    def set_fn_vars(self, *fvars):
+        self._fn_vars = fvars if len(fvars) > 1 else fvars[0]
 
     def reset_fn_vars(self,):
         self._fn_vars = None
@@ -307,8 +310,7 @@ class ReductionFunction(MathFunction):
         else:
             axes = []
         dims = list(dims)
-        fvars = (dims, axes)
-        super().set_fn_vars(fvars)
+        super().set_fn_vars(dims, axes)
 
     @NOTIMPLEMENTED
     def forward(self, X, axis=None, keepdims=False):
@@ -363,83 +365,142 @@ class ReductionFunction(MathFunction):
 #==============================================================================
 # Derived functions
 #==============================================================================
-
 #------------------------------------------------------------------------------
 # Atomic math functions :
 #  Exp, Log, Power, Square, Sqrt, Scale, Bias, MatMul, Clip
 #------------------------------------------------------------------------------
 class Exp(MathFunction):
     """ Elementwise exponential function """
-    fn_vars = None
-
-    def forward(self, x):
-        h = np.exp(x)
-        self.fn_vars = h
-        return h
+    def forward(self, X):
+        Y = np.exp(x)
+        self.set_fn_vars(Y)
+        return Y
 
     def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gexp_x = self.fn_vars * gY
+        Y = self.fn_vars
         self.reset_stored_data()
-        return gexp_x
+        gX = Y * gY
+        return gX
 
 
 class Bias(MathFunction):
-    """ Adds bias B to some data"""
+    """ Adds bias vector B to a matrix X
+
+    The bias B is a vector, or 1D-matrix, whose size
+    matches the last dimension of matrix X
+      eg: X.shape[-1] == B.shape[0]
+
+    """
     def forward(self, X, B):
         return X + B
 
     def backward(self, gY):
-        gB = gY.sum(0)
-        return gB
+        gX = gY
+
+        # Must reduce gY if gY.ndim > 2
+        ax = 0 if gY.ndim <= 2 else tuple(range(gY.ndim - 1))
+        gB = gY.sum(axis=ax)
+        return gX, gB
 
 
 class MatMul(MathFunction):
     """ Performs matrix multiplication between
-        two matrices x, w
+        a matrix X and a weight matrix W
 
-    # Matmul assumptions
-    #-------------------
-    X : external data sample
-        X is the gradient chained through the network
-        shape : (N, m)
-            N : int
-                number of samples
-            m : int
-                arbitrary numberf of current features
+    Note - MatMul assumes X, W are matrices whose shapes have the following
+        properties:
+    Params
+    ------
+    X : ndarray
+        Has arbitrary number of dimensions in shape (s0, s1, ..., m),
+        but the final column of shape m are the features
 
-    W : weight matrix
-        shape : (m, k)
-            m : int
-                input dims
-            k : int
-                output dims
+    W : ndarray, weight matrix
+        Of shape (m, k)
     """
-    fn_vars = None
-
-    def matmul(self, X, W):
-        return np.matmul(X, W)
-
     def forward(self, X, W):
-        """ matmul on x,w, assumes x.shape[-1] == w.shape[0] """
-        self.fn_vars = (X, W)
-        Y = self.matmul(X, W)
+        """ matmul on X, W assumes X.shape[-1] == W.shape[0] """
+        self.set_fn_vars(X, W)
+        Y = np.matmul(X, W)
         return Y
 
     def backward(self, gY):
-        """  """
-        X_in, W_in = self.fn_vars
+        """ While the forward matmul was fairly simple,
+        as numpy can interpret the dimensionality
+        of the matmul of X wrt to the smaller W, the matrices
+        X and gY must be flattened to 2D to get the proper
+        gW shape
+        """
+        # retrieve inputs
+        X, W = self.fn_vars
+        self.reset_fn_vars()
+        m, k = W.shape
 
-        # The derivative of X is what will continue being propagated
-        gX = self.matmul(W_in, gY)
+        # get grads
+        gX = np.matmul(gY, W.T)
 
-        # The derivative of W is what will be used for opt updates
-        gW = self.matmul(X_in, gY)
-        self.reset_stored_data()
+        # need to reshape X.T, gY if ndims > 2, to match W shape
+        gW = np.matmul(X.T.reshape(m, -1), gY.reshape(-1, k))
         return gX, gW
 
+
+# >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< ><
+# TODO
+class Log(MathFunction):
+    """ """
+    def forward(self, X):
+        pass
+
+    def backward(self, gY):
+        pass
+
+class Power(MathFunction):
+    """ """
+    def forward(self, X, p):
+        pass
+
+    def backward(self, gY):
+        pass
+
+class Square(MathFunction):
+    """ """
+    def forward(self, X):
+        pass
+
+    def backward(self, gY):
+        pass
+
+class Sqrt(MathFunction):
+    """ """
+    def forward(self, X):
+        pass
+
+    def backward(self, gY):
+        pass
+
+class Scale(MathFunction):
+    """ Elementwise multiplication between matrices """
+    def forward(self, X, Z):
+        pass
+
+    def backward(self, gZ):
+        pass
+
+class Clip(MathFunction):
+    """ """
+    def forward(self, X, lhs=None, rhs=None):
+        pass
+
+    def backward(self, gY):
+        pass
+
+# TODO
+# >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< ><
+
+
 #------------------------------------------------------------------------------
-# Reduction functions: Sum, Mean, Prod, Max, Min
+# Reduction functions :
+#  Sum, Mean, Prod, Max, Min
 #------------------------------------------------------------------------------
 class Sum(ReductionFunction):
     """ Compute sum along axis or axes """
@@ -540,147 +601,17 @@ class Min(MaxMin):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Sum(ReductionFunction):
-    """ Compute sum along axis or axes """
-
-    def forward(self, X, axis=None, keepdims=False):
-        shape_in = X.shape
-        self.set_fn_vars(shape_in, axis)
-        X_sum = np.sum(X, axis, keepdims)
-        return X_sum
-
-    def backward(self, gY):
-        gX = self.restore_shape(gY)
-        self.reset_fn_vars()
-        return gX
 
 
-@TODO
-class Power(MathFunction):
-    """ Elementwise exponential function """
-    fn_vars = None
 
-    def forward(self, x):
-        h = np.exp(x)
-        self.fn_vars = h
-        return h
-
-    def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gexp_x = self.fn_vars * gY
-        self.reset_stored_data()
-        return gexp_x
-
-@TODO
-class Log(MathFunction):
-    """ Elementwise exponential function """
-    fn_vars = None
-
-    def forward(self, x):
-        h = np.exp(x)
-        self.fn_vars = h
-        return h
-
-    def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gexp_x = self.fn_vars * gY
-        self.reset_stored_data()
-        return gexp_x
-@TODO
-class Where(MathFunction):
-    """ Elementwise exponential function """
-    fn_vars = None
-
-    def forward(self, x):
-        h = np.exp(x)
-        self.fn_vars = h
-        return h
-
-    def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gexp_x = self.fn_vars * gY
-        self.reset_stored_data()
-        return gexp_x
-
-#------------------------------------------------------------------------------
-# Atomic math functions
-#------------------------------------------------------------------------------
-class Exp(MathFunction):
-    """ Elementwise exponential function """
-    fn_vars = None
-
-    def forward(self, x):
-        h = np.exp(x)
-        self.fn_vars = h
-        return h
-
-    def backward(self, gY):
-        """ exp'(x) = exp(x) """
-        gexp_x = self.fn_vars * gY
-        self.reset_stored_data()
-        return gexp_x
-
-
-class Bias(MathFunction):
-    """ Adds bias B to some data"""
-    def forward(self, X, B):
-        return X + B
-
-    def backward(self, gY):
-        gB = gY.sum(0)
-        return gB
-
-
-class MatMul(MathFunction):
-    """ Performs matrix multiplication between
-        two matrices x, w
-
-    # Matmul assumptions
-    #-------------------
-    X : external data sample
-        X is the gradient chained through the network
-        shape : (N, m)
-            N : int
-                number of samples
-            m : int
-                arbitrary numberf of current features
-
-    W : weight matrix
-        shape : (m, k)
-            m : int
-                input dims
-            k : int
-                output dims
-    """
-    fn_vars = None
-
-    def matmul(self, X, W):
-        return np.matmul(X, W)
-
-    def forward(self, X, W):
-        """ matmul on x,w, assumes x.shape[-1] == w.shape[0] """
-        self.fn_vars = (X, W)
-        Y = self.matmul(X, W)
-        return Y
-
-    def backward(self, gY):
-        """  """
-        X_in, W_in = self.fn_vars
-
-        # The derivative of X is what will continue being propagated
-        gX = self.matmul(W_in, gY)
-
-        # The derivative of W is what will be used for opt updates
-        gW = self.matmul(X_in, gY)
-        self.reset_stored_data()
-        return gX, gW
 
 
 #------------------------------------------------------------------------------
-# Composite math functions
+# Composite math functions :
+#  Linear
 #------------------------------------------------------------------------------
 class Linear(MathFunction):
-    """ Performs linear transformation (function) using the
+    """ Performs linear transformation using the
     the MatMul and Bias functions:
         y = XW + b
     Please reference MatMul and Bias for greater detail
@@ -714,10 +645,9 @@ class Linear(MathFunction):
 
     def forward(self, X, W, b):
         """ Computes Y = X.W + b, eg Y = bias(MatMul(X,W), b) """
-        XW = self.matmul(X, W)
-        B  = self.bias(XW, b)
-        Y = XW + B
-        return Y
+        Y = self.matmul(X, W)
+        B = self.bias(Y, b)
+        return Y + B
 
     def backward(self, gY):
         """ backprop through linear func
@@ -733,14 +663,14 @@ class Linear(MathFunction):
             chained backprop gradient
         gW : ndarray
             gradient of weight var W for update
-        gb : ndarray
+        gB : ndarray
             gradient of bias var b for update
 
         """
         gX, gW = self.matmul(gY, backprop=True)
-        gb = self.bias(gY, backprop=True)
+        gY, gB = self.bias(gY, backprop=True)
 
-        return gX, (gW, gb)
+        return gX, (gW, gB)
 
 
 #==============================================================================
