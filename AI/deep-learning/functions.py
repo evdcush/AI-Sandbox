@@ -150,6 +150,11 @@ dropuout
         gradients of Functions?
 - maybe make a reset_fn_vars decorator for the MathFunction backward
 
+## concrete stuff:
+- docstrings minmax class
+- test min and max
+
+
 
 """
 ###############################################################################
@@ -360,9 +365,78 @@ class ReductionFunction(MathFunction):
 #==============================================================================
 
 #------------------------------------------------------------------------------
-# Atomic math functions
+# Atomic math functions :
+#  Exp, Log, Power, Square, Sqrt, Scale, Bias, MatMul, Clip
 #------------------------------------------------------------------------------
+class Exp(MathFunction):
+    """ Elementwise exponential function """
+    fn_vars = None
 
+    def forward(self, x):
+        h = np.exp(x)
+        self.fn_vars = h
+        return h
+
+    def backward(self, gY):
+        """ exp'(x) = exp(x) """
+        gexp_x = self.fn_vars * gY
+        self.reset_stored_data()
+        return gexp_x
+
+
+class Bias(MathFunction):
+    """ Adds bias B to some data"""
+    def forward(self, X, B):
+        return X + B
+
+    def backward(self, gY):
+        gB = gY.sum(0)
+        return gB
+
+
+class MatMul(MathFunction):
+    """ Performs matrix multiplication between
+        two matrices x, w
+
+    # Matmul assumptions
+    #-------------------
+    X : external data sample
+        X is the gradient chained through the network
+        shape : (N, m)
+            N : int
+                number of samples
+            m : int
+                arbitrary numberf of current features
+
+    W : weight matrix
+        shape : (m, k)
+            m : int
+                input dims
+            k : int
+                output dims
+    """
+    fn_vars = None
+
+    def matmul(self, X, W):
+        return np.matmul(X, W)
+
+    def forward(self, X, W):
+        """ matmul on x,w, assumes x.shape[-1] == w.shape[0] """
+        self.fn_vars = (X, W)
+        Y = self.matmul(X, W)
+        return Y
+
+    def backward(self, gY):
+        """  """
+        X_in, W_in = self.fn_vars
+
+        # The derivative of X is what will continue being propagated
+        gX = self.matmul(W_in, gY)
+
+        # The derivative of W is what will be used for opt updates
+        gW = self.matmul(X_in, gY)
+        self.reset_stored_data()
+        return gX, gW
 
 #------------------------------------------------------------------------------
 # Reduction functions: Sum, Mean, Prod, Max, Min
@@ -420,26 +494,51 @@ class Prod(ReductionFunction):
         self.X = self.Y = None
 
     def backward(self, gY):
-        dims, axes = self.fn_vars
-        X = self.X; Y = self.Y;
+        X = self.X
+        Y = self.Y
         gX = self.restore_shape(gY*Y) / X
         self.reset_fn_vars()
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class MaxMin(ReductionFunction):
-    """ Compute sum along axis or axes """
+    """ Base class for max, min funcs """
+    MM_func  = None
+    cmp_func = None
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
 
     def forward(self, X, axis=None, keepdims=False):
         shape_in = X.shape
         self.set_fn_vars(shape_in, axis)
-        X_sum = np.sum(X, axis, keepdims)
-        return X_sum
+        Y = self.MM_func(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
 
     def backward(self, gY):
-        gX = self.restore_shape(gY)
+        gY = self.restore_shape(gY)
+        Y = self.restore_shape(self.Y)
+        X = self.X
+        gX = np.where(self.cmp_func(X, Y), gY, 0)
         self.reset_fn_vars()
         return gX
+
+
+class Max(MaxMin):
+    """ Computes max along axis """
+    MM_func  = np.max
+    cmp_func = lambda x, y: x >= y
+
+class Min(MaxMin):
+    """ Computes min along axis """
+    MM_func  = np.min
+    cmp_func = lambda x, y: x < y
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Sum(ReductionFunction):
     """ Compute sum along axis or axes """
