@@ -145,6 +145,9 @@ dropuout
 
 - All of the function "interfaces" or initializers for the Functions
   - eg: for Sum, we need to make it's consituent `sum` that calls Sum
+    - HUGE POTENTIAL ISSUE: since you aren't returning a Variable,
+        or Tensor, how is the returned thing going to retain
+        gradients of Functions?
 - maybe make a reset_fn_vars decorator for the MathFunction backward
 
 
@@ -253,7 +256,7 @@ class MathFunction(Function):
 
     @property
     def fn_vars(self,):
-        return _fn_vars
+        return self._fn_vars
 
     def set_fn_vars(self, fvars):
         self._fn_vars = fvars
@@ -331,19 +334,19 @@ class ReductionFunction(MathFunction):
             broadcasting
         """
         # Dimension vars
-        dims_x, axes = self.fn_vars
-        dims_y = y.shape
+        dims_X, axes = self.fn_vars
+        dims_Y = Y.shape
 
         # Get reshape dims
         #-----------------
         # reshape_dims will have a 1 for whatever axes were reduced
         #   (will be all 1s if no axes were given)
-        reshape_dims = list(dims_x) if dims_y else [1]*len(dims_x)
-        apply(lambda i: reshape_dims.__setitem__(i, 1), list(axes))
+        reshape_dims = list(dims_X) if dims_Y else [1]*len(dims_X)
+        self.apply(lambda i: reshape_dims.__setitem__(i, 1), list(axes))
 
         # Restore the dimensionality of y
-        y = np.broadcast_to(y.reshape(reshape_dims), dims_input)
-        return y
+        Y = np.broadcast_to(Y.reshape(reshape_dims), dims_X)
+        return Y
 
 
 
@@ -380,7 +383,7 @@ class Mean(ReductionFunction):
     def forward(self, X, axis=None, keepdims=False):
         shape_in = X.shape
         self.set_fn_vars(shape_in, axis)
-        Y = np.mean(X, axis, keepdims)
+        Y = np.mean(X, axis=axis, keepdims=keepdims)
         return Y
 
     def backward(self, gY):
@@ -397,6 +400,7 @@ class Mean(ReductionFunction):
         gX = self.restore_shape(gY) / num_elements_avgd
         self.reset_fn_vars()
         return gX
+
 
 class Prod(ReductionFunction):
     """ Compute product along axis or axes """
