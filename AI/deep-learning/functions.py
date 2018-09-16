@@ -603,9 +603,6 @@ class Min(MaxMin):
 
 
 
-
-
-
 #------------------------------------------------------------------------------
 # Composite math functions :
 #  Linear
@@ -675,13 +672,7 @@ class Linear(MathFunction):
 
 #==============================================================================
 # Activation functions
-#==============================================================================
-
-# Base Activation function class
-# ========================================
-class ActivationFunction(MathFunction):
-    """ Just a nonlinear MathFunction """
-
+#============================================
 
 class AttrDict(dict):
     """ simply a dict accessed/mutated by attribute instead of index """
@@ -689,11 +680,27 @@ class AttrDict(dict):
     __setattr__ = dict.__setitem__
 
 
-#------------------------------------------------------------------------------
-# ReLU family
-#------------------------------------------------------------------------------
-class RelU(ActivationFunction):
-    pass
+class ReLU(MathFunction):
+    """ standard ReLU activation
+    zeroes out any negative elements within matrix
+    """
+    def forward(self, X):
+        Y = X.clip(0)
+        self.set_fn_vars(Y)
+        return Y
+
+    def backward(self, gY):
+        """ Since Y was clipped at 0,
+        it's elements are either 0 or a positive number.
+        We can exploit that property to use Y
+          directly for indexing the gradient
+         """
+        Y = self.fn_vars
+        self.reset_fn_vars()
+        # Zero out grad elements where ReLU fwd was neg
+        gX = np.where(Y, gY, 0)
+        return gX
+
 
 class LeakyRelu(ReLU):
     pass
@@ -708,26 +715,11 @@ class SeLU(ReLU):
     pass
 
 
-
-
-
-class RRelU(ReLU):
-    pass
-
 class Softplus(ActivationFunction):
     pass
 
 
-
 class Sigmoid(ActivationFunction):
-    pass
-
-
-#==============================================================================
-# Matrix manipulation functions
-#==============================================================================
-
-class Where(Function):
     pass
 
 
