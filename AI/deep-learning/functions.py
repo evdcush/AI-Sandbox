@@ -296,9 +296,14 @@ class ReductionFunction(MathFunction):
         axes : list (int)
             the axes or axis that were reduced
     """
-    def set_fn_vars(self, *fvars):
-        dims, axes = fvars
-        self._fn_vars = list(dims), list(axes)
+    def set_fn_vars(self, dims, axes):
+        if axes is not None:
+            axes = [axes] if type(axes) == int else list(axes)
+        else:
+            axes = []
+        dims = list(dims)
+        fvars = (dims, axes)
+        super().set_fn_vars(fvars)
 
     @NOTIMPLEMENTED
     def forward(self, X, axis=None, keepdims=False):
@@ -408,7 +413,7 @@ class Prod(ReductionFunction):
     def forward(self, X, axis=None, keepdims=False):
         shape_in = X.shape
         self.set_fn_vars(shape_in, axis)
-        Y = np.prod(X, axis, keepdims)
+        Y = np.prod(X, axis=axis, keepdims=keepdims)
         self.X = X
         self.Y = Y
         return Y
