@@ -373,7 +373,7 @@ class Sum(ReductionFunction):
     def forward(self, X, axis=None, keepdims=False):
         shape_in = X.shape
         self.set_fn_vars(shape_in, axis)
-        Y = np.sum(X, axis, keepdims)
+        Y = np.sum(X, axis=axis, keepdims=keepdims)
         return Y
 
     def backward(self, gY):
@@ -392,9 +392,6 @@ class Mean(ReductionFunction):
         return Y
 
     def backward(self, gY):
-        """ Gradient func nearly same as sum, but multiplying
-        back the number of elements averaged over axes
-        """
         shape_in, axes = self.fn_vars
         if axes:
             num_elements_avgd = np.prod([shape_in[i] for i in axes])
