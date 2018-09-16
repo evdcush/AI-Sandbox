@@ -711,16 +711,19 @@ class ELU(MathFunction):
     def __init__(self, alpha=1.0):
         self.alpha = alpha
 
-    def forward(self, X, alpha=self.alpha):
-        Y = np.where(X > 0, X, alpha*(np.exp(X)-1))
+    def forward(self, X):
+        x = np.copy(X)
+        self.X = x
+        Y = np.where(x < 0, self.alpha*(np.exp(x)-1), x)
         return Y
 
-    def backward(self, gY, alpha=self.alpha):
-        gX = np.where(gY > 0, 1, self.forward(gY) + alpha)
+    def backward(self, gY):
+        X = self.x
+        gX = np.where(X < 0, self.alpha * np.exp(X), gY)
         return gX
 
 
-class SeLU(MathFunction):
+class SeLU(ELU):
     """ Scaled Exponential Linear Units
     ELU, but with a scalar and finetuning
 
@@ -742,15 +745,17 @@ class SeLU(MathFunction):
     """
     _alpha = 1.6732632423543772848170429916717
     scale  = 1.0507009873554804934193349852946
-    _ELU = ELU(alpha=_alpha)
 
-    @property
-    def ELU(self):
-        return self._ELU
-
+    def __init__(self, alpha=_alpha):
+        super().__init__(alpha)
 
     def forward(self, X):
-        pass # just inherit ELU??
+        Y = self.scale * super().forward(X)
+        return Y
+
+    def backward(self, gY):
+        gX = self.scale * super().backward(gY)
+        return gX
 
 
 
