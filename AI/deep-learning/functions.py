@@ -713,12 +713,13 @@ class ELU(MathFunction):
 
     def forward(self, X):
         x = np.copy(X)
-        self.X = x
+        self.fn_vars = x
         Y = np.where(x < 0, self.alpha*(np.exp(x)-1), x)
         return Y
 
     def backward(self, gY):
-        X = self.x
+        X = self.fn_vars
+        self.reset_fn_vars()
         gX = np.where(X < 0, self.alpha * np.exp(X), gY)
         return gX
 
@@ -758,16 +759,30 @@ class SeLU(ELU):
         return gX
 
 
+class Sigmoid(MathFunction):
+    """ Logistic sigmoid activation """
+    def forward(self, X):
+        Y = 1 / (1 + np.exp(-X))
+        self.fn_vars = Y
+        return Y
+
+    def backward(self, gY):
+        Y = self.fn_vars
+        self.reset_fn_vars()
+        gX = gY * Y * (1 - Y)
+        return gX
+
+def Tanh(MathFunction):
+    """ Hyperbolic tangent activation """
+    def forward(self, X):
+        Y = np.tanh(X)
+        self.set_fn_vars(Y)
+        return Y
+
+    def backward(self, gY):
+        Y = self.fn_vars
+        self.reset_fn_vars()
+        gX = gY * (1 - np.square(Y))
+        return gX
 
 
-
-class Softplus(ActivationFunction):
-    pass
-
-
-class Sigmoid(ActivationFunction):
-    pass
-
-
-class DropoutSeLU:
-    pass
