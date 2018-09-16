@@ -685,25 +685,20 @@ class ReLU(MathFunction):
     zeroes out any negative elements within matrix
     """
     def forward(self, X):
-        Y = X.clip(0)
+        Y = X.clip(min=0)
         self.set_fn_vars(Y)
         return Y
 
     def backward(self, gY):
-        """ Since Y was clipped at 0,
-        it's elements are either 0 or a positive number.
+        """ Since Y was clipped at 0, it's elements
+            are either 0 or a positive number.
         We can exploit that property to use Y
           directly for indexing the gradient
          """
-        Y = self.fn_vars
-        self.reset_fn_vars()
-        # Zero out grad elements where ReLU fwd was neg
+        Y = self.fn_vars; self.reset_fn_vars();
         gX = np.where(Y, gY, 0)
         return gX
 
-
-class LeakyRelu(ReLU):
-    pass
 
 class PReLU(ReLU):
     pass
@@ -711,8 +706,54 @@ class PReLU(ReLU):
 class RRelU(ReLU):
     pass
 
-class SeLU(ReLU):
-    pass
+class ELU(MathFunction):
+    """ Exponential Linear Unit """
+    def __init__(self, alpha=1.0):
+        self.alpha = alpha
+
+    def forward(self, X, alpha=self.alpha):
+        Y = np.where(X > 0, X, alpha*(np.exp(X)-1))
+        return Y
+
+    def backward(self, gY, alpha=self.alpha):
+        gX = np.where(gY > 0, 1, self.forward(gY) + alpha)
+        return gX
+
+
+class SeLU(MathFunction):
+    """ Scaled Exponential Linear Units
+    ELU, but with a scalar and finetuning
+
+    SeLU is the activation function featured in
+    "Self-Normalizing Neural Networks," and they
+    are designed to implicitly normalize feed-forward
+    networks.
+
+    Reference
+    ---------
+    Paper : https://arxiv.org/abs/1706.02515
+        explains the properties and derivations for SeLU
+        parameters, but the precision values below from their
+        project code @ github.com/bioinf-jku/SNNs/
+
+    Parameters : alpha, scale
+        github.com/bioinf-jku/SNNs/blob/master/getSELUparameters.ipynb
+        github.com/bioinf-jku/SNNs/blob/master/selu.py
+    """
+    _alpha = 1.6732632423543772848170429916717
+    scale  = 1.0507009873554804934193349852946
+    _ELU = ELU(alpha=_alpha)
+
+    @property
+    def ELU(self):
+        return self._ELU
+
+
+    def forward(self, X):
+        pass # just inherit ELU??
+
+
+
 
 
 class Softplus(ActivationFunction):
@@ -723,3 +764,5 @@ class Sigmoid(ActivationFunction):
     pass
 
 
+class DropoutSeLU:
+    pass
