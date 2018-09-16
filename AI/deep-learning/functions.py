@@ -682,17 +682,9 @@ class Linear(MathFunction):
 class ActivationFunction(MathFunction):
     """ Just a nonlinear MathFunction """
 
-''' # Necessary atomic funcs:
-- sum
-- max
-- power
-- log
-- where?
-'''
-
 
 class AttrDict(dict):
-    """ simply a dict fn_varsessed/mutated by attribute instead of index """
+    """ simply a dict accessed/mutated by attribute instead of index """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
 
