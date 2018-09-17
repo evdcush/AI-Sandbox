@@ -58,32 +58,88 @@ from nn import SGD, Adam
 
 
 
+#==============================================================================
+#------------------------------------------------------------------------------
+#                              Blocks
+#------------------------------------------------------------------------------
+#==============================================================================
 
+#==============================================================================
+# Base Block classes:
+#  Block, FunctionBlock
+#==============================================================================
+
+
+# Block
+# -----
+# inherits :
+# derives  : FunctionBlock
 class Block:
     """ Base class for a Block, which wraps various network ops
+    (Currently, only FunctionBlocks are used, but this class
+    is kept as base to allow support for different types of blocks)
 
     Variables
     ---------
-    label : str
+    block_label : str
         name of block
-    ID : int
+    label_format : str
+        labeling format for all blocks
+    updates : bool
+        whether the block has updateable parameters
 
     """
-    ID = -1
-    label = 'Block'
-    update = False
+    block_label = 'Block'
+    label_format = '{}_{}-{}' # 'Layer_Block-ID'
+    updates = False
 
-    def __init__(self, label, ID, *args, **kwargs):
+    def __init__(self, layer_label, ID, *args, **kwargs):
         self.ID = ID
-        self.label = label
+        self.label = self.format_label(layer_label)
+        for attribute, value in kwargs.items():
+            setattr(self, attribute, value)
 
+    def format_label(self, layer_label):
+        label_format = self.label_format
+        block_label = self.block_label
+        ID = self.ID
+        label = label_format.format(layer_label, block_label, ID)
+        return label
+
+#------------------------------------------------------------------------------
+
+# FunctionBlock
+# -------------
+# inherits : Block
+# derives  : DenseBlock, activation blocks
 class FunctionBlock(Block):
-    """ Wraps Functions
-    """
-    def __init__(self, func, label, ID, update):
-        self.func = func
+    """ Wraps Functions """
+    block_label = 'FunctionBlock'
+    function = None
 
+    def __init__(self, layer_label, ID, kdim, *args, **kwargs):
+        super().__init__(layer_label, ID)
+        self.kdim = kdim
 
+    def forward(self, X, *args, **kwargs):
+        Y = self.function(X, *args, **kwargs)
+        return Y
+
+    def backward(self, gY, *args, **kwargs):
+        gX = self.function(gY, *args, backprop=True, **kwargs)
+        return gX
+
+    def __call__(self, *args, backprop=False, **kwargs):
+        func = self.backward if backprop else self.forward
+        return func(*args, **kwargs)
+
+#==============================================================================
+# Derived Blocks
+#==============================================================================
+#------------------------------------------------------------------------------
+# Updateable Blocks :
+#  DenseBlock
+#------------------------------------------------------------------------------
 class DenseBlock(FunctionBlock):
     """ Fully-connected block that performs a
     linear transformation on an input X against its
@@ -96,17 +152,17 @@ class DenseBlock(FunctionBlock):
     B : ndarray, 1D
         bias vector, with size matching output dims
     """
-    linear = F.Linear()
+    block_label = 'DenseBlock'
+    function = F.Linear()
     update = True
 
-    def __init__(self, ID, kdim, label='Dense', init_W=None, init_B=None):
-        self.ID = ID
-        self.kdim = kdim
-        self.label = label
+    def __init__(self, layer_label, ID, kdim, init_W=None, init_B=None):
+        super().__init__(layer_label, ID, kdim)
         self.W = init_W
         self.B = init_B
-        self.W_tag = '{}_{}-{}'.format(label, ID, 'W')
-        self.B_tag = '{}_{}-{}'.format(label, ID, 'B')
+        self.W_key = '{}_{}'.format(self.label, 'W')
+        self.B_key = '{}_{}'.format(self.label, 'B')
+
 
     def initialize(self, initializer=Intitializers.HeNorm):
         k_in, k_out = self.kdim
@@ -115,111 +171,118 @@ class DenseBlock(FunctionBlock):
         if self.B is None:
             self.B = np.ones(k_out,) * 1e-6 #initializer(k_out,)
 
-    def forward(self, X, evaluation=False):
-        Y = self.linear(X, self.W, self.B, evaluation=evaluation)
+    def forward(self, X):
+        Y = self.function(X, self.W, self.B)
         return Y
 
     def backward(self, gY, opt):
-        gX, params = self.linear(gY, backprop=True)
+        gX, params = self.function(gY, backprop=True)
         gW, gB = params
         self.update(gW, gB, opt)
         return gX
 
     def update(self, gW, gB, opt):
-        self.W = opt(gW, self.W_tag)
-        self.B = opt(gB, self.B_tag)
+        W, B = self.W, self.B
+        self.W = opt(W, gW, self.W_tag)
+        self.B = opt(B, gB, self.B_tag)
+
+    def __call__(self, *args, backprop=False, **kwargs):
+        func = self.backward if backprop else self.forward
+        return func(*args, **kwargs)
+
+#------------------------------------------------------------------------------
+# Activation Blocks :
+#  SigmoidBlock, TanhBlock, ReluBlock, ELUBlock, SeluBlock
+#------------------------------------------------------------------------------
+
+class SigmoidBlock(FunctionBlock):
+    """ Sigmoid activation """
+    block_label = 'SigmoidBlock'
+    function = F.Sigmoid()
+
+class TanhBlock(FunctionBlock):
+    """ Tanh activation """
+    block_label = 'TanhBlock'
+    function = F.Tanh()
+
+
+class ReluBlock(FunctionBlock):
+    """ ReLU activation """
+    block_label = 'ReluBlock'
+    function = F.ReLU()
+
+class ELUBlock(FunctionBlock):
+    """ ELU activation """
+    block_label = 'ELUBlock'
+    function = F.ELU()
+
+class SeluBlock(FunctionBlock):
+    """ SeLU activation """
+    block_label = 'SeluBlock'
+    function = F.SeLU()
 
 
 
+#==============================================================================
+#------------------------------------------------------------------------------
+#                              Layers
+#------------------------------------------------------------------------------
+#==============================================================================
 
+# Available Blocks
+# ================
+OPS = {'dense': DenseBlock
+           '' : None}
+ACTIVATIONS = {'sigmoid' : SigmoidBlock,
+                  'tanh' : TanhBlock,
+                  'relu' : ReluBlock,
+                   'elu' : ELUBlock,
+                  'selu' : SeluBlock
+                      '' : None}
 
+class Layer:
+    layer_label = 'L'
+    label_format = layer_label + '{}'
 
+    def __init__(self, ID, kdim, op='dense', act='sigmoid', *args, **kwargs):
+        self.ID = ID
+        self.kdim =  kdim
+        self.label = self.format_label(layer_label)
+        for attribute, value in kwargs.items():
+            setattr(self, attribute, value)
 
-class Dense:
-    """ Fully-connected layer that computes
-    an output as the linear transformation
-    of its input X against some weights W
-    """
-    linear = F.Linear()initializer(k_out,)
+        # Initialize blocks
+        self.op = OPS[op](self.label, 1, kdim, **kwargs)
+        if act != '':
+            self.activation = ACTIVATIONS[act](self.label, 2, kdim, **kwargs)
 
-    def __init__(self, activation=F.sigmoid, init_W=None, init_B=None):
-        """ initializes a Dense layer
+    def format_label(self, layer_label):
+        label_format = self.label_format
+        ID = self.ID
+        label = label_format.format(ID)
+        return label
 
-        Params
-        ------
-        activation : activation function
-            defaults to standard logistic sigmoid, but may be None
-            for output layer
+    def forward(self, X, *args, **kwargs):
+        pass
 
-        init_W : initial weight matrix W
-            if not None, then init_W is a pretrained weight matrix
+    def backward(self, gY, opt, *args, **kwargs):
+        pass
 
-        init_B : initial bias vector B
-            if not None, then it is pretrained
-        """
-        self.activation = activation()
-        self.W = init_W
-        self.B = init_B
+    def __call__(self, *args, **kwargs):
+        pass
 
-    def get_params(self):
-        return self.W, self.B
+#==============================================================================
+#------------------------------------------------------------------------------
+#                              Network
+#------------------------------------------------------------------------------
+#==============================================================================
 
-    def initialize_params(self, kdims, initializer=Initializers.HeNorm):
-        """ initialize layer params if uninitialized
-
-        W : initialized from a random distribution
-        B : initialized to be near zero
-
-        Params
-        ------
-        kdims : tuple (int)
-            kdims[0] is the feature input size
-            kdims[1] is the output size
-
-        initializer : Initializer
-            initializes weights from a random distribution
-        """
-        K_in, K_out = Kdims
-        if self.W is None:
-            self.W = initializer(K_in, K_out)
-            self.B = np.ones(K_out,).astype(np.float32) * 1e-6
-
-    def forward(self, X):
-        Y = self.linear(X, W, B)
-        if self.activation:
-            Y = self.activation(Y)
-        return Y
-
-    def backward(self, gY):
-        if self.activation:
-            gY = self.activation(gY, backprop=True)
-        gX, params = self.linear(gY, backprop=True)
-        gW, gB = params
-        return gX
-
-    def update(self, opt):
-
-
-
-class NeuralNetwork:
-    """ Base class for any network
-
-    All networks have the following properties
-
-    Properties
-    ----------
-    kdims : list (int)
-        channel sizes for each layer in network
-        longer the list --> deeper (more layers) the network
-    Layers : list
-        list of layers or modules per layer in network
-    Initializer :
-    Optimizer :
-
-
-    All networks have a set of layers, and
-    """
-    def __init__(self, kdims, layers, initializer=HeNorm, optimizer=Adam):
-
-class FeedForwardNetwork:
+class NeuralNet:
     pass
+
+class FeedForwardNet:
+    pass
+
+
+
+
