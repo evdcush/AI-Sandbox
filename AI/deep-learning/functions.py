@@ -637,8 +637,8 @@ class Linear(MathFunction):
         return self._bias
 
     def reset(self,):
-        self._matmul.reset_fn_vars()
-        self._bias.reset_fn_vars()
+        self.matmul.reset_fn_vars()
+        self.bias.reset_fn_vars()
 
     def forward(self, X, W, b):
         """ Computes Y = X.W + b, eg Y = bias(MatMul(X,W), b) """
@@ -665,8 +665,8 @@ class Linear(MathFunction):
 
         """
         gX, gW = self.matmul(gY, backprop=True)
-        gY, gB = self.bias(gY, backprop=True)
-
+        _, gB = self.bias(gY, backprop=True)
+        self.reset()
         return gX, (gW, gB)
 
 
