@@ -53,7 +53,7 @@ MLP:
 """
 
 import functions as F
-from utils import Initializers
+from utils import HeNorm, GlorotNorm, Uniform
 from nn import SGD, Adam
 
 
@@ -154,14 +154,34 @@ class DenseBlock(FunctionBlock):
     """
     block_label = 'DenseBlock'
     function = F.Linear()
+    params = {}
     update = True
+# self.params.
 
     def __init__(self, layer_label, ID, kdim, init_W=None, init_B=None):
         super().__init__(layer_label, ID, kdim)
-        self.W = init_W
-        self.B = init_B
         self.W_key = '{}_{}'.format(self.label, 'W')
         self.B_key = '{}_{}'.format(self.label, 'B')
+
+    @property
+    def W(self):
+        return self.params.self.W_key
+
+    @W.setter
+    def W(self, val):
+        self.params.self.W_key = val
+
+    @property
+    def B(self):
+        return self.params.self.B_key
+
+    @B.setter
+    def B(self, val):
+        self.params.self.B_key = val
+
+    def initialize_params(self, init_W, init_B):
+
+
 
 
     def initialize(self, initializer=Intitializers.HeNorm):

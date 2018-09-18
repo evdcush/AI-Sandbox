@@ -18,7 +18,7 @@ Function : base class for all functions
     ManipulationFunctions :
         : Where, Reshape, ExpandDims, Concat
     NoiseInjections :
-        Dropout, GumbelSoftmax, Gaussian
+        Dropout, GumbelSoftmax
     Normalization :
         LayerNorm
     Pooling :
@@ -90,44 +90,6 @@ utils :
 #                              Network ops
 #------------------------------------------------------------------------------
 #==============================================================================
-
-#==============================================================================
-# Layers
-#==============================================================================
-@TODO
-class NetworkLayer:
-    def __init__(self):
-        pass
-
-    def __call__(self, x):
-        # init weights if None
-        pass
-@TODO
-class Dense(NetworkLayer):
-    """ Fully connected linear layer
-    """
-    def __init__(self,):
-        pass
-
-    def __call__(self, x):
-        pass
-
-''' # TODO
-batch-norm
-layernorm
-
-'''
-
-
-''' # IF TIME:
-- LSTM
-- Conv2D
-dropuout
-'''
-
-
-
-
 
 
 
@@ -672,12 +634,8 @@ class Linear(MathFunction):
 
 #==============================================================================
 # Activation functions
-#============================================
+#==============================================================================
 
-class AttrDict(dict):
-    """ simply a dict accessed/mutated by attribute instead of index """
-    __getattr__ = dict.__getitem__
-    __setattr__ = dict.__setitem__
 
 
 class ReLU(MathFunction):
