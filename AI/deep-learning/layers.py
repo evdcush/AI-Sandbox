@@ -53,7 +53,7 @@ MLP:
 """
 
 import functions as F
-from utils import HeNorm, GlorotNorm, Uniform
+from utils import HeNormal, Zeros
 from nn import SGD, Adam
 
 
@@ -156,12 +156,12 @@ class DenseBlock(FunctionBlock):
     function = F.Linear()
     params = {}
     update = True
-# self.params.
 
-    def __init__(self, layer_label, ID, kdim, init_W=None, init_B=None):
+    def __init__(self, layer_label, ID, kdim, init_W=HeNormal, init_B=Zeros):
         super().__init__(layer_label, ID, kdim)
         self.W_key = '{}_{}'.format(self.label, 'W')
         self.B_key = '{}_{}'.format(self.label, 'B')
+        self.initialize_params(init_W, init_B)
 
     @property
     def W(self):
@@ -180,16 +180,13 @@ class DenseBlock(FunctionBlock):
         self.params.self.B_key = val
 
     def initialize_params(self, init_W, init_B):
-
-
-
-
-    def initialize(self, initializer=Intitializers.HeNorm):
-        k_in, k_out = self.kdim
-        if self.W is None:
-            self.W = initializer(k_in, k_out)
-        if self.B is None:
-            self.B = np.ones(k_out,) * 1e-6 #initializer(k_out,)
+        if init_W.__name__ == 'dict':
+            # Then params are being restored, rather than init
+            self.params = init_W
+        else:
+            # both are array creation routines
+            self.W = init_W(self.kdim)
+            self.B = init_B(self.kdim) + 1e-6 # near zero
 
     def forward(self, X):
         Y = self.function(X, self.W, self.B)

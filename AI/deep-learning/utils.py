@@ -400,6 +400,21 @@ class Uniform(Initializer):
         param_array = self.uniform(low=low, high=high, size=kdims).astype(dtype)
         return param_array
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Constant
+# --------
+# inherits : Initializer
+# derives : Zeros
+class Constant(Initializer):
+    """ Initializes array with repeated constants """
+    full = np.full
+    fill_value = 1.0
+
+    def __call__(self, kdims, f_value=None):
+        fill_val = self.fill_value if f_value is None else f_value
+        param_array = self.full(kdims, fill_val, dtype=self.dtype_)
+        return param_array
 
 #==============================================================================
 # Derived Initializers
@@ -481,3 +496,11 @@ class GlorotUniform(Uniform):
         param_array = self.uniform(-m, m, size=kdims).astype(self.dtype_)
         return param_array
 
+#------------------------------------------------------------------------------
+# Constant :
+#  Zeros
+#------------------------------------------------------------------------------
+
+class Zeros(Constant):
+    """ Initializes array with all zeros """
+    fill_value = 0.0
