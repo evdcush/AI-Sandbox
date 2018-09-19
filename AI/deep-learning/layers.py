@@ -223,7 +223,7 @@ class DenseBlock(FunctionBlock):
         return Y
 
     def backward(self, gY, opt):
-        gX, params = self.function(gY, backprop=True)
+        gX, params = self.function(gY, self.W, self.B, backprop=True)
         gW, gB = params
         self.update(gW, gB, opt)
         return gX
@@ -373,37 +373,111 @@ class Layer:
 
 
     def forward(self, X, *args, **kwargs):
-        pass
+        blocks = self.blocks
+        Y = np.copy(X)
+        for ID in range(len(blocks)):
+            block = blocks[ID]
+            Y = block(Y)
+        return Y
 
     def backward(self, gY, opt, *args, **kwargs):
-        pass
+        blocks = self.blocks
+        gX = np.copy(gY)
+        for ID in reversed(range(len(blocks))):
+            block = blocks[ID]
+            gX = block(gX, opt, *args,  backprop=True, **kwargs)
+        return gX
 
-    def __call__(self, *args, **kwargs):
-        pass
+    def __call__(self, *args, backprop=False, **kwargs):
+        func = self.backward if backprop else self.forward
+        return func(*args, **kwargs)
+
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Layer:
-    layer_label = 'L'
-    label_format = layer_label + '{}'
+# Layer
+# -----
+# inherits :
+# derives : DenseLayer
+class LayerBlock:
+    """ Base layer class composed of blocks
 
-    def __init__(self, ID, kdim, op='dense', act='sigmoid', *args, **kwargs):
+    Unlike most other 'base' classes in the module, which are mostly abstract,
+    Layer can be used as a concretized instance if
+    sufficiently specified
+
+    Params
+    ------
+    layer_label : str
+        The label specifies what position it is within the network,
+        wrt to other layers, and is used by its constituent blocks
+        to get a unique parameter key for all learnable parameters,
+        which is then used for the optimizer and serialization
+
+    params = {'W': ndarray, 'B': ndarray}
+    func_params = {0: {'W': ndarray, 'B':ndarray}}
+    funcs = {0 : F.linear(), 1: F.sigmoid(), ...}
+
+    funcs = {0: {'func': F.linear(), 'params': }}
+
+    """
+    layer_label = 'L{}' # must be formatted!
+
+    def __init__(self, network_label, ID, kdim, *args,
+                 blocks=('dense', 'sigmoid'), initializer=None, **kwargs):
+        """ Layer initializes itself, as well as its blocks
+
+        Params
+        ------
+        network_label : str
+            caller label, to be concatenated to with layer_label
+
+        ID : int
+            position number in network (eg, input layer would be 0)
+
+        kdim : tuple (int)
+            (k_in, k_out) input and output channels
+
+        blocks : tuple (str)
+            Arbitrarily long tuple of block "keys" for this layer.
+                Each key is the slugified (all lower, dashes for spaces)
+                and truncated name of a block, eg "sigmoid" keys
+                to value SigmoidBlock
+            ORDER matters in tuple: blocks[0] processes before blocks[1]
+
+        """
         self.ID = ID
-        self.kdim =  kdim
-        self.label = self.format_label(layer_label)
+        self.kdim = kdim
+        self.label  = self.format_label(network_label)
+        self.blocks = self.initialize_blocks(blocks, initializer)
+
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
 
-        # Initialize blocks
-        self.op = OPS[op](self.label, 1, kdim, **kwargs)
-        if act != '':
-            self.activation = ACTIVATIONS[act](self.label, 2, kdim, **kwargs)
 
-    def format_label(self, layer_label):
-        label_format = self.label_format
-        ID = self.ID
-        label = label_format.format(ID)
+    def format_label(self, caller_label):
+        fields = '{}_{}'
+        layer_ID = self.layer_label.format(self.ID)
+        label = fields.format(caller_label, layer_ID)
         return label
+
+    def initialize_blocks(self, block_keys, initializer):
+        blocks = {} # {int : Block}
+
+        # Check whether block_keys valid
+        all_blocks = get_all_blocks() # all blocks available within module
+        assert all([key in all_blocks for key in block_keys])
+
+        # initialize each block
+        for ID, key in block_keys:
+            block = all_blocks[key]
+            args_block = (self.label, ID, self.kdim)
+            if initializer is not None:
+                args_block += (initializer,)
+            blocks[ID] = block(*args_block)
+        return blocks
+
 
     def forward(self, X, *args, **kwargs):
         pass
@@ -413,6 +487,8 @@ class Layer:
 
     def __call__(self, *args, **kwargs):
         pass
+
+
 
 #==============================================================================
 #------------------------------------------------------------------------------
