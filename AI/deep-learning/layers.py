@@ -5,20 +5,20 @@ Blocks, and Layers
 Any given model has the following hierarchy:
 
 Model
-    Network
-        Layer 1
-            Block 1
-                Dense : functions.Linear
-            Block 2
-                Sigmoid : functions.Sigmoid
-            ...
-        Layer 2
-            Block 1
-            Block 2
-            ...
-        Layer 3
+  Network
+    Layer 1
+      Block 1
+        Dense : functions.Linear
+      Block 2
+        Sigmoid : functions.Sigmoid
         ...
-        Layer N
+    Layer 2
+      Block 1
+      Block 2
+      ...
+    Layer 3
+    ...
+    Layer N
 
 The reasoning for having two levels of abstraction (Blocks and Layers)
  between Network and Functions is that it makes the network more
@@ -57,12 +57,21 @@ from utils import HeNormal, Zeros
 from nn import SGD, Adam
 
 
-
 #==============================================================================
 #------------------------------------------------------------------------------
 #                              Blocks
 #------------------------------------------------------------------------------
 #==============================================================================
+""" Blocks are the interface to Functions.
+
+They maintain any parameters used by Functions, and provide easy access to
+higher levels for updating and serializing those parameters.
+
+Blocks allow the network to have greater modularity when designing
+layers, as gradient chaining isn't coupled to a layer, instead being
+self-contained within blocks and can be treated as black-boxes
+"""
+
 
 #==============================================================================
 # Base Block classes:
