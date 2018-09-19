@@ -24,23 +24,20 @@ The reasoning for having two levels of abstraction (Blocks and Layers)
  between Network and Functions is that it makes the network more
  extensible.
 
-With only one level of abstraction between Functions and Network, the user
- would have to consider more edge cases and have to adjust either functions
- or network operations on a per-task or per-architecture basis.
+Blocks are the interface to functions, maintaining all parameters used
+ by a single Function instance, while Layers provide higher level access
+ to the set of all Block parameters for updating.
 
-If we only had "Layer" between Network and Function, then we have to
- consider Layers that have activations vs. those that do not,
- whether a Layer has updateable params, or whether there is a pooling or
- normalization op, and how the optimizer would pass through all of those.
+Having Blocks also helps abstract network architecture, making it easier
+ to compose networks and more readable, eg:
 
-Additionally, instead of a clean, readable network architecture you might
-expect for a simple feedforward, eg:
+# With blocks
 MLP:
     - Hidden1
     - Hidden2
     - Output
 
-You would have
+# Without blocks
 MLP:
     - Dense1
     - Activation1
@@ -77,7 +74,6 @@ self-contained within blocks and can be treated as black-boxes
 # Base Block classes:
 #  Block, FunctionBlock
 #==============================================================================
-
 
 # Block
 # -----
@@ -192,8 +188,8 @@ class DenseBlock(FunctionBlock):
 
         """
         fields = '{}_{}'
-        self.W_key = fields.format('W')
-        self.B_key = fields.format('B')
+        self.W_key = fields.format(self.label, 'W')
+        self.B_key = fields.format(self.label, 'B')
 
     @property
     def W(self):
@@ -219,7 +215,7 @@ class DenseBlock(FunctionBlock):
         else:
             # both are array creation routines
             self.W = init_W(self.kdim)
-            self.B = init_B(self.kdim) + 1e-6 # near zero
+            self.B = init_B(self.kdim) + 1e-7 # near zero
 
 
     def forward(self, X):
@@ -254,7 +250,6 @@ class TanhBlock(FunctionBlock):
     """ Tanh activation """
     block_label = 'TanhBlock'
     function = F.Tanh()
-
 
 class ReluBlock(FunctionBlock):
     """ ReLU activation """
@@ -293,6 +288,9 @@ ACTIVATIONS = {'sigmoid' : SigmoidBlock,
 
 BLOCKS = {**OPS, **ACTIVATIONS}
 
+def get_all_blocks():
+    return BLOCKS
+
 #==============================================================================
 # Base Layer class
 #==============================================================================
@@ -319,11 +317,15 @@ class Layer:
     """
     layer_label = 'L{}' # must be formatted!
 
-    def __init__(self, ID, kdim, blocks=('dense', 'sigmoid'), *args, **kwargs):
+    def __init__(self, network_label, ID, kdim, *args,
+                 blocks=('dense', 'sigmoid'), initializer=None, **kwargs):
         """ Layer initializes itself, as well as its blocks
 
         Params
         ------
+        network_label : str
+            caller label, to be concatenated to with layer_label
+
         ID : int
             position number in network (eg, input layer would be 0)
 
@@ -332,28 +334,43 @@ class Layer:
 
         blocks : tuple (str)
             Arbitrarily long tuple of block "keys" for this layer.
-                Each key is the slugified (all lower) and truncated name
-                of a block, eg "sigmoid" keys to value SigmoidBlock
+                Each key is the slugified (all lower, dashes for spaces)
+                and truncated name of a block, eg "sigmoid" keys
+                to value SigmoidBlock
             ORDER matters in tuple: blocks[0] processes before blocks[1]
 
         """
         self.ID = ID
-        self.kdim =  kdim
-        self.label = self.format_label(layer_label)
+        self.kdim = kdim
+        self.label  = self.format_label(network_label)
+        self.blocks = self.initialize_blocks(blocks, initializer)
+
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
 
-        # Initialize blocks
-        self.op = OPS[op](self.label, 1, kdim, **kwargs)
-        if act != '':
-            self.activation = ACTIVATIONS[act](self.label, 2, kdim, **kwargs)
 
-    def format_label(self, layer_label):
-        ID = self.ID
-        label = self.layer_label.format(ID)
+    def format_label(self, caller_label):
+        fields = '{}_{}'
+        layer_ID = self.layer_label.format(self.ID)
+        label = fields.format(caller_label, layer_ID)
         return label
 
-    def initialize_blocks(self, op, act, )
+    def initialize_blocks(self, block_keys, initializer):
+        blocks = {} # {int : Block}
+
+        # Check whether block_keys valid
+        all_blocks = get_all_blocks() # all blocks available within module
+        assert all([key in all_blocks for key in block_keys])
+
+        # initialize each block
+        for ID, key in block_keys:
+            block = all_blocks[key]
+            args_block = (self.label, ID, self.kdim)
+            if initializer is not None:
+                args_block += (initializer,)
+            blocks[ID] = block(*args_block)
+        return blocks
+
 
     def forward(self, X, *args, **kwargs):
         pass
