@@ -28,25 +28,6 @@ Blocks are the interface to functions, maintaining all parameters used
  by a single Function instance, while Layers provide higher level access
  to the set of all Block parameters for updating.
 
-Having Blocks also helps abstract network architecture, making it easier
- to compose networks and more readable, eg:
-
-# With blocks
-MLP:
-    - Hidden1
-    - Hidden2
-    - Output
-
-# Without blocks
-MLP:
-    - Dense1
-    - Activation1
-    - Normalization1
-    - Dense2
-    - Activation2
-    - Normalization2
-    - Dense3
-
 """
 
 import functions as F
@@ -98,7 +79,7 @@ class Block:
     label_format = '{}_{}-{}' # 'Layer_Block-ID'
     updates = False
 
-    def __init__(self, layer_label, ID, *args, **kwargs):
+    def __init__(self, ID, layer_label, *args, **kwargs):
         self.ID = ID
         self.label = self.format_label(layer_label)
         for attribute, value in kwargs.items():
@@ -122,8 +103,8 @@ class FunctionBlock(Block):
     block_label = 'FunctionBlock'
     function = None
 
-    def __init__(self, layer_label, ID, kdim, *args, **kwargs):
-        super().__init__(layer_label, ID)
+    def __init__(self, kdim, ID, layer_label, *args, **kwargs):
+        super().__init__(ID, layer_label)
         self.kdim = kdim
 
     def forward(self, X, *args, **kwargs):
@@ -160,11 +141,10 @@ class DenseBlock(FunctionBlock):
     block_label = 'DenseBlock'
     function = F.Linear()
     params = {}
-    update = True
-
-    def __init__(self, layer_label, ID, kdim, init_W=HeNormal, init_B=Zeros):
+    updates = True
+    def __init__(self, kdim, ID, layer_label, init_W=HeNormal, init_B=Zeros):
         # super inits: self.ID, self.label, self.kdim
-        super().__init__(layer_label, ID, kdim)
+        super().__init__(kdim, ID, layer_label)
         self.format_params_labels()
         self.initialize_params(init_W, init_B)
 
@@ -216,7 +196,6 @@ class DenseBlock(FunctionBlock):
             # both are array creation routines
             self.W = init_W(self.kdim)
             self.B = init_B(self.kdim) + 1e-7 # near zero
-
 
     def forward(self, X):
         Y = self.function(X, self.W, self.B)
@@ -276,15 +255,14 @@ class SeluBlock(FunctionBlock):
 
 # Available Blocks
 # ================
-OPS = {'dense': DenseBlock
-           '' : None}
+OPS = {'dense': DenseBlock,}
 
 ACTIVATIONS = {'sigmoid' : SigmoidBlock,
                   'tanh' : TanhBlock,
                   'relu' : ReluBlock,
                    'elu' : ELUBlock,
                   'selu' : SeluBlock
-                      '' : None}
+                  }
 
 BLOCKS = {**OPS, **ACTIVATIONS}
 
@@ -298,7 +276,7 @@ def get_all_blocks():
 # Layer
 # -----
 # inherits :
-# derives : DenseLayer
+# derives : FullyConnectedLayer
 class Layer:
     """ Base layer class composed of blocks
 
@@ -317,32 +295,34 @@ class Layer:
     """
     layer_label = 'L{}' # must be formatted!
 
-    def __init__(self, network_label, ID, kdim, *args,
-                 blocks=('dense', 'sigmoid'), initializer=None, **kwargs):
+    def __init__(self, kdim, ID, network_label, *args,
+                 blocks=('dense', 'sigmoid'), initializer=None,
+                 no_act=False, **kwargs):
         """ Layer initializes itself, as well as its blocks
 
         Params
         ------
-        network_label : str
-            caller label, to be concatenated to with layer_label
+        kdim : tuple (int)
+            (k_in, k_out) input and output channels
 
         ID : int
             position number in network (eg, input layer would be 0)
 
-        kdim : tuple (int)
-            (k_in, k_out) input and output channels
+        network_label : str
+            caller label, to be concatenated to with layer_label
 
-        blocks : tuple (str)
-            Arbitrarily long tuple of block "keys" for this layer.
+        blocks : collection (str)
+            Arbitrarily long collection of block "keys" for this layer.
                 Each key is the slugified (all lower, dashes for spaces)
                 and truncated name of a block, eg "sigmoid" keys
                 to value SigmoidBlock
-            ORDER matters in tuple: blocks[0] processes before blocks[1]
+            ORDER matters in collection: blocks[0] processes before blocks[1]
 
         """
         self.ID = ID
         self.kdim = kdim
         self.label  = self.format_label(network_label)
+        self.no_activation = no_act
         self.blocks = self.initialize_blocks(blocks, initializer)
 
         for attribute, value in kwargs.items():
@@ -359,7 +339,8 @@ class Layer:
         blocks = {} # {int : Block}
 
         # Check whether block_keys valid
-        all_blocks = get_all_blocks() # all blocks available within module
+          # all blocks available within module
+        all_blocks = OPS if self.no_activation else get_all_blocks()
         assert all([key in all_blocks for key in block_keys])
 
         # initialize each block
@@ -393,100 +374,20 @@ class Layer:
         return func(*args, **kwargs)
 
 
+#==============================================================================
+# Derived Layers
+#  FullyConnectedLayer
+#==============================================================================
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-# Layer
-# -----
-# inherits :
-# derives : DenseLayer
-class LayerBlock:
-    """ Base layer class composed of blocks
-
-    Unlike most other 'base' classes in the module, which are mostly abstract,
-    Layer can be used as a concretized instance if
-    sufficiently specified
-
-    Params
-    ------
-    layer_label : str
-        The label specifies what position it is within the network,
-        wrt to other layers, and is used by its constituent blocks
-        to get a unique parameter key for all learnable parameters,
-        which is then used for the optimizer and serialization
-
-    params = {'W': ndarray, 'B': ndarray}
-    func_params = {0: {'W': ndarray, 'B':ndarray}}
-    funcs = {0 : F.linear(), 1: F.sigmoid(), ...}
-
-    funcs = {0: {'func': F.linear(), 'params': }}
-
+class FullyConnectedLayer(Layer):
+    """ Simple feed-forward layer, where every feature is connected
+    to a neuron
     """
-    layer_label = 'L{}' # must be formatted!
+    layer_label = 'FC-Layer{}'
+    def __init__(self, *args, blocks=['dense', 'sigmoid'],
+                 no_act=False, **kwargs):
+        super().__init__(*args, blocks=blocks, no_act=no_act, **kwargs)
 
-    def __init__(self, network_label, ID, kdim, *args,
-                 blocks=('dense', 'sigmoid'), initializer=None, **kwargs):
-        """ Layer initializes itself, as well as its blocks
-
-        Params
-        ------
-        network_label : str
-            caller label, to be concatenated to with layer_label
-
-        ID : int
-            position number in network (eg, input layer would be 0)
-
-        kdim : tuple (int)
-            (k_in, k_out) input and output channels
-
-        blocks : tuple (str)
-            Arbitrarily long tuple of block "keys" for this layer.
-                Each key is the slugified (all lower, dashes for spaces)
-                and truncated name of a block, eg "sigmoid" keys
-                to value SigmoidBlock
-            ORDER matters in tuple: blocks[0] processes before blocks[1]
-
-        """
-        self.ID = ID
-        self.kdim = kdim
-        self.label  = self.format_label(network_label)
-        self.blocks = self.initialize_blocks(blocks, initializer)
-
-        for attribute, value in kwargs.items():
-            setattr(self, attribute, value)
-
-
-    def format_label(self, caller_label):
-        fields = '{}_{}'
-        layer_ID = self.layer_label.format(self.ID)
-        label = fields.format(caller_label, layer_ID)
-        return label
-
-    def initialize_blocks(self, block_keys, initializer):
-        blocks = {} # {int : Block}
-
-        # Check whether block_keys valid
-        all_blocks = get_all_blocks() # all blocks available within module
-        assert all([key in all_blocks for key in block_keys])
-
-        # initialize each block
-        for ID, key in block_keys:
-            block = all_blocks[key]
-            args_block = (self.label, ID, self.kdim)
-            if initializer is not None:
-                args_block += (initializer,)
-            blocks[ID] = block(*args_block)
-        return blocks
-
-
-    def forward(self, X, *args, **kwargs):
-        pass
-
-    def backward(self, gY, opt, *args, **kwargs):
-        pass
-
-    def __call__(self, *args, **kwargs):
-        pass
 
 
 
@@ -495,12 +396,127 @@ class LayerBlock:
 #                              Network
 #------------------------------------------------------------------------------
 #==============================================================================
+""" Neural networks are composed of Layers
 
-class NeuralNet:
-    pass
+For our usage, we can think of the network both as an algorithm
+and as a sort of ordered "data-structure," like a list or array,
+and Layers being the elements of that list.
 
-class FeedForwardNet:
-    pass
+# Forward
+  - To generate a prediction, we iterate through the "list" in order,
+    propagating an initial input through each element.
+
+# Backward
+  - To optimize the network's predictions, we iterate through the list
+    in reverse order, propagating the gradient of an objective
+    function through each element.
+
+"""
+
+#==============================================================================
+# NeuralNetwork class
+#==============================================================================
+""" Since most architectural features and functionalities have been
+implemented at the callee levels below NeuralNetwork, we only really need
+one network class.
+
+"""
+class NeuralNetwork:
+    """ Base Neural Network compsed of Layers
+
+    Control Flow
+    ------------
+    1 - Network instance initialized with a list of channels
+        and Layer-types
+
+
+    2 - Network receives external data input X, and propagates
+        it through it's Layers
+
+    3 - A final output Layer returns a prediction
+
+      - (network prediction accuracy/error evaluated by an objective)
+
+    4 - If training: the network receives the gradient of a loss
+        function and backpropagates the gradient through it's
+        Layers (propagates in reverse order of Layers)
+
+    """
+    network_label = 'NN'
+    def __init__(self, channels, layer, model_label, *args,
+                 output_activation=False, initializer=None, **kwargs):
+        # Network config
+        self.initializer = initializer
+        self.label = self.format_label(model_label)
+
+        # Dimensionality of network
+        self.kdims = list(zip(channels, channels[1:]))
+        self.num_layers = len(self.kdims)
+
+        # Network layers
+        self.layer_type = layer
+        self.output_activation = output_activation
+        self.layers = self.initialize_layers()
+
+
+    def format_label(self, caller_label):
+        label = '{}_{}'.format(model_label, self.network_label)
+        return label
+
+    def initialize_layers(self):
+        """
+        Layer init args:
+        - kdim, ID, network_label, *args, blocks=('dense', 'sigmoid'),
+          initializer=None, no_act=False, **kwargs
+        """
+        # Layer
+        layer = self.layer_type
+        layers = []
+
+        # Layer init args
+        label = self.label
+        initzr = self.initializer
+        act = lambda i: self.output_activation and i == self.num_layers - 1
+
+        # Initialize all layers
+        for ID, kdim in enumerate(self.kdims):
+            layer = layer(kdim, ID, label, no_act=act(ID), initializer=initzr)
+            layers.append(layer)
+
+        return layers
+
+
+    def forward(self, X):
+        """ Propagates input X through network layers """
+        Y = np.copy(X) # more for convenience than mutation safety
+        for layer in self.layers:
+            Y = layer(Y)
+        return Y
+
+    def backward(self, gY, opt):
+        """ Backpropagation through layers
+
+        Params
+        ------
+        gY : ndarray
+            gradient of loss function wrt to network output Y (or Y_hat)
+
+        opt : Optimizer
+            optimizer for updating parameters in layers
+
+        Returns
+        -------
+        None : gX is gradient of loss wrt to input, which isn't "updated"
+          - All optimizable params should be in Network, nowhere else
+        """
+        gX = np.copy(gY)
+        for layer in reversed(self.layers):
+            gX = layer(gX, opt)
+        return
+
+    def __call__(self, *args, backprop=False, **kwargs):
+        func = self.backward if backprop else self.forward
+        return func(*args, **kwargs)
 
 
 
