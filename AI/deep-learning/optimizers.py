@@ -6,7 +6,7 @@ Currently only SGD and Adam are available.
 As such, there is no need for a "base" optimizer class,
  instead just having two separate classes, SGD and Adam,
  since they share very little, but the idea is that
- optimizers should extend an Optimizer class, as they all
+ optimizers share in the same functionality, as they all
  perform optimization using gradient descent, and that
  when more optimizers are implemented, more base optimizer
  classes will be created, and the module will have more
@@ -19,6 +19,10 @@ Optimizer : base class for gradient-based optimizers
     Receives a parameter, the gradient wrt to that parameter
     via a stochastic objective function, and updates the
     parameter through some routine
+
+AdaptiveOptimizer : base class for momentum and accelerated optimizers
+    Typically has a weight vector for each learnable/updatable parameter
+    based on that parameter's gradient history
 
 SGD : Optimizer, vanilla stochastic gradient descent algorithm
     Optimizes a parameter based on the gradients of a small
@@ -79,6 +83,12 @@ class Optimizer:
         updated_P = P - self.lr * gP
         return updated_P
 
+
+# call example
+def update(self, gW, gB, opt):
+        grads = {self.W_key: gW, self.B_key: gB}
+        self.params = opt(self.params, grads)
+
 class AdaptiveOptimizer(Optimizer):
     """ Base adaptive optimizer
 
@@ -100,7 +110,7 @@ class AdaptiveOptimizer(Optimizer):
         the pretrained or saved moments from another model
         to be restored
     """
-    _moments = {}
+    moments = {}
 
     def __init__(self, lr, *args, momentum=0.9, moments_init=None, **kwargs):
         self.lr = lr
@@ -112,10 +122,13 @@ class AdaptiveOptimizer(Optimizer):
     def restore_moments(self, moments):
         self.moments = moments # UNTESTED
 
+    def initialize_moment(self, P):
+
     def moments(self, ):
 
 
     def __call__(self, P, gP):
+
 
 
 class SGD(Optimizer):
@@ -125,4 +138,6 @@ class SGD(Optimizer):
     """
     pass
 
-class
+class Adam(AdaptiveOptimizer):
+    """
+    """
