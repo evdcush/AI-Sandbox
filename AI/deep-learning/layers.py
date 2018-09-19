@@ -167,26 +167,50 @@ class DenseBlock(FunctionBlock):
     update = True
 
     def __init__(self, layer_label, ID, kdim, init_W=HeNormal, init_B=Zeros):
+        # super inits: self.ID, self.label, self.kdim
         super().__init__(layer_label, ID, kdim)
-        self.W_key = '{}_{}'.format(self.label, 'W')
-        self.B_key = '{}_{}'.format(self.label, 'B')
+        self.format_params_labels()
         self.initialize_params(init_W, init_B)
+
+    def format_params_labels(self):
+        """ Creates final, unique str label used for identifying param
+
+        These labels are used by the optimizer and serializer for keeping
+        track of the unique parameter values keyed to this label.
+
+        Example
+        -------
+        layer_label : str
+            This label essentially represents a path from the top level
+            callers in training, to the current block and parameter:
+            '<model-label>_<network-label>_<layer-label>_<block-label>'
+
+        This function completes the full label by concatenating the
+        parameter tags, eg a full example:
+        W : 'experimental_feed-forward-net_DenseLayer2_DenseBlock-1_W'
+        B : 'experimental_feed-forward-net_DenseLayer2_DenseBlock-1_B'
+
+        """
+        fields = '{}_{}'
+        self.W_key = fields.format('W')
+        self.B_key = fields.format('B')
 
     @property
     def W(self):
-        return self.params.self.W_key
-
-    @W.setter
-    def W(self, val):
-        self.params.self.W_key = val
+        return self.params[self.W_key]
 
     @property
     def B(self):
-        return self.params.self.B_key
+        return self.params[self.B_key]
+
+    @W.setter
+    def W(self, val):
+        self.params[self.W_key] = val
 
     @B.setter
     def B(self, val):
-        self.params.self.B_key = val
+        self.params[self.B_key] = val
+
 
     def initialize_params(self, init_W, init_B):
         if init_W.__name__ == 'dict':
@@ -196,6 +220,7 @@ class DenseBlock(FunctionBlock):
             # both are array creation routines
             self.W = init_W(self.kdim)
             self.B = init_B(self.kdim) + 1e-6 # near zero
+
 
     def forward(self, X):
         Y = self.function(X, self.W, self.B)
@@ -208,9 +233,8 @@ class DenseBlock(FunctionBlock):
         return gX
 
     def update(self, gW, gB, opt):
-        W, B = self.W, self.B
-        self.W = opt(W, gW, self.W_tag)
-        self.B = opt(B, gB, self.B_tag)
+        grads = {self.W_key: gW, self.B_key: gB}
+        self.params = opt(self.params, grads)
 
     def __call__(self, *args, backprop=False, **kwargs):
         func = self.backward if backprop else self.forward
@@ -259,12 +283,88 @@ class SeluBlock(FunctionBlock):
 # ================
 OPS = {'dense': DenseBlock
            '' : None}
+
 ACTIVATIONS = {'sigmoid' : SigmoidBlock,
                   'tanh' : TanhBlock,
                   'relu' : ReluBlock,
                    'elu' : ELUBlock,
                   'selu' : SeluBlock
                       '' : None}
+
+BLOCKS = {**OPS, **ACTIVATIONS}
+
+#==============================================================================
+# Base Layer class
+#==============================================================================
+
+# Layer
+# -----
+# inherits :
+# derives : DenseLayer
+class Layer:
+    """ Base layer class composed of blocks
+
+    Unlike most other 'base' classes in the module, which are mostly abstract,
+    Layer can be used as a concretized instance if
+    sufficiently specified
+
+    Params
+    ------
+    layer_label : str
+        The label specifies what position it is within the network,
+        wrt to other layers, and is used by its constituent blocks
+        to get a unique parameter key for all learnable parameters,
+        which is then used for the optimizer and serialization
+
+    """
+    layer_label = 'L{}' # must be formatted!
+
+    def __init__(self, ID, kdim, blocks=('dense', 'sigmoid'), *args, **kwargs):
+        """ Layer initializes itself, as well as its blocks
+
+        Params
+        ------
+        ID : int
+            position number in network (eg, input layer would be 0)
+
+        kdim : tuple (int)
+            (k_in, k_out) input and output channels
+
+        blocks : tuple (str)
+            Arbitrarily long tuple of block "keys" for this layer.
+                Each key is the slugified (all lower) and truncated name
+                of a block, eg "sigmoid" keys to value SigmoidBlock
+            ORDER matters in tuple: blocks[0] processes before blocks[1]
+
+        """
+        self.ID = ID
+        self.kdim =  kdim
+        self.label = self.format_label(layer_label)
+        for attribute, value in kwargs.items():
+            setattr(self, attribute, value)
+
+        # Initialize blocks
+        self.op = OPS[op](self.label, 1, kdim, **kwargs)
+        if act != '':
+            self.activation = ACTIVATIONS[act](self.label, 2, kdim, **kwargs)
+
+    def format_label(self, layer_label):
+        ID = self.ID
+        label = self.layer_label.format(ID)
+        return label
+
+    def initialize_blocks(self, op, act, )
+
+    def forward(self, X, *args, **kwargs):
+        pass
+
+    def backward(self, gY, opt, *args, **kwargs):
+        pass
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Layer:
     layer_label = 'L'
