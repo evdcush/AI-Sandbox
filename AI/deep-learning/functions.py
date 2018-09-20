@@ -778,12 +778,12 @@ class Tanh(MathFunction):
 
 
 
-
 class Softmax(MathFunction):
     """ Softmax activation """
     # reduction kwargs
     kw = {'axis':1, 'keepdims':True}
 
+    @preserve(inputs=False)
     def forward(self, X):
         """ Since softmax is translation invariant
         (eg, softmax(x) == softmax(x+c), where c is some constant),
@@ -803,13 +803,14 @@ class Softmax(MathFunction):
         """
         kw = self.kw # (axis=1, keepdims=True)
         x_exp = np.exp(X - X.max(**kw))
-        Y = self.fn_vars = x_exp / np.sum(x_exp, **kw)
+        Y = x_exp / np.sum(x_exp, **kw)
         return Y
 
     def backward(self, gY):
+        kw = self.kw
         Y = self.get_fn_vars(reset=True)
         gY *= Y
-        gsum = np.sum(gY, axis=1, keepdims=True)
+        gsum = np.sum(gY, **kw)
         gX = gY - (Y * gsum)
         return gX
 
@@ -820,7 +821,24 @@ class Softmax(MathFunction):
 
 @TODO
 class SoftmaxCrossEntropy(MathFunction):
-    pass
+    """ Cross entropy error on pre-softmax activations
+
+    Assumes input to func did not already have softmax act.
+    """
+    kw = {'axis':1, 'keepdims'=True}
+    def softmax(self, X):
+        kw = self.kw
+        x_exp = np.exp(X - X.max(**kw))
+        Y = x_exp / x_exp.sum(**kw)
+        return Y
+
+    def forward(self, X, t):
+        kw = self.kw
+        probs = self.softmax(X)
+        likelihood = -np.log(probs[np.arange(x.shape[0]), t])
+        Y = np.sum(likelihood, **kw) / X.shape[0]
+        return Y
+
 
 @TODO
 class LogisticCrossEntropy(MathFunction):
