@@ -31,12 +31,12 @@
    - ie: FunctionCollection.print_all_available():
      - 'log', 'sum', 'square', ...
 
-# Tedious shit:
+# Error/exception:
 Probably won't do this. Project not meant to be a robust, production
- package, but simply a repository of hand-crafted AI algorithms and
+ package, but simply a repository of AI algorithms made from scratch and
  implementations. Still needs basic robustness, but **code needs to be clear**,
  and `try...except`s and assertions and check-expects in every function
- and class is anti-thetical to the spirit of the project.
+ and class is antithetical to the spirit of the project.
 - Type-checks
 - Arg checks
 - Exceptions
