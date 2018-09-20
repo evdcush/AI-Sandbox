@@ -638,8 +638,6 @@ class Linear(MathFunction):
 # Activation functions
 #==============================================================================
 
-
-
 class ReLU(MathFunction):
     """ standard ReLU activation
     zeroes out any negative elements within matrix
@@ -764,3 +762,20 @@ def Softmax(MathFunction):
         return gX
 
 
+#==============================================================================
+# Loss Functions
+#==============================================================================
+
+@TODO
+class SoftmaxCrossEntropy(MathFunction):
+    pass
+
+@TODO
+class LogisticCrossEntropy(MathFunction):
+    """ log loss function """
+    pass
+
+@TODO
+class MeanSquaredError(MathFunction):
+    """ MSE """
+    pass

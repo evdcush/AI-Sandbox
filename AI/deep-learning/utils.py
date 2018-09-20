@@ -167,7 +167,6 @@ class Dataset:
     def download_dataset_from_source(self,):
         pass
 
-    def
 
 
 
@@ -289,6 +288,7 @@ def load_dataset_iris(data_dir=DATA_DIR):
     return X
 
 def load_dataset(dataset='iris', data_dir=DATA_DIR):
+    pass
 
 
 
