@@ -224,14 +224,16 @@ class MathFunction(Function):
     """
     _fn_vars = None
 
-    @property
-    def fn_vars(self,):
-        return self._fn_vars
+    def fn_vars(self, reset=False):
+        fvars = self._fn_vars
+        if reset:
+            self.reXXset_fn_vars()
+        return fvars
 
     def set_fn_vars(self, *fvars):
         self._fn_vars = fvars if len(fvars) > 1 else fvars[0]
 
-    def reset_fn_vars(self,):
+    def reXXset_fn_vars(self,):
         self._fn_vars = None
 
     @NOTIMPLEMENTED
@@ -284,7 +286,7 @@ class ReductionFunction(MathFunction):
         for i in L:
             fn(i)
 
-    def restore_shape(self, Y):
+    def restore_shape(self, Y, reset=False):
         """ Restores a variable Y to the original
             shape of the input var X
 
@@ -308,7 +310,7 @@ class ReductionFunction(MathFunction):
             broadcasting
         """
         # Dimension vars
-        dims_X, axes = self.fn_vars
+        dims_X, axes = self.fn_vars(reset=reset)
         dims_Y = Y.shape
 
         # Get reshape dims
@@ -730,6 +732,7 @@ class Sigmoid(MathFunction):
         gX = gY * Y * (1 - Y)
         return gX
 
+
 def Tanh(MathFunction):
     """ Hyperbolic tangent activation """
     def forward(self, X):
@@ -742,5 +745,26 @@ def Tanh(MathFunction):
         self.reset_fn_vars()
         gX = gY * (1 - np.square(Y))
         return gX
+
+
+def Softmax(MathFunction):
+    """ Softmax activation """
+    def forward(self, X):
+        """ Since softmax is translation invariant
+        (eg, softmax(x) == softmax(x+c), where c is some constant),
+        it's common to first subtract the max from x before
+        input, to avoid numerical instabilities risked with
+        very large positive values
+        """
+        x = X - X.max(axis=1, keepdims=True)
+        top = np.exp(x)
+        bot = np.sum(top, axis=1, keepdims=True)
+        Y = top / bot
+        self.set_fn_vars(Y)
+        return Y
+
+    def backward(self, gY):
+        Y = self.fn_vars
+        self.reset_fn_vars()
 
 
