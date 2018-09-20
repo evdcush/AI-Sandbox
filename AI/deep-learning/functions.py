@@ -699,12 +699,14 @@ class SeLU(ELU):
         github.com/bioinf-jku/SNNs/blob/master/getSELUparameters.ipynb
         github.com/bioinf-jku/SNNs/blob/master/selu.py
     """
-    _alpha = 1.6732632423543772848170429916717
-    scale  = 1.0507009873554804934193349852946
-    elu = ELU(alpha=_alpha)
+    alpha = 1.6732632423543772848170429916717
+    scale = 1.0507009873554804934193349852946
+    elu = ELU(alpha=alpha)
+
+    def __init__(self, *args, **kwargs): pass # insure alpha integrity
 
     def forward(self, X):
-        assert self.elu.alpha == self._alpha # sanity check
+        assert self.elu.alpha == self.alpha # sanity check
         Y = self.scale * self.elu.forward(X)
         return Y
 
@@ -726,7 +728,7 @@ class Sigmoid(MathFunction):
         return gX
 
 
-def Tanh(MathFunction):
+class Tanh(MathFunction):
     """ Hyperbolic tangent activation """
     def forward(self, X):
         Y = self.fn_vars = np.tanh(X)
@@ -738,7 +740,7 @@ def Tanh(MathFunction):
         return gX
 
 
-def Softmax(MathFunction):
+class Softmax(MathFunction):
     """ Softmax activation """
     def forward(self, X):
         """ Since softmax is translation invariant
@@ -746,11 +748,21 @@ def Softmax(MathFunction):
         it's common to first subtract the max from x before
         input, to avoid numerical instabilities risked with
         very large positive values
+
+        Params
+        ------
+        X : ndarray, (N, K)
+            input assumed to be 2D, N = num samples, K = num features
+
+        Returns
+        -------
+        Y : ndarray (N, K)
+            prob. distribution over K features, sums to 1
         """
         x = X - X.max(axis=1, keepdims=True)
         top = np.exp(x)
         bot = np.sum(top, axis=1, keepdims=True)
-        Y = top / bot
+        Y = self.fn_vars = top / bot
         self.fn_vars = Y
         return Y
 
