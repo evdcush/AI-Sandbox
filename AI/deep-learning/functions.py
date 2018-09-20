@@ -224,16 +224,22 @@ class MathFunction(Function):
     """
     _fn_vars = None
 
-    def fn_vars(self, reset=False):
+    @property
+    def fn_vars(self):
         fvars = self._fn_vars
-        if reset:
-            self.reXXset_fn_vars()
         return fvars
 
-    def set_fn_vars(self, *fvars):
+    @fn_vars.setter
+    def fn_vars(self, *fvars):
         self._fn_vars = fvars if len(fvars) > 1 else fvars[0]
 
-    def reXXset_fn_vars(self,):
+    def get_fn_vars(self,reset=False):
+        fvars = self.fn_vars
+        if reset:
+            self.reset_fn_vars()
+        return fvars
+
+    def reset_fn_vars(self,):
         self._fn_vars = None
 
     @NOTIMPLEMENTED
@@ -268,14 +274,6 @@ class ReductionFunction(MathFunction):
         axes : list (int)
             the axes or axis that were reduced
     """
-    def set_fn_vars(self, dims, axes):
-        if axes is not None:
-            axes = [axes] if type(axes) == int else list(axes)
-        else:
-            axes = []
-        dims = list(dims)
-        super().set_fn_vars(dims, axes)
-
     @NOTIMPLEMENTED
     def forward(self, X, axis=None, keepdims=False):
         pass
@@ -285,6 +283,14 @@ class ReductionFunction(MathFunction):
         """ a map function with no return """
         for i in L:
             fn(i)
+
+    def format_axes(self, axes):
+        ax = []
+        if axes is None: return ax
+        if type(axes) == int:
+            ax.append(axes)
+            return ax
+        return list(axes)
 
     def restore_shape(self, Y, reset=False):
         """ Restores a variable Y to the original
@@ -310,7 +316,8 @@ class ReductionFunction(MathFunction):
             broadcasting
         """
         # Dimension vars
-        dims_X, axes = self.fn_vars(reset=reset)
+        dims_X, axes = self.get_fn_vars(reset=reset)
+        dims_X = list(dims_X); axes = self.format(axes)
         dims_Y = Y.shape
 
         # Get reshape dims
@@ -336,13 +343,11 @@ class ReductionFunction(MathFunction):
 class Exp(MathFunction):
     """ Elementwise exponential function """
     def forward(self, X):
-        Y = np.exp(x)
-        self.set_fn_vars(Y)
+        Y = self.fn_vars = np.exp(x)
         return Y
 
     def backward(self, gY):
-        Y = self.fn_vars
-        self.reset_stored_data()
+        Y = self.get_fn_vars(reset=True)
         gX = Y * gY
         return gX
 
@@ -360,7 +365,6 @@ class Bias(MathFunction):
 
     def backward(self, gY):
         gX = gY
-
         # Must reduce gY if gY.ndim > 2
         ax = 0 if gY.ndim <= 2 else tuple(range(gY.ndim - 1))
         gB = gY.sum(axis=ax)
@@ -384,7 +388,7 @@ class MatMul(MathFunction):
     """
     def forward(self, X, W):
         """ matmul on X, W assumes X.shape[-1] == W.shape[0] """
-        self.set_fn_vars(X, W)
+        self.fn_vars = X, W
         Y = np.matmul(X, W)
         return Y
 
@@ -396,8 +400,7 @@ class MatMul(MathFunction):
         gW shape
         """
         # retrieve inputs
-        X, W = self.fn_vars
-        self.reset_fn_vars()
+        X, W = self.get_fn_vars(reset=True)
         m, k = W.shape
 
         # get grads
@@ -470,14 +473,12 @@ class Sum(ReductionFunction):
     """ Compute sum along axis or axes """
 
     def forward(self, X, axis=None, keepdims=False):
-        shape_in = X.shape
-        self.set_fn_vars(shape_in, axis)
+        self.fn_vars = X.shape, axis
         Y = np.sum(X, axis=axis, keepdims=keepdims)
         return Y
 
     def backward(self, gY):
-        gX = self.restore_shape(gY)
-        self.reset_fn_vars()
+        gX = self.restore_shape(gY, reset=True)
         return gX
 
 
@@ -485,21 +486,22 @@ class Mean(ReductionFunction):
     """ Compute mean along axis or axes """
 
     def forward(self, X, axis=None, keepdims=False):
-        shape_in = X.shape
-        self.set_fn_vars(shape_in, axis)
+        self.fn_vars = X.shape, axis
         Y = np.mean(X, axis=axis, keepdims=keepdims)
         return Y
 
     def backward(self, gY):
         shape_in, axes = self.fn_vars
+        axes = self.format_axes(axes)
+
+        # Recover number of elements averaged out
         if axes:
             num_elements_avgd = np.prod([shape_in[i] for i in axes])
         else:
             # if axes is empty, mean was taken over all elements
             num_elements_avgd = np.prod(shape_in)
 
-        gX = self.restore_shape(gY) / num_elements_avgd
-        self.reset_fn_vars()
+        gX = self.restore_shape(gY, reset=True) / num_elements_avgd
         return gX
 
 
@@ -507,8 +509,7 @@ class Prod(ReductionFunction):
     """ Compute product along axis or axes """
 
     def forward(self, X, axis=None, keepdims=False):
-        shape_in = X.shape
-        self.set_fn_vars(shape_in, axis)
+        self.fn_vars = X.shape, axis
         Y = np.prod(X, axis=axis, keepdims=keepdims)
         self.X = X
         self.Y = Y
@@ -537,17 +538,16 @@ class MaxMin(ReductionFunction):
         self.X = self.Y = None
 
     def forward(self, X, axis=None, keepdims=False):
-        shape_in = X.shape
-        self.set_fn_vars(shape_in, axis)
+        self.fn_vars = X.shape, axis
         Y = self.MM_func(X, axis=axis, keepdims=keepdims)
         self.X = X
         self.Y = Y
         return Y
 
     def backward(self, gY):
+        X  = self.X
+        Y  = self.restore_shape(self.Y)
         gY = self.restore_shape(gY)
-        Y = self.restore_shape(self.Y)
-        X = self.X
         gX = np.where(self.cmp_func(X, Y), gY, 0)
         self.reset_fn_vars()
         return gX
@@ -629,7 +629,7 @@ class Linear(MathFunction):
 
         """
         gX, gW = self.matmul(gY, backprop=True)
-        _, gB = self.bias(gY, backprop=True)
+         _, gB =   self.bias(gY, backprop=True)
         self.reset()
         return gX, (gW, gB)
 
@@ -645,8 +645,7 @@ class ReLU(MathFunction):
     zeroes out any negative elements within matrix
     """
     def forward(self, X):
-        Y = X.clip(min=0)
-        self.set_fn_vars(Y)
+        Y = self.fn_vars = X.clip(min=0)
         return Y
 
     def backward(self, gY):
@@ -655,7 +654,7 @@ class ReLU(MathFunction):
         We can exploit that property to use Y
           directly for indexing the gradient
          """
-        Y = self.fn_vars; self.reset_fn_vars();
+        Y = self.get_fn_vars(reset=True)
         gX = np.where(Y, gY, 0)
         return gX
 
@@ -672,14 +671,12 @@ class ELU(MathFunction):
         self.alpha = alpha
 
     def forward(self, X):
-        x = np.copy(X)
-        self.fn_vars = x
+        x = self.fn_vars = np.copy(X)
         Y = np.where(x < 0, self.alpha*(np.exp(x)-1), x)
         return Y
 
     def backward(self, gY):
-        X = self.fn_vars
-        self.reset_fn_vars()
+        X = self.get_fn_vars(reset=True)
         gX = np.where(X < 0, self.alpha * np.exp(X), gY)
         return gX
 
@@ -706,16 +703,15 @@ class SeLU(ELU):
     """
     _alpha = 1.6732632423543772848170429916717
     scale  = 1.0507009873554804934193349852946
-
-    def __init__(self, alpha=_alpha):
-        super().__init__(alpha)
+    elu = ELU(alpha=_alpha)
 
     def forward(self, X):
-        Y = self.scale * super().forward(X)
+        assert self.elu.alpha == self._alpha # sanity check
+        Y = self.scale * self.elu.forward(X)
         return Y
 
     def backward(self, gY):
-        gX = self.scale * super().backward(gY)
+        gX = self.scale * self.elu.backward(gY)
         return gX
 
 
@@ -727,8 +723,7 @@ class Sigmoid(MathFunction):
         return Y
 
     def backward(self, gY):
-        Y = self.fn_vars
-        self.reset_fn_vars()
+        Y = self.get_fn_vars(reset=True)
         gX = gY * Y * (1 - Y)
         return gX
 
@@ -736,13 +731,11 @@ class Sigmoid(MathFunction):
 def Tanh(MathFunction):
     """ Hyperbolic tangent activation """
     def forward(self, X):
-        Y = np.tanh(X)
-        self.set_fn_vars(Y)
+        Y = self.fn_vars = np.tanh(X)
         return Y
 
     def backward(self, gY):
-        Y = self.fn_vars
-        self.reset_fn_vars()
+        Y = self.get_fn_vars(reset=True)
         gX = gY * (1 - np.square(Y))
         return gX
 
@@ -760,11 +753,14 @@ def Softmax(MathFunction):
         top = np.exp(x)
         bot = np.sum(top, axis=1, keepdims=True)
         Y = top / bot
-        self.set_fn_vars(Y)
+        self.fn_vars = Y
         return Y
 
     def backward(self, gY):
-        Y = self.fn_vars
-        self.reset_fn_vars()
+        Y = self.get_fn_vars(reset=True)
+        gY *= Y
+        gsum = np.sum(gY, axis=1, keepdims=True)
+        gX = gY - (Y * gsum)
+        return gX
 
 
