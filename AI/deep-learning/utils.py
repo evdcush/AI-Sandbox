@@ -235,7 +235,6 @@ def sub_wget_data(url, fname, out_dir=DATA_DIR):
 
 def download_source_data(dataset=IRIS_DATASET, out_dir=DATA_DIR):
     """ Function to get a dataset from a source url """
-    if
     print("Retrieving iris dataset from source...")
     sub_wget_data(URL_IRIS_DATASET, FNAME_IRIS_DATASET, out_dir)
     print("Iris dataset successfully downloaded!")
