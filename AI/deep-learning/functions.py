@@ -776,8 +776,6 @@ class Tanh(MathFunction):
         return gX
 
 
-
-
 class Softmax(MathFunction):
     """ Softmax activation """
     # reduction kwargs
@@ -807,11 +805,10 @@ class Softmax(MathFunction):
         return Y
 
     def backward(self, gY):
-        kw = self.kw
         Y = self.get_fn_vars(reset=True)
         gY *= Y
-        gsum = np.sum(gY, **kw)
-        gX = gY - (Y * gsum)
+        Y  *= np.sum(gY, **self.kw)
+        gX = gY - Y
         return gX
 
 
