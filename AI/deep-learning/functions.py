@@ -189,7 +189,7 @@ def preserve(inputs=True, outputs=True):
             self.fn_vars = my_args
             return ret
         return preserve_args
-    return actual_decorator
+    return inner_preserve
 
 #==============================================================================
 # Base Function classes :
@@ -802,8 +802,8 @@ class Softmax(MathFunction):
             prob. distribution over K features, sums to 1
         """
         kw = self.kw # (axis=1, keepdims=True)
-        x_exp = np.exp(X - X.max(**kw))
-        Y = x_exp / np.sum(x_exp, **kw)
+        eX = np.exp(X - X.max(**kw))
+        Y = eX / np.sum(eX, **kw)
         return Y
 
     def backward(self, gY):
@@ -826,6 +826,7 @@ class SoftmaxCrossEntropy(MathFunction):
     Assumes input to func did not already have softmax act.
     """
     kw = {'axis':1, 'keepdims'=True}
+    softmax_ = Softmax()
     def softmax(self, X):
         kw = self.kw
         x_exp = np.exp(X - X.max(**kw))
