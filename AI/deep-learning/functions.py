@@ -665,7 +665,7 @@ class Linear(MathFunction):
 
         """
         gX, gW = self.matmul(gY, backprop=True)
-         _, gB =   self.bias(gY, backprop=True)
+        _,  gB =   self.bias(gY, backprop=True)
         self.reset()
         return gX, (gW, gB)
 
@@ -822,7 +822,7 @@ class SoftmaxCrossEntropy(MathFunction):
 
     Assumes input to func did not already have softmax act.
     """
-    kw = {'axis':1, 'keepdims'=True}
+    kw = {'axis':1, 'keepdims':True}
     softmax_ = Softmax()
     def softmax(self, X):
         kw = self.kw
@@ -847,3 +847,6 @@ class LogisticCrossEntropy(MathFunction):
 class MeanSquaredError(MathFunction):
     """ MSE """
     pass
+
+
+
