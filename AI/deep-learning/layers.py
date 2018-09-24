@@ -217,13 +217,18 @@ class DenseBlock(FunctionBlock):
 
 #------------------------------------------------------------------------------
 # Activation Blocks :
-#  SigmoidBlock, TanhBlock, ReluBlock, ELUBlock, SeluBlock
+#  SigmoidBlock, SoftmaxBlock, TanhBlock, ReluBlock, ELUBlock, SeluBlock
 #------------------------------------------------------------------------------
 
 class SigmoidBlock(FunctionBlock):
     """ Sigmoid activation """
     block_label = 'SigmoidBlock'
     function = F.Sigmoid()
+
+class Softmax(FunctionBlock):
+    """ Softmax activation """
+    block_label = 'SoftmaxBlock'
+    function = F.Softmax()
 
 class TanhBlock(FunctionBlock):
     """ Tanh activation """
@@ -244,6 +249,7 @@ class SeluBlock(FunctionBlock):
     """ SeLU activation """
     block_label = 'SeluBlock'
     function = F.SeLU()
+
 
 
 
