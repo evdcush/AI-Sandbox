@@ -20,7 +20,7 @@
   - Does it make sense? Is it intuitive?
   - Should this be it's own module?
   - Should this module be split, or should it be consolidated?
-  - DON'T organize/overengineer shit just to be "logical" or "oop"
+  - DON'T organize/overengineer stuff just to be "logical" or "oop"
     - intuitive structure ALWAYS comes first. Can easily refactor
       into OOP mess if you want
 
@@ -75,12 +75,9 @@ Probably won't do this. Project not meant to be a robust, production
   - in your own numpy, not sklearn
 - graph conv
 
-# NLP stuff
-alien to me
-
 
 #------------------------------------------------------------------------------
-# Cool shit
+# Cool stuff
 After you've done most of the basics, can add support for
 more topical stuff
 
@@ -95,7 +92,7 @@ more topical stuff
 - GAN, and it's billion variants
 
 ## neuro models
-- basal ganglia shit
+- basal ganglia stuff
 - visual cortex
 - data structures
   - episodic memory
@@ -103,6 +100,8 @@ more topical stuff
 ## Ensembled/bootstrapped
 
 ## transfer/multi-task/generalized
+- Neural fabric
+- progressive nets / pathnet
 
 
 
@@ -129,6 +128,20 @@ more topical stuff
        function kwargs for not saving,
        eg `def forward(inputs, save_in=True, save_out=True)`
 
+## Implement
+Math :
+    sign, hadamard, trig?
+    Composite :
+        2D conv
+Noise :
+    Dropout, GumSoft?
+Normalization :
+    Layernorm, (batchnorm?)
+Pooling :
+    Averagepooling, unpooling, (up/down samp?)
+
+
+
 ## Concrete
 - Some stuff needs testing: atomic funcs, minmax, activations
 - DOCUMENTATION: better class docstrings for all, and method stuff
@@ -138,7 +151,6 @@ more topical stuff
 
 
 #------------------------------------------------------------------------------
-
 
 
 """

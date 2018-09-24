@@ -10,35 +10,24 @@ Module components
 =================
 Function : base class for all functions
     MathFunction : base class for math ops
-        AtomicFunction : elementary functions and factors
-            : Log, Square, Exp, Power, Scale, Bias, Matmul, Sqrt, Abs,
-              Clip, Scale
-        CompositeFunction :
-        ReductionFunction :
-    ManipulationFunctions :
-        : Where, Reshape, ExpandDims, Concat
-    NoiseInjections :
-        Dropout, GumbelSoftmax
-    Normalization :
-        LayerNorm
-    Pooling :
-        : AveragePooling, Unpooling
-    Activation :
-        Relu, ClippedRelu, Crelu, Elu, sigmid, Leaky Relu,
-        Log_softmax, prelu, selu, sigm, tanh, swish, softplus,
-
-
-Initializers:
-    - Constant, Zero, One, (HeNormal), Glorot, Uniform
+        atomic functions: elementary functions and factors
+            Log, Square, Exp, Power, Bias, Matmul, Sqrt
+        composite functions : functions that combine other functions
+            Linear
+        ReductionFunction : functions that reduce dimensionality
+            Sum, Mean, Prod, Max, Min
+    activation functions: nonlinearities
+        ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax
+    loss functions : objectives for gradient descent
+        SoftmaxCrossEntropy
 
 """
-
-import os
-import sys
 import code
 from functools import wraps
 from pprint import PrettyPrinter
+
 import numpy as np
+
 from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 pretty_printer = PrettyPrinter()
@@ -47,55 +36,18 @@ pprint = lambda x: pretty_printer.pprint(x)
 
 """ submodule imports
 utils :
-    `TODO` : decorator
+    `TODO` : decorator func
         serves as comment and call safety
 
-    `NOTIMPLEMENTED` : decorator
+    `NOTIMPLEMENTED` : decorator func
         raises NotImplementedErrorforces if class func has not been overridden
 
-    `INSPECT` : decorator
+    `INSPECT` : decorator func
         interrupts computation and enters interactive shell,
         where the user can evaluate the input and output to func
 """
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
-
-#==============================================================================
-#------------------------------------------------------------------------------
-#                              Network ops
-#------------------------------------------------------------------------------
-#==============================================================================
-
-
-
-"""
-###############################################################################
-#                                                                             #
-#  888888888888        ,ad8888ba,        88888888ba,          ,ad8888ba,      #
-#       88            d8"'    `"8b       88      `"8b        d8"'    `"8b     #
-#       88           d8'        `8b      88        `8b      d8'        `8b    #
-#       88           88          88      88         88      88          88    #
-#       88           88          88      88         88      88          88    #
-#       88           Y8,        ,8P      88         8P      Y8,        ,8P    #
-#       88            Y8a.    .a8P       88      .a8P        Y8a.    .a8P     #
-#       88             `"Y8888Y"'        88888888Y"'          `"Y8888Y"'      #
-
-- All of the function "interfaces" or initializers for the Functions
-  - eg: for Sum, we need to make it's consituent `sum` that calls Sum
-    - HUGE POTENTIAL ISSUE: since you aren't returning a Variable,
-        or Tensor, how is the returned thing going to retain
-        gradients of Functions?
-- maybe make a reset_fn_vars decorator for the MathFunction backward
-
-## concrete stuff:
-- docstrings minmax class
-- test min and max
-- tets atomic funcs
-
-
-
-
-"""
-###############################################################################
 
 
 #==============================================================================
@@ -105,8 +57,10 @@ utils :
 #==============================================================================
 
 #------------------------------------------------------------------------------
-# Handy decorators
+# Helpers and handy decorators
 #------------------------------------------------------------------------------
+
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
 def preserve_default(method):
     """ always saves method inputs to fn_vars """
@@ -140,6 +94,8 @@ def preserve(inputs=True, outputs=True):
             return ret
         return preserve_args
     return inner_preserve
+
+
 
 #==============================================================================
 # Base Function classes :
@@ -303,7 +259,8 @@ class ReductionFunction(MathFunction):
         """
         # Dimension vars
         dims_X, axes = self.get_fn_vars(reset=reset)
-        dims_X = list(dims_X); axes = self.format(axes)
+        dims_X = list(dims_X)
+        axes = self.format(axes)
         dims_Y = Y.shape
 
         # Get reshape dims
@@ -324,7 +281,7 @@ class ReductionFunction(MathFunction):
 #==============================================================================
 #------------------------------------------------------------------------------
 # Atomic math functions :
-#  Exp, Log, Power, Square, Sqrt, Scale, Bias, MatMul, Clip
+#  Exp, Log, Power, Square, Sqrt, Bias, MatMul
 #------------------------------------------------------------------------------
 class Exp(MathFunction):
     """ Elementwise exponential function """
@@ -403,42 +360,55 @@ class MatMul(MathFunction):
 @TODO
 class Log(MathFunction):
     """ """
+    eps = 1e-4
     def forward(self, X):
-        pass
+        self.fn_vars = X
+        Y = np.log(X + self.eps)
+        return Y
 
     def backward(self, gY):
-        pass
+        X = self.get_fn_vars()
+        gX = gY / (X + self.eps)
+        return gX
 
+@TODO
 class Power(MathFunction):
     """ """
     def forward(self, X, p):
-        self.fn_vars = p
+        self.fn_vars = X, p
         Y = np.power(X, p)
         return Y
 
     def backward(self, gY):
-        p = self.get_fn_vars()
-        gX = p * np.power(gY, p-1.0)
+        X, p = self.get_fn_vars()
+        gX = gY * p * np.power(X, p - 1.0)
+        return gX
 
-
+@TODO
 class Square(MathFunction):
     """ squares an array"""
     def forward(self, X):
+        self.fn_vars = X
         Y = np.square(X)
         return Y
 
     def backward(self, gY):
-        gX = 2 * gY
+        X = self.get_fn_vars()
+        gX = gY * 2.0 * X
         return gX
 
 @TODO
 class Sqrt(MathFunction):
     """ """
     def forward(self, X):
-        pass
+        Y = np.sqrt(X)
+        self.fn_vars = Y
+        return Y
 
     def backward(self, gY):
-        pass
+        Y = self.get_fn_vars()
+        gX = gY / (2 * Y)
+        return gX
 
 
 
@@ -637,13 +607,6 @@ class ReLU(MathFunction):
         gX = np.where(Y, gY, 0)
         return gX
 
-@TODO
-class PReLU(ReLU):
-    pass
-
-@TODO
-class RRelU(ReLU):
-    pass
 
 class ELU(MathFunction):
     """ Exponential Linear Unit """
@@ -695,6 +658,62 @@ class SeLU(ELU):
     def backward(self, gY):
         gX = self.scale * self.elu.backward(gY)
         return gX
+
+@TODO
+class PReLU(ReLU):
+    pass
+
+@TODO
+class RRelU(ReLU):
+    pass
+
+@TODO
+class Swish(MathFunction):
+    """ Self-gated activation function
+    Can be viewed as a smooth function where the nonlinearity
+    interpolates between the linear function (x/2), and the
+    ReLU function.
+
+    'The best discovered activation function',
+    intended to improve/replace the ReLU masterrace
+
+     - See https://arxiv.org/abs/1710.05941
+
+     Params
+     ------
+     X : ndarray
+        the usual
+
+     b : ndarray
+        scaling parameter. Authors say it can be a
+        constant scalar (1.0), but always immediately follow it up
+        saying it's best as a channel-wise trainable param.
+
+        So it's going to be always be treated as an array with the same
+        shape as X.shape[1:] (exlude batch dim)
+
+    """
+    _sigmoid = lambda x: 1 / (1 + np.exp(-x)) # just use Sigmoid??
+
+    @property
+    def sigmoid(self):
+        return self._sigmoid
+
+    def forward(self, X, b):
+        """ """
+        sig_bX = self.sigmoid(b * X)
+        Y = X * sig_bX
+        self.fn_vars = X, b, sig_bX, Y
+        return Y
+
+    def backward(self, gY):
+        X, b, sig_bX, Y = self.get_fn_vars()
+        bY = b * Y
+        gF = bY + sig_bX * (1 - bY) # gradient forward func
+        gB = gY * Y * (X - Y) # gradient wrt beta
+        gX = gY * gF # gradient wrt X
+        return gX, gB
+
 
 
 class Sigmoid(MathFunction):
