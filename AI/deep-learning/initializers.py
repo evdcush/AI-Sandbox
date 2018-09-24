@@ -186,9 +186,13 @@ class GlorotUniform(Uniform):
 
 #------------------------------------------------------------------------------
 # Constant :
-#  Zeros
+#  Zeros, Ones
 #------------------------------------------------------------------------------
 
 class Zeros(Constant):
     """ Initializes array with all zeros """
     fill_value = 0.0
+
+class Ones(Constant):
+    """ Initializes array with all ones """
+    fill_value = 1.0

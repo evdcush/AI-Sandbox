@@ -176,7 +176,7 @@ def INSPECT(f):
 # Data pathing
 # ========================================
 DATA_PATH_ROOT = './data/'
-IRIS_DATA_PATH = DATA_PATH_ROOT + 'Iris/iris.npy
+IRIS_DATA_PATH = DATA_PATH_ROOT + 'Iris/iris.npy'
 
 # Model pathing
 # ========================================

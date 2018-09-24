@@ -31,7 +31,7 @@ Blocks are the interface to functions, maintaining all parameters used
 """
 
 import functions as F
-from utils import HeNormal, Zeros
+from initializers import HeNormal, Zeros, Ones
 from nn import SGD, Adam
 
 
@@ -202,7 +202,7 @@ class DenseBlock(FunctionBlock):
         return Y
 
     def backward(self, gY, opt):
-        gX, params = self.function(gY, self.W, self.B, backprop=True)
+        gX, params = self.function(gY, backprop=True)
         gW, gB = params
         self.update(gW, gB, opt)
         return gX
@@ -250,6 +250,38 @@ class SeluBlock(FunctionBlock):
     block_label = 'SeluBlock'
     function = F.SeLU()
 
+class SwishBlock(FunctionBlock):
+    """ Swish activation """
+    block_label = 'SwishBlock'
+    function = F.Swish()
+    params = {}
+    updates = True
+    def __init__(self, *args, **kwargs):
+        # super inits: self.ID, self.label, self.kdim
+        super().__init__(*args, **kwargs)
+        self.B_key ='{}_{}'.format(self.label, 'B')
+        self.B = Ones(self.kdim[-1:])
+
+    @property
+    def B(self):
+        return self.params[self.B_key]
+
+    @B.setter
+    def B(self, val):
+        self.params[self.B_key] = val
+
+    def forward(self, X):
+        Y = self.function(X, self.B)
+        return Y
+
+    def backward(self, gY, opt):
+        gX, gB = self.function(gY, backprop=True)
+        self.update(gB, opt)
+        return gX
+
+    def update(self, gB, opt):
+        grads = {self.B_key: gB}
+        self.params = opt(self.params, grads)
 
 
 
