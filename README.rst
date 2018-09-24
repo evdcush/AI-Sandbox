@@ -1,16 +1,21 @@
 AI Sandbox
-================
+==========
+A place I use to try out different AI stuff.
 
-A space I use to play around with different stuff in AI
 
-
-Project Contents
-------------
-
-WIP
-
+Requirements
+^^^^^^^^^^^^
+- Python 3.5+
+- NumPy
+- Jupyter (optional)
 
 
 License
------
-Except where noted, any software or code is licensed as Apache 2.0, while any other written content is licensed as CC-NC-SA 4.0.
+-------
+Except where noted otherwise, the content of this project is licensed under the `clear BSD-3`_.
+
+.. _clear BSD-3: LICENSE
+
+
+
+

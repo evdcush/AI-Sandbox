@@ -28,48 +28,22 @@ Function : base class for all functions
         Log_softmax, prelu, selu, sigm, tanh, swish, softplus,
 
 
-
-#
 Initializers:
     - Constant, Zero, One, (HeNormal), Glorot, Uniform
 
-
-# Components of the module
-#-------------------------
-Functions : a collection of base functions
-    Mostly activation and mathematic ops
-
-Layers : the primary architectural feature of a network
-    Layers use a set of hyperparameters (like weights), Functions,
-    and data to produce an output
-
-Network : manages data flow through a series of layers
-    The relation of Networks to Layers is analogous to Layers and Functions
-    However, a Network also manages the data flow for the forward and backward
-    stages of data
-
-Model : an interface to a Network
-    Models are typically composed of a single Network, and are more
-    task-specific, such as a "discriminative" Model or "generative," though
-    any given task would also require structural changes down the hierarchy.
-
-Optimizer : optimizes the model hyperparameters
-    Optimizers receive the model output, and the error from a loss function
-    and adjusts model hyperparameters to improve model fn_varsuracy
-
-
 """
-
 
 import os
 import sys
 import code
 from functools import wraps
-from pprint import PrettyPrinter as ppr
-
+from pprint import PrettyPrinter
 import numpy as np
-
 from utils import TODO, NOTIMPLEMENTED, INSPECT
+
+pretty_printer = PrettyPrinter()
+pprint = lambda x: pretty_printer.pprint(x)
+
 
 """ submodule imports
 utils :
@@ -122,30 +96,6 @@ utils :
 
 """
 ###############################################################################
-
-
-
-
-
-#==============================================================================
-# Globals
-#==============================================================================
-#------------------------------------------------------------------------------
-# Shift invariant ops
-#------------------------------------------------------------------------------
-
-#------------------------------------------------------------------------------
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-
-# Shift invariant nodes
-# ========================================
-
-#==== Thing
-
-# Thing
-#-----------
 
 
 #==============================================================================
@@ -269,7 +219,7 @@ class MathFunction(Function):
     def fn_vars(self, *fvars):
         self._fn_vars = fvars if len(fvars) > 1 else fvars[0]
 
-    def get_fn_vars(self,reset=False):
+    def get_fn_vars(self,reset=True):
         fvars = self.fn_vars
         if reset:
             self.reset_fn_vars()
@@ -383,7 +333,7 @@ class Exp(MathFunction):
         return Y
 
     def backward(self, gY):
-        Y = self.get_fn_vars(reset=True)
+        Y = self.get_fn_vars()
         gX = Y * gY
         return gX
 
@@ -436,7 +386,7 @@ class MatMul(MathFunction):
         gW shape
         """
         # retrieve inputs
-        X, W = self.get_fn_vars(reset=True)
+        X, W = self.get_fn_vars()
         m, k = W.shape
 
         # get grads
@@ -449,6 +399,8 @@ class MatMul(MathFunction):
 
 # >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< ><
 # TODO
+
+@TODO
 class Log(MathFunction):
     """ """
     def forward(self, X):
@@ -460,19 +412,26 @@ class Log(MathFunction):
 class Power(MathFunction):
     """ """
     def forward(self, X, p):
-        pass
+        self.fn_vars = p
+        Y = np.power(X, p)
+        return Y
 
     def backward(self, gY):
-        pass
+        p = self.get_fn_vars()
+        gX = p * np.power(gY, p-1.0)
+
 
 class Square(MathFunction):
-    """ """
+    """ squares an array"""
     def forward(self, X):
-        pass
+        Y = np.square(X)
+        return Y
 
     def backward(self, gY):
-        pass
+        gX = 2 * gY
+        return gX
 
+@TODO
 class Sqrt(MathFunction):
     """ """
     def forward(self, X):
@@ -481,21 +440,7 @@ class Sqrt(MathFunction):
     def backward(self, gY):
         pass
 
-class Scale(MathFunction):
-    """ Elementwise multiplication between matrices """
-    def forward(self, X, Z):
-        pass
 
-    def backward(self, gZ):
-        pass
-
-class Clip(MathFunction):
-    """ """
-    def forward(self, X, lhs=None, rhs=None):
-        pass
-
-    def backward(self, gY):
-        pass
 
 # TODO
 # >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< >< ><
@@ -688,14 +633,15 @@ class ReLU(MathFunction):
         We can exploit that property to use Y
           directly for indexing the gradient
          """
-        Y = self.get_fn_vars(reset=True)
+        Y = self.get_fn_vars()
         gX = np.where(Y, gY, 0)
         return gX
 
-
+@TODO
 class PReLU(ReLU):
     pass
 
+@TODO
 class RRelU(ReLU):
     pass
 
@@ -710,7 +656,7 @@ class ELU(MathFunction):
         return Y
 
     def backward(self, gY):
-        X = self.get_fn_vars(reset=True)
+        X = self.get_fn_vars()
         gX = np.where(X < 0, self.alpha * np.exp(X), gY)
         return gX
 
@@ -759,7 +705,7 @@ class Sigmoid(MathFunction):
         return Y
 
     def backward(self, gY):
-        Y = self.get_fn_vars(reset=True)
+        Y = self.get_fn_vars()
         gX = gY * Y * (1 - Y)
         return gX
 
@@ -771,7 +717,7 @@ class Tanh(MathFunction):
         return Y
 
     def backward(self, gY):
-        Y = self.get_fn_vars(reset=True)
+        Y = self.get_fn_vars()
         gX = gY * (1 - np.square(Y))
         return gX
 
@@ -805,9 +751,9 @@ class Softmax(MathFunction):
         return Y
 
     def backward(self, gY):
-        Y = self.get_fn_vars(reset=True)
+        Y = self.get_fn_vars()
         gY *= Y
-        Y  *= np.sum(gY, **self.kw)
+        Y *= np.sum(gY, **self.kw)
         gX = gY - Y
         return gX
 
@@ -816,37 +762,65 @@ class Softmax(MathFunction):
 # Loss Functions
 #==============================================================================
 
-@TODO
 class SoftmaxCrossEntropy(MathFunction):
-    """ Cross entropy error on pre-softmax activations
+    """ Cross entropy loss defined on softmax activation
 
-    Assumes input to func did not already have softmax act.
+    Notes
+    -----
+    : Assumes input had no activation applied
+    : *Assumes network input is 2D*
+
+    Attributes
+    ----------
+    softmax : Softmax :obj:
+        instance of Softmax function
     """
-    kw = {'axis':1, 'keepdims':True}
-    softmax_ = Softmax()
-    def softmax(self, X):
-        kw = self.kw
-        x_exp = np.exp(X - X.max(**kw))
-        Y = x_exp / x_exp.sum(**kw)
-        return Y
+
+    softmax = Softmax()
 
     def forward(self, X, t):
-        kw = self.kw
-        probs = self.softmax(X)
-        likelihood = -np.log(probs[np.arange(x.shape[0]), t])
-        Y = np.sum(likelihood, **kw) / X.shape[0]
-        return Y
+        """ Cross entropy loss function defined on a
+        softmax activation
 
+        Params
+        ------
+        X : ndarray float32, (N, D)
+            output of network's final layer with no activation. *2D assumed*
 
-@TODO
-class LogisticCrossEntropy(MathFunction):
-    """ log loss function """
-    pass
+        t : ndarray int32, (N,)
+            truth labels for each sample, where int values range [0, D)
 
-@TODO
-class MeanSquaredError(MathFunction):
-    """ MSE """
-    pass
+        Returns
+        -------
+        loss : float, (1,)
+            the cross entropy error between the network's predicted
+            class labels and ground truth labels
+        """
+        assert X.ndim == 2 and t.shape[0] == X.shape[0]
 
+        N = t.shape[0]
+        Y = self.softmax(X)
+        self.fn_vars = Y, t # preserve vars for backward
+        p = -np.log(Y[np.arange(N), t])
+        loss = np.sum(p, keepdims=True) / float(N)
+        return loss
 
+    def backward(self, gLoss):
+        """ gradient function for cross entropy loss
 
+        Params
+        ------
+        gLoss : ndarray, (1,)
+            cross entropy error (output of self.forward)
+
+        Returns
+        -------
+        gX : ndarray, (N, D)
+            derivative of X (network prediction) wrt the cross entropy loss
+        """
+        gX, t = self.get_fn_vars() # (Y, t)
+        N = t.shape[0]
+        #gX = Y
+        gX[np.arange(N), t] -= 1
+        gX = gLoss * (gX / float(N))
+        return gX
