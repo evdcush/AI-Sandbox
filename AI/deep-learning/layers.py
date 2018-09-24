@@ -299,7 +299,8 @@ ACTIVATIONS = {'sigmoid' : SigmoidBlock,
                   'tanh' : TanhBlock,
                   'relu' : ReluBlock,
                    'elu' : ELUBlock,
-                  'selu' : SeluBlock
+                  'selu' : SeluBlock,
+                  'swish': SwishBlock,
                   }
 
 BLOCKS = {**OPS, **ACTIVATIONS}
@@ -427,8 +428,6 @@ class FullyConnectedLayer(Layer):
         super().__init__(*args, blocks=blocks, no_act=no_act, **kwargs)
 
 
-
-
 #==============================================================================
 #------------------------------------------------------------------------------
 #                              Network
@@ -481,8 +480,9 @@ class NeuralNetwork:
 
     """
     network_label = 'NN'
-    def __init__(self, channels, layer, model_label, *args,
-                 output_activation=False, initializer=None, **kwargs):
+    def __init__(self, channels, model_label, *args,
+                 layer_blocks=['dense', 'sigmoid'], output_activation=False,
+                 initializer=None, **kwargs):
         # Network config
         self.initializer = initializer
         self.label = self.format_label(model_label)
@@ -492,7 +492,8 @@ class NeuralNetwork:
         self.num_layers = len(self.kdims)
 
         # Network layers
-        self.layer_type = layer
+        #self.layer_type = layer
+        self.layer_blocks = layer_blocks
         self.output_activation = output_activation
         self.layers = self.initialize_layers()
 
@@ -508,17 +509,18 @@ class NeuralNetwork:
           initializer=None, no_act=False, **kwargs
         """
         # Layer
-        layer = self.layer_type
+        layer_blocks = self.layer_blocks
         layers = []
 
         # Layer init args
         label = self.label
-        initzr = self.initializer
+        L_init = self.initializer
         act = lambda i: self.output_activation and i == self.num_layers - 1
 
         # Initialize all layers
         for ID, kdim in enumerate(self.kdims):
-            layer = layer(kdim, ID, label, no_act=act(ID), initializer=initzr)
+            layer = Layer(kdim, ID, label, blocks=layer_blocks, no_act=act(ID),
+                         initializer=L_init)
             layers.append(layer)
 
         return layers
