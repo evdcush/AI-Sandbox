@@ -29,10 +29,10 @@ Blocks are the interface to functions, maintaining all parameters used
  to the set of all Block parameters for updating.
 
 """
-
+import code
+import numpy as np
 import functions as F
 from initializers import HeNormal, Zeros, Ones
-from nn import SGD, Adam
 
 
 #==============================================================================
@@ -106,6 +106,7 @@ class FunctionBlock(Block):
     def __init__(self, kdim, ID, layer_label, *args, **kwargs):
         super().__init__(ID, layer_label)
         self.kdim = kdim
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
     def forward(self, X, *args, **kwargs):
         Y = self.function(X, *args, **kwargs)
@@ -145,8 +146,10 @@ class DenseBlock(FunctionBlock):
     def __init__(self, kdim, ID, layer_label, init_W=HeNormal, init_B=Zeros):
         # super inits: self.ID, self.label, self.kdim
         super().__init__(kdim, ID, layer_label)
+        self.init_W = init_W()
+        self.init_B = init_B()
         self.format_params_labels()
-        self.initialize_params(init_W, init_B)
+        self.initialize_params()
 
     def format_params_labels(self):
         """ Creates final, unique str label used for identifying param
@@ -188,14 +191,16 @@ class DenseBlock(FunctionBlock):
         self.params[self.B_key] = val
 
 
-    def initialize_params(self, init_W, init_B):
-        if init_W.__name__ == 'dict':
-            # Then params are being restored, rather than init
-            self.params = init_W
-        else:
-            # both are array creation routines
-            self.W = init_W(self.kdim)
-            self.B = init_B(self.kdim) + 1e-7 # near zero
+    def initialize_params(self,):
+        #if init_W.__name__ == 'dict':
+        #    # Then params are being restored, rather than init
+        #    self.params = init_W
+        #else:
+        # both are array creation routines
+        self.W = self.init_W(self.kdim)
+        #print('layers, 197: initialize_params')
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+        self.B = self.init_B(self.kdim[-1:]) + 1e-7 # near zero
 
     def forward(self, X):
         Y = self.function(X, self.W, self.B)
@@ -383,9 +388,9 @@ class Layer:
         assert all([key in all_blocks for key in block_keys])
 
         # initialize each block
-        for ID, key in block_keys:
+        for ID, key in enumerate(block_keys):
             block = all_blocks[key]
-            args_block = (self.label, ID, self.kdim)
+            args_block = (self.kdim, ID, self.label)
             if initializer is not None:
                 args_block += (initializer,)
             blocks[ID] = block(*args_block)
@@ -499,7 +504,7 @@ class NeuralNetwork:
 
 
     def format_label(self, caller_label):
-        label = '{}_{}'.format(model_label, self.network_label)
+        label = '{}_{}'.format(caller_label, self.network_label)
         return label
 
     def initialize_layers(self):
@@ -551,7 +556,7 @@ class NeuralNetwork:
         """
         gX = np.copy(gY)
         for layer in reversed(self.layers):
-            gX = layer(gX, opt)
+            gX = layer(gX, opt, backprop=True)
         return
 
     def __call__(self, *args, backprop=False, **kwargs):

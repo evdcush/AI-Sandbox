@@ -1,0 +1,87 @@
+
+
+# Iris dataset
+# ========================================
+Iris dataset from UCI Machine Learning Repository
+
+URL: https://archive.ics.uci.edu/ml/datasets/iris/bezdekIris.data
+Access Date: Accessed 2018-09-09
+Citation: @misc{Dua:2017 ,
+           author = "Dheeru, Dua and Karra Taniskidou, Efi",
+           year = "2017",
+           title = "{UCI} Machine Learning Repository",
+           url = "http://archive.ics.uci.edu/ml",
+           institution = "University of California, Irvine, School of
+                          Information and Computer Sciences" }
+
+# Dataset description
+#--------------------
+The Iris dataset consists of 150 samples of Iris flower features.
+There are 50-samples for each of the three Iris species represented in the set:
+ - Iris-setosa
+ - Iris-versicolor
+ - Iris-virginica
+
+Each sample or record in the dataset has 5 attributes:
+- 4 features of the flower:
+  - sepal-length
+  - sepal-width
+  - petal-length
+  - petal-width
+- The Iris class or type (as described above)
+
+And each sample is ordered in this manner:
+[sepal-length, sepal-width, petal-length, petal-width, Iris-species]
+ - With corresponding data-types of [float, float, float, float, string]
+
+# Example records
+* `5.1,3.8,1.6,0.2,Iris-setosa`
+* `5.0,2.0,3.5,1.0,Iris-versicolor`
+* `6.9,3.1,5.4,2.1,Iris-virginica`
+
+#==============================================================================
+# Downloading and processing Iris from source
+#==============================================================================
+
+# Iris dataset source url
+url_iris = 'https://archive.ics.uci.edu/ml/machine-learning-databases/iris/'
+FNAME_IRIS_DATASET = 'bezdekIris.data'
+URL_IRIS_DATASET = url_iris + FNAME_IRIS_DATASET
+
+
+def download_source_data(dataset=IRIS_DATASET, out_dir=DATA_DIR):
+    """ Function to get a dataset from a source url """
+    print("Retrieving iris dataset from source...")
+    sub_wget_data(URL_IRIS_DATASET, FNAME_IRIS_DATASET, out_dir)
+    print("Iris dataset successfully downloaded!")
+
+lines = open('bezdekIris.data').read().split('\n')
+lines = [line.split(',') for line in lines]
+
+lines_eval = []
+for lst in lines:
+    entry = []
+    for i, k in enumerate(lst):
+        ek = k if i < 4 else IRIS_CLASS_MAP[k]
+        entry.append(float(ek))
+    lines_eval.append(entry)
+
+dataset_npy = np.array(lines_eval).astype(np.float32)
+np.save('iris', dataset_npy.astype(np.float32))
+np.save('iris_f16', dataset_npy.astype(np.float16))
+
+
+#==============================================================================
+# Retrieiving the iris dataset
+#==============================================================================
+#------------------------------------------------------------------------------
+# Getting the dataset from source
+#------------------------------------------------------------------------------
+def sub_wget_data(url, fname, out_dir=DATA_DIR):
+    """ Gets desired data from a url using wget """
+    if not os.path.exists(out_dir): os.makedirs(out_dir)
+    try:
+        subprocess.check_output(["wget", "-T", "120", url])
+        shutil.move(fname, out_dir)
+    except:
+        print('Error in retrieving dataset')

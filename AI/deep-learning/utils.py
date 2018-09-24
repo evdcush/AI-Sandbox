@@ -36,6 +36,7 @@ import os
 import sys
 import code
 import shutil
+import argparse
 import subprocess
 from functools import wraps
 
@@ -67,7 +68,7 @@ class AttrDict(dict):
 
 # Getters
 # ========================================
-def sub_wget_data(url, fname, out_dir=DATA_DIR):
+def sub_wget_data(url, fname, out_dir):
     """ Gets desired data from a url using wget """
     if not os.path.exists(out_dir): os.makedirs(out_dir)
     try:
@@ -166,7 +167,9 @@ LOSS_TEST_FNAME  = RESULTS_BASE_NAME.format('test_error')
 RNG_SEED_DATA   = 98765 # for shuffling data
 RNG_SEED_PARAMS = 12345 # seeding parameter inits
 
-
+# Hyperparameters
+# ========================================
+LEARNING_RATE = 0.01
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -249,7 +252,7 @@ class Dataset:
         """
         #self.label = label
         #self.fname = fname
-        #self.data_path = self.data_dir + data_subdirs + fname
+        #self.data_path = self + data_subdirs + fname
         #self.url = url
         ## init other possible class instance vars
         #for attribute, value in kwargs.items():
@@ -449,7 +452,7 @@ class Parser:
         adg('--num_iters',  '-i', type=int, default=500)
         adg('--batch_size', '-b', type=int, default=6)
         adg('--restore',    '-r', **self.p_bool)
-        adg('--checkpoint', '-h', type=int, default=50)
+        adg('--checkpoint', '-p', type=int, default=50)
         self.parse_args()
 
     def parse_args(self):
