@@ -421,13 +421,9 @@ def one_hot(Y):
 class Parser:
     """ Wrapper for argparse parser
     """
+    P = argparse.ArgumentParser()
     def __init__(self):
-        self.p = argparse.ArgumentParser()
-        self.add_parse_args()
-
-    def add_parse_args(self,):
-        adg = self.p.add_argument
-
+        adg = self.P.add_argument
         # ==== Data variables
         adg('--data_path',  '-d', type=str, default=DATA_PATH_ROOT,)
         adg('--seed',       '-s', type=int, default=RNG_SEED_PARAMS,)
@@ -441,15 +437,14 @@ class Parser:
         adg('--learn_rate', '-a', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
-        #adg('--num_test',   '-t', type=int, default=NUM_TEST_SAMPLES) # do static?
-        adg('--num_iters',  '-i', type=int, default=2000)
+        adg('--num_iters',  '-i', type=int, default=500)
         adg('--batch_size', '-b', type=int, default=4)
         adg('--restore',    '-r', type=int, default=0,) # bool
-        adg('--checkpoint', '-h', type=int, default=100)
+        adg('--checkpoint', '-h', type=int, default=50)
+        self.parse_args()
 
     def parse_args(self):
-        self.args =
-        parsed = AttrDict(vars(self.p.parse_args()))
+        parsed = AttrDict(vars(self.P.parse_args()))
         self.args = parsed
         return parsed
 
