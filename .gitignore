@@ -1,5 +1,7 @@
 ## PROJECT/LOCAL IGNORE ##
 TESTING/
+TODO/
+Goals/
 
 ## PYTHON IGNORE ##
 # Byte-compiled / optimized / DLL files
