@@ -102,34 +102,6 @@ def preserve(inputs=True, outputs=True):
 #  Function, MathFunction, ReductionFunction
 #==============================================================================
 
-# Function
-# --------
-# inherits :
-# derives : MathFunction
-class Function:
-    """
-    Base class for a function, must be overridden
-
-    # All functions take an input, do something, and return an output.
-
-    Instance methods are all expected to be overridden. However,
-      Function provides a useful initialization function
-      for assigning an arbitrary number of attributes that most
-      Function child instances will utilize
-
-    """
-    def __init__(self, **kwargs):
-        for attribute, value in kwargs.items():
-            setattr(self, attribute, value)
-
-    @classmethod
-    def get_class_name(cls):
-        return cls.__name__
-
-    @NOTIMPLEMENTED
-    def __call__(self,):
-        """ Dispatch to forward or backward """
-        pass
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -137,34 +109,55 @@ class Function:
 # ------------
 # inherits : Function
 # derives  : ReductionFunction
-class MathFunction(Function):
+class Function:
     """
     Function for various mathematical ops
 
     Function ops
     -------------
-    MathFunctions have two parts:
-        forward : function
-            the typical form of any given function
-        backward : gradient function
+        forward : f(X)
+            the function
+        backward : f'(X)
             the derivative of the function
 
     Attributes
     ----------
-    fn_vars : (no defined type)
-        the variables stored by functions for use in backprop
-
-    Callee dispatch
-    ----------------
-    Callers of MathFunction instances will only
-    use MathFunction.__call__
-
-    MathFunction.__call__ will then dispatch to
-    forward or backward based on the caller-specified
-    'backprop' kwarg.
 
     """
-    _fn_vars = None
+    name = 'Function'
+    updates = False
+    params = AttrDict()
+
+    def __init__(self, *args, initializer=None, caller_label=None, **kwargs):
+# +------+.      +------+       +------+       +------+      .+------+ #
+# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
+# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
+# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
+# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
+#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
+#    `+------+     +------+     +------+     +------+     +------+'    #
+# +------+.      +------+       +------+       +------+      .+------+ #
+# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
+# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
+# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
+# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
+#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
+#    `+------+     +------+     +------+     +------+     +------+'    #
+# +------+.      +------+       +------+       +------+      .+------+ #
+# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
+# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
+# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
+# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
+#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
+#    `+------+     +------+     +------+     +------+     +------+'    #
+# +------+.      +------+       +------+       +------+      .+------+ #
+# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
+# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
+# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
+# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
+#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
+#    `+------+     +------+     +------+     +------+     +------+'    #
+
 
     @property
     def fn_vars(self):
