@@ -25,7 +25,7 @@ Adam: Optimizer, Adaptive moment estimation algorithm
     squared v, and and average gradients m
 
 """
-
+import code
 import numpy as np
 
 from utils import TODO, NOTIMPLEMENTED, INSPECT
@@ -187,6 +187,7 @@ class AdaptiveOptimizer(Optimizer):
         updated_params = {}
         for p_key in params.keys():
             # get param and it's respective grad
+            code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             P = params[p_key]
             gP = grads[p_key]
 

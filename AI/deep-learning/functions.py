@@ -46,7 +46,7 @@ utils :
         interrupts computation and enters interactive shell,
         where the user can evaluate the input and output to func
 """
-#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
 
 
 
@@ -60,7 +60,7 @@ utils :
 # Helpers and handy decorators
 #------------------------------------------------------------------------------
 
-#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
 
 def preserve_default(method):
     """ always saves method inputs to fn_vars """
@@ -195,10 +195,13 @@ class MathFunction(Function):
     def __call__(self, *args, backprop=False, **kwargs):
         """ Dispatch to forward or backward """
         func = self.backward if backprop else self.forward
+        print('Mathfunction call func: {}'.format(str(func)))
         if backprop:
-            code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-            #shapes = [x.shape for x in args]
-            #print('\nlen(args): {}\nshapes: {}\nbackprop = {}\n'.format(len(args), shapes, backprop))
+            pass
+            #import IPython
+            #IPython.embed()
+            #poo = func(*args, **kwargs)
+            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
         return func(*args, **kwargs)
 
 '''
@@ -345,7 +348,7 @@ class MatMul(MathFunction):
     def forward(self, X, W):
         """ matmul on X, W assumes X.shape[-1] == W.shape[0] """
         self.fn_vars = X, W
-        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
         Y = np.matmul(X, W)
         return Y
 
@@ -737,7 +740,7 @@ class Sigmoid(MathFunction):
         self.fn_vars = Y
         return Y
 
-    def backward(self, gY):
+    def backward(self, gY, *args, **kwargs):
         Y = self.get_fn_vars()
         gX = gY * Y * (1 - Y)
         return gX
@@ -832,7 +835,7 @@ class SoftmaxCrossEntropy(MathFunction):
         assert X.ndim == 2 and t.shape[0] == X.shape[0]
 
         N = t.shape[0]
-        code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
         Y = self.softmax(X)
         self.fn_vars = Y, t # preserve vars for backward
         p = -np.log(Y[np.arange(N), t])
@@ -852,6 +855,8 @@ class SoftmaxCrossEntropy(MathFunction):
         gX : ndarray, (N, D)
             derivative of X (network prediction) wrt the cross entropy loss
         """
+
+
         gX, t = self.get_fn_vars() # (Y, t)
         N = t.shape[0]
         #gX = Y

@@ -12,12 +12,12 @@ from optimizers import SGD, Adam
 from functions import SoftmaxCrossEntropy
 
 # Data setup
-argv_parser = utils.Parser()
-config = argv_parser.parse_args()
+arg_parser = utils.Parser()
+config = arg_parser.parse_args()
 
 # Load data
 X = np.load(utils.IRIS_DATA_PATH)
-num_classes = int(X[...,-1:].max())
+num_classes = int(X[...,-1:].max()) + 1
 X_train, X_test = utils.split_dataset(X)
 X = None
 
@@ -35,7 +35,8 @@ checkpoint = config.checkpoint
 #------------------
 learning_rate = config.learn_rate
 blocks = [config.block_op, config.block_act] # ['dense', 'sigmoid']
-channels = [4, 16, 64, 32, 8, num_classes] # config.channels
+#channels = [4, 16, 64, 32, 8, num_classes] # config.channels
+channels = [4, 16, num_classes] # config.channels
 
 
 
@@ -47,7 +48,8 @@ channels = [4, 16, 64, 32, 8, num_classes] # config.channels
 np.random.seed(utils.RNG_SEED_PARAMS)
 model = layers.NeuralNetwork(channels, 'M', layer_blocks=blocks)
 objective = SoftmaxCrossEntropy()
-opt = Adam()
+#opt = Adam()
+opt = SGD(learning_rate)
 
 # Instantiate model results collections
 #------------------
