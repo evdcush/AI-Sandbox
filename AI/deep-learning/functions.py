@@ -9,7 +9,7 @@ Other functions, for training or data processing, can be found in `utils.py`
 Module components
 =================
 Function : base class for all functions
-    MathFunction : base class for math ops
+    Function : base class for math ops
         atomic functions: elementary functions and factors
             Log, Square, Exp, Power, Bias, Matmul, Sqrt
         composite functions : functions that combine other functions
@@ -99,13 +99,31 @@ def preserve(inputs=True, outputs=True):
 
 #==============================================================================
 # Base Function classes :
-#  Function, MathFunction, ReductionFunction
+#  Function, Function, ReductionFunction
 #==============================================================================
+class Parameters:
+    """ maintains variables used by functions """
+    _params_update   = {}
+    _params_function = {} # unsaved function vars
+    def __init__(self, updates=False):
+        self.updates = updates
+
+    @property
+    def params_update(self):
+        return self._params_update
+
+    @property
+    def params_function(self):
+        return self._params_function
+
+
+
+
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# MathFunction
+# Function
 # ------------
 # inherits : Function
 # derives  : ReductionFunction
@@ -126,37 +144,11 @@ class Function:
     """
     name = 'Function'
     updates = False
-    params = AttrDict()
+    params = {}
 
     def __init__(self, *args, initializer=None, caller_label=None, **kwargs):
-# +------+.      +------+       +------+       +------+      .+------+ #
-# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
-# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
-# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
-# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
-#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
-#    `+------+     +------+     +------+     +------+     +------+'    #
-# +------+.      +------+       +------+       +------+      .+------+ #
-# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
-# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
-# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
-# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
-#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
-#    `+------+     +------+     +------+     +------+     +------+'    #
-# +------+.      +------+       +------+       +------+      .+------+ #
-# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
-# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
-# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
-# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
-#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
-#    `+------+     +------+     +------+     +------+     +------+'    #
-# +------+.      +------+       +------+       +------+      .+------+ #
-# |`.    | `.    |\     |\      |      |      /|     /|    .' |    .'| #
-# |  `+--+---+   | +----+-+     +------+     +-+----+ |   +---+--+'  | #
-# |   |  |   |   | |    | |     |      |     | |    | |   |   |  |   | #
-# +---+--+.  |   +-+----+ |     +------+     | +----+-+   |  .+--+---+ #
-#  `. |    `.|    \|     \|     |      |     |/     |/    |.'    | .'  #
-#    `+------+     +------+     +------+     +------+     +------+'    #
+        for attribute, value in kwargs.items():
+            setattr(self, attribute, value)
 
 
     @property
@@ -188,7 +180,7 @@ class Function:
     def __call__(self, *args, backprop=False, **kwargs):
         """ Dispatch to forward or backward """
         func = self.backward if backprop else self.forward
-        print('Mathfunction call func: {}'.format(str(func)))
+        print('Function call func: {}'.format(str(func)))
         if backprop:
             pass
             #import IPython
@@ -210,11 +202,11 @@ def backward(self, gY, *args, **kwargs):
 
 # ReductionFunction
 # -----------------
-# inherits : MathFunction
+# inherits : Function
 # derives  : Sum, Mean, Prod, Max Min
-class ReductionFunction(MathFunction):
+class ReductionFunction(Function):
     """
-    MathFunction for dimensionality reduction ops
+    Function for dimensionality reduction ops
     like sum or mean
 
     # Attributes
@@ -292,7 +284,7 @@ class ReductionFunction(MathFunction):
 # Atomic math functions :
 #  Exp, Log, Power, Square, Sqrt, Bias, MatMul
 #------------------------------------------------------------------------------
-class Exp(MathFunction):
+class Exp(Function):
     """ Elementwise exponential function """
     def forward(self, X):
         Y = self.fn_vars = np.exp(x)
@@ -304,7 +296,7 @@ class Exp(MathFunction):
         return gX
 
 
-class Bias(MathFunction):
+class Bias(Function):
     """ Adds bias vector B to a matrix X
 
     The bias B is a vector, or 1D-matrix, whose size
@@ -323,7 +315,7 @@ class Bias(MathFunction):
         return gX, gB
 
 
-class MatMul(MathFunction):
+class MatMul(Function):
     """ Performs matrix multiplication between
         a matrix X and a weight matrix W
 
@@ -368,7 +360,7 @@ class MatMul(MathFunction):
 # TODO
 
 @TODO
-class Log(MathFunction):
+class Log(Function):
     """ """
     eps = 1e-4
     def forward(self, X):
@@ -382,7 +374,7 @@ class Log(MathFunction):
         return gX
 
 @TODO
-class Power(MathFunction):
+class Power(Function):
     """ """
     def forward(self, X, p):
         self.fn_vars = X, p
@@ -395,7 +387,7 @@ class Power(MathFunction):
         return gX
 
 @TODO
-class Square(MathFunction):
+class Square(Function):
     """ squares an array"""
     def forward(self, X):
         self.fn_vars = X
@@ -408,7 +400,7 @@ class Square(MathFunction):
         return gX
 
 @TODO
-class Sqrt(MathFunction):
+class Sqrt(Function):
     """ """
     def forward(self, X):
         Y = np.sqrt(X)
@@ -532,7 +524,7 @@ class Min(MaxMin):
 # Composite math functions :
 #  Linear
 #------------------------------------------------------------------------------
-class Linear(MathFunction):
+class Linear(Function):
     """ Performs linear transformation using the
     the MatMul and Bias functions:
         y = XW + b
@@ -599,7 +591,7 @@ class Linear(MathFunction):
 # Activation functions
 #==============================================================================
 
-class ReLU(MathFunction):
+class ReLU(Function):
     """ standard ReLU activation
     zeroes out any negative elements within matrix
     """
@@ -618,7 +610,7 @@ class ReLU(MathFunction):
         return gX
 
 
-class ELU(MathFunction):
+class ELU(Function):
     """ Exponential Linear Unit """
     def __init__(self, alpha=1.0):
         self.alpha = alpha
@@ -678,7 +670,7 @@ class RRelU(ReLU):
     pass
 
 @TODO
-class Swish(MathFunction):
+class Swish(Function):
     """ Self-gated activation function
     Can be viewed as a smooth function where the nonlinearity
     interpolates between the linear function (x/2), and the
@@ -726,7 +718,7 @@ class Swish(MathFunction):
 
 
 
-class Sigmoid(MathFunction):
+class Sigmoid(Function):
     """ Logistic sigmoid activation """
     def forward(self, X):
         Y = 1 / (1 + np.exp(-X))
@@ -739,7 +731,7 @@ class Sigmoid(MathFunction):
         return gX
 
 
-class Tanh(MathFunction):
+class Tanh(Function):
     """ Hyperbolic tangent activation """
     def forward(self, X):
         Y = self.fn_vars = np.tanh(X)
@@ -751,7 +743,7 @@ class Tanh(MathFunction):
         return gX
 
 
-class Softmax(MathFunction):
+class Softmax(Function):
     """ Softmax activation """
     # reduction kwargs
     kw = {'axis':1, 'keepdims':True}
@@ -791,7 +783,7 @@ class Softmax(MathFunction):
 # Loss Functions
 #==============================================================================
 
-class SoftmaxCrossEntropy(MathFunction):
+class SoftmaxCrossEntropy(Function):
     """ Cross entropy loss defined on softmax activation
 
     Notes
