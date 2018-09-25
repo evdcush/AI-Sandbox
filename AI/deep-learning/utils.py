@@ -27,56 +27,20 @@ Module components
 # Data processing
 #----------------
 
-# Initializer
-
 # Trainer
 
 # CV
-
-
-
 """
 
 import os
 import sys
 import code
 import shutil
+import argparse
 import subprocess
 from functools import wraps
 
 import numpy as np
-
-
-###############################################################################
-#                                                                             #
-#  888888888888        ,ad8888ba,        88888888ba,          ,ad8888ba,      #
-#       88            d8"'    `"8b       88      `"8b        d8"'    `"8b     #
-#       88           d8'        `8b      88        `8b      d8'        `8b    #
-#       88           88          88      88         88      88          88    #
-#       88           88          88      88         88      88          88    #
-#       88           Y8,        ,8P      88         8P      Y8,        ,8P    #
-#       88            Y8a.    .a8P       88      .a8P        Y8a.    .a8P     #
-#       88             `"Y8888Y"'        88888888Y"'          `"Y8888Y"'      #
-#                                                                             #
-"""############################################################################
-
-Dataset:
- - serialized as float32, and float16 currently, in root dir
- - the truth labels are also floats, but can be converted to int when needed
- - all 150 samples are stored in their original order
-   - shuffle (by constant RNG seed defined)
-   - split into train, test
-
-* make a 'standardized' settings/info thing for datasets
-  - like iris:
-    - [SAMPLES]=150
-    - [TYPE]=classification
-    - [NUMBER_CLASSES]=3
-    - etc
-
-
-"""############################################################################
-
 
 
 #==============================================================================
@@ -104,7 +68,7 @@ class AttrDict(dict):
 
 # Getters
 # ========================================
-def sub_wget_data(url, fname, out_dir=DATA_DIR):
+def sub_wget_data(url, fname, out_dir):
     """ Gets desired data from a url using wget """
     if not os.path.exists(out_dir): os.makedirs(out_dir)
     try:
@@ -166,10 +130,6 @@ def INSPECT(f):
 #==============================================================================
 
 
-#=============================================================================
-# Constants
-#=============================================================================
-
 # Pathing
 #------------------------------------------------------------------------------
 
@@ -207,8 +167,9 @@ LOSS_TEST_FNAME  = RESULTS_BASE_NAME.format('test_error')
 RNG_SEED_DATA   = 98765 # for shuffling data
 RNG_SEED_PARAMS = 12345 # seeding parameter inits
 
-
-
+# Hyperparameters
+# ========================================
+LEARNING_RATE = 0.01
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -291,7 +252,7 @@ class Dataset:
         """
         #self.label = label
         #self.fname = fname
-        #self.data_path = self.data_dir + data_subdirs + fname
+        #self.data_path = self + data_subdirs + fname
         #self.url = url
         ## init other possible class instance vars
         #for attribute, value in kwargs.items():
@@ -407,8 +368,56 @@ def one_hot(Y):
 #
 #------------------------------------------------------------------------------
 
+def get_training_batch(X, batch_size, step, split_idx=-1):
+    """ Get training batch
 
+    Batches are selected randomly, and without replacement wrt
+    the previous batches.
 
+    This is done based on current step. When current
+    step has become a multiple of the number of samples in X,
+    X is reshuffled at random.
+
+    ASSUMED: batch_size is a factor of the number of samples in X
+
+    Params
+    ------
+    X : ndarray, (N,...,K)
+        Full training dataset
+    batch_size : int
+        number of samples in minibatch
+    step : int
+        current training iteration
+    split_idx : int
+        the index upon which X is split into features and labels
+
+    Returns
+    -------
+    x : ndarray, (batch_size, ...)
+        the training minibatch of features
+    y : ndarray(int), (batch_size,)
+        the training minibatch ground truth labels
+    """
+    # Dims
+    N = X.shape[0]
+    b = batch_size
+
+    # Subset indices
+    i = (b * step) % N
+    j = i + b
+
+    # Check if we need to reshuffle
+    if step != 0 and i == 0:
+        np.random.shuffle(X)
+
+    # Batch and split data
+    batch = np.copy(X[i:j])
+    x, y = np.split(batch, [split_idx], axis=1)
+
+    # Format y from float --> int
+    y = np.squeeze(y.astype(np.int32))
+
+    return x, y
 
 
 
@@ -421,13 +430,12 @@ def one_hot(Y):
 class Parser:
     """ Wrapper for argparse parser
     """
+    P = argparse.ArgumentParser()
+    # argparse does not like type=bool; this is a workaround
+    p_bool = {'type':int, 'default':0, 'choices':[0,1]}
+
     def __init__(self):
-        self.p = argparse.ArgumentParser()
-        self.add_parse_args()
-
-    def add_parse_args(self,):
-        adg = self.p.add_argument
-
+        adg = self.P.add_argument
         # ==== Data variables
         adg('--data_path',  '-d', type=str, default=DATA_PATH_ROOT,)
         adg('--seed',       '-s', type=int, default=RNG_SEED_PARAMS,)
@@ -435,21 +443,21 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        adg('--layer_type', '-l', type=str, default='fully-connected')
-        #adg('--graph_var',  '-k', type=int, default=16,) # later
+        adg('--block_op',   '-o', type=str, default='dense')
+        adg('--block_act',  '-a', type=str, default='sigmoid')
         adg('--channels',   '-c', type=int, default=[4, 32, 1], nargs='+')
-        adg('--learn_rate', '-a', type=float, default=LEARNING_RATE)
+        adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
-        #adg('--num_test',   '-t', type=int, default=NUM_TEST_SAMPLES) # do static?
-        adg('--num_iters',  '-i', type=int, default=2000)
-        adg('--batch_size', '-b', type=int, default=4)
-        adg('--restore',    '-r', type=int, default=0,) # bool
-        adg('--checkpoint', '-h', type=int, default=100)
+        adg('--num_iters',  '-i', type=int, default=500)
+        adg('--batch_size', '-b', type=int, default=6)
+        adg('--restore',    '-r', **self.p_bool)
+        adg('--checkpoint', '-p', type=int, default=50)
+        self.parse_args()
 
     def parse_args(self):
-        self.args =
-        parsed = AttrDict(vars(self.p.parse_args()))
+        parsed = AttrDict(vars(self.P.parse_args()))
+        parsed.restore = parsed.restore == 1
         self.args = parsed
         return parsed
 
