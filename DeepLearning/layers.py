@@ -66,27 +66,41 @@ class Dense:
         self.init_B = init_B()
         self.initialize_params()
 
-    def initialize_params(self):
-        pass
+
+    """ Note: why have all these property funcs?
+    why not just init each param as an instance var,
+    then when it comes time to update, you can just put
+    everything into a dict for opt, then unpack the
+    return??
+    """
+    @property
+    def W(self): return self.params[self.W_key]['var']
+
+    @W.setter
+    def W(self, var): self.params.[self.W_key]['var'] = var
 
     @property
-    def W(self):
-        return self.params[self.W_key]['var']
-
-    @property
-    def gW(self):
-        return self.params[self.W_key]['grad']
+    def gW(self): return self.params[self.W_key]['grad']
 
     @gW.setter
-    def gW(self, grad):
-        self.gW = grad
-        return self.params[self.W_key]['grad']
+    def gW(self, grad): self.params.[self.W_key]['grad'] = grad
 
-    def format_key(self, var_key):
-        layer_name = self.name
-        ID = self.ID
-        params_key = '{}_{}_{}'.format(layer_name, ID, var_key)
-        return params_key
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    @property
+    def B(self): return self.params[self.B_key]['var']
+
+    @B.setter
+    def B(self, var): self.params.[self.B_key]['var'] = var
+
+    @property
+    def gB(self): return self.params[self.B_key]['grad']
+
+    @gB.setter
+    def gB(self, grad): self.params.[self.B_key]['grad'] = grad
+
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     @staticmethod
     def init_param(init_fn, kdims):
@@ -94,6 +108,11 @@ class Dense:
         param = {'var': var, 'grad': None}
         return param
 
+    def format_key(self, var_key):
+        layer_name = self.name
+        ID = self.ID
+        params_key = '{}_{}_{}'.format(layer_name, ID, var_key)
+        return params_key
 
     def initialize_params(self):
         """ initializes params as a dictionary mapped to variables
@@ -118,13 +137,17 @@ class Dense:
             B_param = self.init_param(self.init_B, B_dims)
             self.params[self.B_key] = B_param
 
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     def update(self, opt):
         assert all([v['grad'] is not None for v in self.params.values()])
-        params = opt(params)
+        params = opt(self.params)
 
+    def forward(self, X):
+        pass
 
-
+    def backward(self, gY):
+        pass
 
 
 
