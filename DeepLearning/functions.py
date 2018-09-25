@@ -98,34 +98,15 @@ def preserve(inputs=True, outputs=True):
 
 
 #==============================================================================
-# Base Function classes :
-#  Function, Function, ReductionFunction
+# Base Function class
 #==============================================================================
-class Parameters:
-    """ maintains variables used by functions """
-    _params_update   = {}
-    _params_function = {} # unsaved function vars
-    def __init__(self, updates=False):
-        self.updates = updates
-
-    @property
-    def params_update(self):
-        return self._params_update
-
-    @property
-    def params_function(self):
-        return self._params_function
-
-
-
-
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Function
 # ------------
-# inherits : Function
+# inherits :
 # derives  : ReductionFunction
 class Function:
     """
@@ -143,8 +124,8 @@ class Function:
 
     """
     name = 'Function'
-    updates = False
-    params = {}
+    #updates = False
+    cache = {}
 
     def __init__(self, *args, initializer=None, caller_label=None, **kwargs):
         for attribute, value in kwargs.items():
