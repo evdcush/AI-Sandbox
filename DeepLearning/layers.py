@@ -72,32 +72,45 @@ class Dense:
     then when it comes time to update, you can just put
     everything into a dict for opt, then unpack the
     return??
+
+    I don't know, I liek the idea of having a native 'params'
+    collection as a class variable that is invariant to
+    it's class.
+
     """
     @property
-    def W(self): return self.params[self.W_key]['var']
+    def W(self):
+        return self.params[self.W_key]['var']
 
     @W.setter
-    def W(self, var): self.params.[self.W_key]['var'] = var
+    def W(self, var):
+        self.params.[self.W_key]['var'] = var
 
     @property
-    def gW(self): return self.params[self.W_key]['grad']
+    def gW(self):
+        return self.params[self.W_key]['grad']
 
     @gW.setter
-    def gW(self, grad): self.params.[self.W_key]['grad'] = grad
+    def gW(self, grad):
+        .params.[self.W_key]['grad'] = grad
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     @property
-    def B(self): return self.params[self.B_key]['var']
+    def B(self):
+        return self.params[self.B_key]['var']
 
     @B.setter
-    def B(self, var): self.params.[self.B_key]['var'] = var
+    def B(self, var):
+        self.params.[self.B_key]['var'] = var
 
     @property
-    def gB(self): return self.params[self.B_key]['grad']
+    def gB(self):
+        return self.params[self.B_key]['grad']
 
     @gB.setter
-    def gB(self, grad): self.params.[self.B_key]['grad'] = grad
+    def gB(self, grad):
+        self.params.[self.B_key]['grad'] = grad
 
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -132,6 +145,7 @@ class Dense:
 
         # Initializing bias B
         if not self.nobias:
+            self.bias = F.Bias()
             B_dims = self.kdims[-1:]
             self.B_key = self.format_key(self.B_key)
             B_param = self.init_param(self.init_B, B_dims)
@@ -141,13 +155,23 @@ class Dense:
 
     def update(self, opt):
         assert all([v['grad'] is not None for v in self.params.values()])
-        params = opt(self.params)
+        self.params = opt(self.params)
 
     def forward(self, X):
-        pass
+        W = self.W
+        Y = self.matmul(X, W)
+        if not self.nobias:
+            Y += self.bias(Y, self.B)
+        return Y
 
     def backward(self, gY):
-        pass
+        gX, gW = self.matmul(np.copy(gY), backprop=True)
+        self.gW = gW
+        if not self.nobias:
+            _,  gB = self.bias(np.copy(gY), backprop=True)
+            self.gB = gB
+        return gX
+
 
 
 
