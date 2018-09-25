@@ -195,9 +195,10 @@ class MathFunction(Function):
     def __call__(self, *args, backprop=False, **kwargs):
         """ Dispatch to forward or backward """
         func = self.backward if backprop else self.forward
-        shapes = [x.shape for x in args]
-        print('\nlen(args): {}\nshapes: {}\nbackprop = {}\n'.format(len(args), shapes, backprop))
-        code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+        if backprop:
+            code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+            #shapes = [x.shape for x in args]
+            #print('\nlen(args): {}\nshapes: {}\nbackprop = {}\n'.format(len(args), shapes, backprop))
         return func(*args, **kwargs)
 
 '''
@@ -831,6 +832,7 @@ class SoftmaxCrossEntropy(MathFunction):
         assert X.ndim == 2 and t.shape[0] == X.shape[0]
 
         N = t.shape[0]
+        code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
         Y = self.softmax(X)
         self.fn_vars = Y, t # preserve vars for backward
         p = -np.log(Y[np.arange(N), t])

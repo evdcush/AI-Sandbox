@@ -1,6 +1,7 @@
 """ Training script for iris model
 """
 import time
+import sys
 import code
 import numpy as np
 
@@ -11,13 +12,14 @@ from optimizers import SGD, Adam
 from functions import SoftmaxCrossEntropy
 
 # Data setup
-
 argv_parser = utils.Parser()
 config = argv_parser.parse_args()
 
-
+# Load data
 X = np.load(utils.IRIS_DATA_PATH)
+num_classes = int(X[...,-1:].max())
 X_train, X_test = utils.split_dataset(X)
+X = None
 
 
 # Model, session config
@@ -33,7 +35,7 @@ checkpoint = config.checkpoint
 #------------------
 learning_rate = config.learn_rate
 blocks = [config.block_op, config.block_act] # ['dense', 'sigmoid']
-channels = [4, 16, 64, 32, 8, 1] # config.channels
+channels = [4, 16, 64, 32, 8, num_classes] # config.channels
 
 
 
@@ -53,19 +55,25 @@ train_loss_history = np.zeros((num_iters,))
 
 # Train
 #==============================================================================
+def print_train_status(step, err):
+    pformat = '{:>3}: {:.5f}'.format(step+1, float(err))
+    print(pformat)
+
 t_start = time.time()
 np.random.seed(utils.RNG_SEED_DATA)
 
 for step in range(num_iters):
     # batch data
     #------------------
-    x, y = utils.get_training_batch(X, batch_size, step)
+    x, y = utils.get_training_batch(X_train, batch_size, step)
 
     # forward pass
     #------------------
     y_hat = model(x)
+    #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     error = objective(y_hat, y)
     train_loss_history[step] = error
+    print_train_status(step, error)
 
 
     # backprop and update

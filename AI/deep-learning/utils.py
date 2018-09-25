@@ -415,7 +415,7 @@ def get_training_batch(X, batch_size, step, split_idx=-1):
     x, y = np.split(batch, [split_idx], axis=1)
 
     # Format y from float --> int
-    y = y.astype(np.int32)
+    y = np.squeeze(y.astype(np.int32))
 
     return x, y
 
