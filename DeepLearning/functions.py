@@ -590,7 +590,6 @@ class ReLU(Function):
         gX = np.where(Y, gY, 0)
         return gX
 
-
 class ELU(Function):
     """ Exponential Linear Unit """
     def __init__(self, alpha=1.0):
@@ -605,7 +604,6 @@ class ELU(Function):
         X = self.get_fn_vars()
         gX = np.where(X < 0, self.alpha * np.exp(X), gY)
         return gX
-
 
 class SeLU(ELU):
     """ Scaled Exponential Linear Units
@@ -642,25 +640,17 @@ class SeLU(ELU):
         gX = self.scale * self.elu.backward(gY)
         return gX
 
-@TODO
-class PReLU(ReLU):
-    pass
-
-@TODO
-class RRelU(ReLU):
-    pass
-
-@TODO
+# @TODO -- implementation complete, needs testing
 class Swish(Function):
     """ Self-gated activation function
     Can be viewed as a smooth function where the nonlinearity
     interpolates between the linear function (x/2), and the
     ReLU function.
+    Intended to improve/replace the ReLU masterrace
 
-    'The best discovered activation function',
-    intended to improve/replace the ReLU masterrace
-
-     - See https://arxiv.org/abs/1710.05941
+    "The best discovered activation function",
+    - Authors
+    See https://arxiv.org/abs/1710.05941
 
      Params
      ------
@@ -674,7 +664,6 @@ class Swish(Function):
 
         So it's going to be always be treated as an array with the same
         shape as X.shape[1:] (exlude batch dim)
-
     """
     _sigmoid = lambda x: 1 / (1 + np.exp(-x)) # just use Sigmoid??
 
@@ -683,7 +672,6 @@ class Swish(Function):
         return self._sigmoid
 
     def forward(self, X, b):
-        """ """
         sig_bX = self.sigmoid(b * X)
         Y = X * sig_bX
         self.fn_vars = X, b, sig_bX, Y
@@ -692,11 +680,10 @@ class Swish(Function):
     def backward(self, gY):
         X, b, sig_bX, Y = self.get_fn_vars()
         bY = b * Y
-        gF = bY + sig_bX * (1 - bY) # gradient forward func
+        gF = bY + sig_bX * (1 - bY) # gradient func
         gB = gY * Y * (X - Y) # gradient wrt beta
         gX = gY * gF # gradient wrt X
         return gX, gB
-
 
 
 class Sigmoid(Function):
@@ -821,11 +808,8 @@ class SoftmaxCrossEntropy(Function):
         gX : ndarray, (N, D)
             derivative of X (network prediction) wrt the cross entropy loss
         """
-
-
         gX, t = self.get_fn_vars() # (Y, t)
         N = t.shape[0]
-        #gX = Y
         gX[np.arange(N), t] -= 1
         gX = gLoss * (gX / float(N))
         return gX

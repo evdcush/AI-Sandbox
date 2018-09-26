@@ -1,32 +1,20 @@
 """
-This module contains the main architectural units of the network:
-Blocks, and Layers
+The layers that compose the neural network are in this module.
 
-Any given model has the following hierarchy:
+Layers serve as the interface to Functions for the Network.
+They manage any parameters used by the functions, and provide high
+level abstractions for backprop and updates.
 
-Model
-  Network
-    Layer 1
-      Block 1
-        Dense : functions.Linear
-      Block 2
-        Sigmoid : functions.Sigmoid
-        ...
-    Layer 2
-      Block 1
-      Block 2
-      ...
-    Layer 3
-    ...
-    Layer N
+There are (currently) two kinds of layers: parametric and static
 
-The reasoning for having two levels of abstraction (Blocks and Layers)
- between Network and Functions is that it makes the network more
- extensible.
+# Layer types
+#------------
+Parametric layers : [Dense, Swish, ]
+    these layers use variables that receive updates from an optimizer
 
-Blocks are the interface to functions, maintaining all parameters used
- by a single Function instance, while Layers provide higher level access
- to the set of all Block parameters for updating.
+Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
+    these layers do not utilize variables and do not
+    need updates from optimizer
 
 """
 import code
@@ -36,18 +24,43 @@ from initializers import HeNormal, Zeros, Ones
 
 #==============================================================================
 #------------------------------------------------------------------------------
-#                              Layers
+#                          Parametric Layers
 #------------------------------------------------------------------------------
 #==============================================================================
-
+""" These layers all have parameters that are updated through gradient descent
+"""
 
 class Dense:
-    """ Fully-connected, feed-forward layer
+    """ Vanilla fully-connected hidden layer
+    The Dense layer is defined by the linear transformation function:
+
+         f(X) = X.W + b
+    Where
+    : W is a weight matrix
+    : b is a bias vector,
+    and both are learnable parameters optimized through gradient descent.
+
+    Note: the bias parameter is OPTIONAL in this implementation.
+          (The weights matrix, of course, is always used)
 
     Params
     ------
-
-
+    name : str
+        layer name
+    updates : bool
+        whether the layer has learnable parameters
+    matmul : Function
+        matrix multiplication function (the X.W part in the example above)
+    W_key : str
+        name of the weight matrix parameter
+    B_key : str
+        name of the bias parameter
+    params : dict
+        the collection containing the layer's parameters, keyed by the
+        "*_key" attributes
+        params is structured in the following manner:
+            {'W_key' : {'var': ndarray, 'grad': ndarray|None},
+             'B_key' ...}
     """
     name = 'dense_layer'
     updates = True
@@ -55,29 +68,26 @@ class Dense:
     W_key  = 'W'
     B_key  = 'B'
     params = {} # nested as {'W_key': {'var':array, 'grad': None}}
-    cache  = {}
-    def __init__(self, kdims, ID, nobias=False, restore=None,
-                 init_W=HeNormal, init_B=Zeros):
-        self.ID = ID
-        self.kdims  = kdims
-        self.nobias = nobias
-        self.restor = restore
-        self.init_W = init_W()
-        self.init_B = init_B()
-        self.initialize_params()
+    def __init__(self, kdims, ID, init_W=HeNormal, init_B=Zeros,
+                 nobias=False, restore=None):
+        self.ID = ID            # int : Layer's position in the parent network
+        self.kdims = kdims      # tuple(int) : channel-sizes
+        self.init_W  = init_W() # Initializer : for weights
+        self.init_B  = init_B() # Initializer : for bias
+        self.nobias  = nobias   # bool : whether Dense instance uses a bias
 
+        # Format param keys
+        self.format_keys()
 
-    """ Note: why have all these property funcs?
-    why not just init each param as an instance var,
-    then when it comes time to update, you can just put
-    everything into a dict for opt, then unpack the
-    return??
+        # Initialize params
+        if restore is not None:
+            self.restore_params(restore)
+        else:
+            self.initialize_params()
 
-    I don't know, I liek the idea of having a native 'params'
-    collection as a class variable that is invariant to
-    it's class.
-
-    """
+    # Parameter access through properties
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # ===== W
     @property
     def W(self):
         return self.params[self.W_key]['var']
@@ -95,7 +105,7 @@ class Dense:
         .params.[self.W_key]['grad'] = grad
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+    # ===== B
     @property
     def B(self):
         return self.params[self.B_key]['var']
@@ -113,33 +123,48 @@ class Dense:
         self.params.[self.B_key]['grad'] = grad
 
 
+    # Layer initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def format_keys(self,):
+        # format key for params; eg W_key : 'dense_layer2_W'
+        ID = self.ID
+        layer_name = self.name
+        params_key = '{}{}_{{}}'.format(layer_name, ID)
+        self.W_key = params_key.format(self.W_key)
+        if not self.nobias:
+            self.B_key = params_key.format(self.B_key)
+
+    def restore_params(self, pmap):
+        """ init layer params with pretrained parameters
+        pmap is a dict with the same structure and keys as self.params
+        """
+        #==== Integrity check: keys ----> are they for the same layer?
+        assert self.params.keys() == pmap.keys()
+
+        #==== Integrity check: channels ----> do the weights have same dims?
+        assert self.kdims == pmap[self.W_key]['var'].shape
+
+        #==== Keys match, channels match, safe to restore
+        self.params = pmap
+
+        # init bias func if used
+        if not self.nobias:
+            self.bias = F.Bias()
 
     @staticmethod
     def init_param(init_fn, kdims):
+        # initializes param from Initializer, into params sub-dict form
         var = init_fn(kdims)
         param = {'var': var, 'grad': None}
         return param
 
-    def format_key(self, var_key):
-        layer_name = self.name
-        ID = self.ID
-        params_key = '{}_{}_{}'.format(layer_name, ID, var_key)
-        return params_key
-
-    def initialize_params(self):
+    def initialize_params(self, restore=restore):
         """ initializes params as a dictionary mapped to variables
         self.params has form :
             {var_key: {'var': ndarray, 'grad': ndarray OR None}}
 
         """
-        # Restore parameters if need be
-        if self.restore is not None:
-            self.params = self.restore
-            return
-
         # Initializing weight W
-        self.W_key = self.format_key(self.W_key)
         W_param = self.init_param(self.init_W, self.kdims)
         self.params[self.W_key] = W_param
 
@@ -147,12 +172,11 @@ class Dense:
         if not self.nobias:
             self.bias = F.Bias()
             B_dims = self.kdims[-1:]
-            self.B_key = self.format_key(self.B_key)
             B_param = self.init_param(self.init_B, B_dims)
             self.params[self.B_key] = B_param
 
+    # Layer computation
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
     def update(self, opt):
         assert all([v['grad'] is not None for v in self.params.values()])
         self.params = opt(self.params)
@@ -172,6 +196,7 @@ class Dense:
             self.gB = gB
         return gX
 
+#==============================================================================
 
 
 
