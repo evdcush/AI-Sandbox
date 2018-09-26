@@ -47,10 +47,10 @@ class Dense:
     ------
     name : str
         layer name
-    updates : bool
-        whether the layer has learnable parameters
     matmul : Function
         matrix multiplication function (the X.W part in the example above)
+    updates : bool
+        whether the layer has learnable parameters
     W_key : str
         name of the weight matrix parameter
     B_key : str
@@ -63,8 +63,8 @@ class Dense:
              'B_key' ...}
     """
     name = 'dense_layer'
-    updates = True
     matmul = F.MatMul()
+    updates = True
     W_key  = 'W'
     B_key  = 'B'
     params = {} # nested as {'W_key': {'var':array, 'grad': None}}
@@ -76,7 +76,8 @@ class Dense:
         self.init_B  = init_B() # Initializer : for bias
         self.nobias  = nobias   # bool : whether Dense instance uses a bias
 
-        # Format param keys
+        # Format name and param keys
+        self.name = '{}{}'.format(self.name, self.ID)
         self.format_keys()
 
         # Initialize params
@@ -127,12 +128,10 @@ class Dense:
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def format_keys(self,):
         # format key for params; eg W_key : 'dense_layer2_W'
-        ID = self.ID
-        layer_name = self.name
-        params_key = '{}{}_{{}}'.format(layer_name, ID)
-        self.W_key = params_key.format(self.W_key)
+        form_key = lambda key: '{}_{}'.format(self.name, key)
+        self.W_key = form_key(self.W_key)
         if not self.nobias:
-            self.B_key = params_key.format(self.B_key)
+            self.B_key = form_key(self.B_key)
 
     def restore_params(self, pmap):
         """ init layer params with pretrained parameters
@@ -158,7 +157,7 @@ class Dense:
         param = {'var': var, 'grad': None}
         return param
 
-    def initialize_params(self, restore=restore):
+    def initialize_params(self):
         """ initializes params as a dictionary mapped to variables
         self.params has form :
             {var_key: {'var': ndarray, 'grad': ndarray OR None}}
@@ -197,139 +196,185 @@ class Dense:
         return gX
 
 #==============================================================================
-
-
-
 #==============================================================================
-#------------------------------------------------------------------------------
-#                              Network
-#------------------------------------------------------------------------------
-#==============================================================================
-""" Neural networks are composed of Layers
 
-For our usage, we can think of the network both as an algorithm
-and as a sort of ordered "data-structure," like a list or array,
-and Layers being the elements of that list.
+class SwishActivation:
+    """ Self-gated activation function
 
-# Forward
-  - To generate a prediction, we iterate through the "list" in order,
-    propagating an initial input through each element.
+    Through the beta variable, swish's nonlinearity properties interpolate
+    between a linear function and ReLU
 
-# Backward
-  - To optimize the network's predictions, we iterate through the list
-    in reverse order, propagating the gradient of an objective
-    function through each element.
-
-"""
-
-#==============================================================================
-# NeuralNetwork class
-#==============================================================================
-""" Since most architectural features and functionalities have been
-implemented at the callee levels below NeuralNetwork, we only really need
-one network class.
-
-"""
-class NeuralNetwork:
-    """ Base Neural Network compsed of Layers
-
-    Control Flow
-    ------------
-    1 - Network instance initialized with a list of channels
-        and Layer-types
-
-
-    2 - Network receives external data input X, and propagates
-        it through it's Layers
-
-    3 - A final output Layer returns a prediction
-
-      - (network prediction accuracy/error evaluated by an objective)
-
-    4 - If training: the network receives the gradient of a loss
-        function and backpropagates the gradient through it's
-        Layers (propagates in reverse order of Layers)
-
+    Params
+    ------
+    name : str
+        layer name
+    swish : Function
+        swish activation function
+    updates : bool
+        whether the layer has learnable parameters
+    B_key : str
+        name of the beta variable
+    params : dict
+        collection of the layer's parameters (just beta)
     """
-    network_label = 'NN'
-    def __init__(self, channels, model_label, *args,
-                 layer_blocks=['dense', 'sigmoid'], output_activation=False,
-                 initializer=None, **kwargs):
-        # Network config
-        self.initializer = initializer
-        self.label = self.format_label(model_label)
+    name = 'swish_layer'
+    swish = F.Swish()
+    updates = True
+    B_key  = 'beta'
+    params = {} # nested as {'B_key': {'var':array, 'grad': None}}
+    def __init__(self, kdims, ID, init_B=Ones, restore=None):
+        self.ID = ID            # int : Layer's position in the parent network
+        self.kdims = kdims[-1:] # tuple(int) : 1D shape of beta
+        self.init_B = init_B()  # Initializer : for beta
 
-        # Dimensionality of network
-        self.kdims = list(zip(channels, channels[1:]))
-        self.num_layers = len(self.kdims)
+        # Format name and param keys
+        self.name = '{}{}'.format(self.name, self.ID)
+        self.format_keys()
 
-        # Network layers
-        #self.layer_type = layer
-        self.layer_blocks = layer_blocks
-        self.output_activation = output_activation
-        self.layers = self.initialize_layers()
+        # Initialize params
+        if restore is not None:
+            self.restore_params(restore)
+        else:
+            self.initialize_params()
+
+    # Parameter access through properties
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # ===== Beta
+    @property
+    def Beta(self):
+        return self.params[self.B_key]['var']
+
+    @Beta.setter
+    def Beta(self, var):
+        self.params.[self.B_key]['var'] = var
+
+    @property
+    def gBeta(self):
+        return self.params[self.B_key]['grad']
+
+    @gBeta.setter
+    def gBeta(self, grad):
+        .params.[self.B_key]['grad'] = grad
 
 
-    def format_label(self, caller_label):
-        label = '{}_{}'.format(caller_label, self.network_label)
-        return label
+    # Layer initialization
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def format_keys(self,):
+        # format key for params; eg B_key : 'dense_layer1_beta'
+        self.B_key = '{}_{}'.format(self.name, self.B_key)
 
-    def initialize_layers(self):
+    def restore_params(self, pmap):
+        """ init layer params with pretrained parameters
+        pmap is a dict with the same structure and keys as self.params
         """
-        Layer init args:
-        - kdim, ID, network_label, *args, blocks=('dense', 'sigmoid'),
-          initializer=None, no_act=False, **kwargs
+        #==== Integrity check: keys ----> are they for the same layer?
+        assert self.params.keys() == pmap.keys()
+
+        #==== Integrity check: channels ----> do the weights have same dims?
+        assert self.kdims == pmap[self.B_key]['var'].shape
+
+        #==== Keys match, channels match, safe to restore
+        self.params = pmap
+
+    @staticmethod
+    def init_param(init_fn, kdims):
+        # initializes param from Initializer, into params sub-dict form
+        var = init_fn(kdims)
+        param = {'var': var, 'grad': None}
+        return param
+
+    def initialize_params(self):
+        """ initializes params as a dictionary mapped to variables
+        self.params has form :
+            {var_key: {'var': ndarray, 'grad': ndarray OR None}}
         """
-        # Layer
-        layer_blocks = self.layer_blocks
-        layers = []
+        # Initialize Beta
+        B_param = self.init_param(self.init_B, self.kdims)
+        self.params[self.B_key] = B_param
 
-        # Layer init args
-        label = self.label
-        L_init = self.initializer
-        act = lambda i: self.output_activation and i == self.num_layers - 1
 
-        # Initialize all layers
-        for ID, kdim in enumerate(self.kdims):
-            layer = Layer(kdim, ID, label, blocks=layer_blocks, no_act=act(ID),
-                         initializer=L_init)
-            layers.append(layer)
-
-        return layers
-
+    # Layer computation
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def update(self, opt):
+        assert all([v['grad'] is not None for v in self.params.values()])
+        self.params = opt(self.params) # clears grads after update
 
     def forward(self, X):
-        """ Propagates input X through network layers """
-        Y = np.copy(X) # more for convenience than mutation safety
-        for layer in self.layers:
-            Y = layer(Y)
+        Y = self.swish(X, self.B)
         return Y
 
-    def backward(self, gY, opt):
-        """ Backpropagation through layers
-
-        Params
-        ------
-        gY : ndarray
-            gradient of loss function wrt to network output Y (or Y_hat)
-
-        opt : Optimizer
-            optimizer for updating parameters in layers
-
-        Returns
-        -------
-        None : gX is gradient of loss wrt to input, which isn't "updated"
-          - All optimizable params should be in Network, nowhere else
-        """
-        gX = np.copy(gY)
-        for layer in reversed(self.layers):
-            gX = layer(gX, opt, backprop=True)
-        return
-
-    def __call__(self, *args, backprop=False, **kwargs):
-        func = self.backward if backprop else self.forward
-        return func(*args, **kwargs)
+    def backward(self, gY):
+        gX, gBeta = self.swish(gY, backprop=True)
+        self.gBeta = gBeta
+        return gX
 
 
+#==============================================================================
+#------------------------------------------------------------------------------
+#                             Static Layers
+#------------------------------------------------------------------------------
+#==============================================================================
+""" Layers without updating variables, mostly activations """
+
+class StaticLayer:
+    """ Super class covering most ops performed by static layers """
+    name = 'static_layer'
+    func = None
+    updates = False
+    def __init__(self, *args, ID=-1, **kwargs):
+        self.ID = ID
+        self.name = self.name + str(ID)
+
+    def forward(self, X):
+        return self.func(X)
+
+    def backward(self, gY):
+        return self.func(gY, backprop=True)
+
+# Activations
+#------------------------------------------------------------------------------
+class SigmoidActivation(StaticLayer):
+    name = 'sigmoid_layer'
+    func = F.Sigmoid()
+
+class SoftmaxActivation(StaticLayer):
+    name = 'softmax_layer'
+    func = F.Softmax()
+
+class TanhActivation(StaticLayer):
+    name = 'tanh_layer'
+    func = F.Tanh()
+
+class ReLUActivation(StaticLayer):
+    name = 'relu_layer'
+    func = F.ReLU()
+
+class ELUActivation(StaticLayer):
+    name = 'elu_layer'
+    func = F.ELU()
+
+class SeLUActivation(StaticLayer):
+    name = 'selu_layer'
+    func = F.SeLU()
 
 
+#==============================================================================
+#==============================================================================
+
+# Available Layers
+#-----------------
+OPS = {'dense_layer': Dense,}
+
+ACTIVATIONS = {'sigmoid_layer' : SigmoidActivation,
+               'softmax_layer' : SoftmaxActivation,
+                  'tanh_layer' : TanhActivation,
+                  'relu_layer' : ReLUActivation,
+                   'elu_layer' : ELUActivation,
+                  'selu_layer' : SeLUActivation,
+                  'swish_layer': SwishActivation,
+                  }
+
+LAYERS = {**OPS, **ACTIVATIONS}
+
+def get_all_layers():
+    return LAYERS
