@@ -15,8 +15,10 @@ Function : base class for functions
         Linear
     ReductionFunction : functions that reduce dimensionality
         Sum, Mean, Prod, Max, Min
+
 activation functions: nonlinearities
     ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax
+
 loss functions : objectives for gradient descent
     SoftmaxCrossEntropy
 
@@ -49,16 +51,16 @@ utils :
 
 
 
-#==============================================================================
-#------------------------------------------------------------------------------
-#                              Functions
-#------------------------------------------------------------------------------
-#==============================================================================
+
 
 #------------------------------------------------------------------------------
 # Helpers and handy decorators
 #------------------------------------------------------------------------------
 
+class AttrDict(dict):
+    """ dict accessed/mutated by attribute instead of index """
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
 
 
 def preserve_default(method):
@@ -97,87 +99,104 @@ def preserve(inputs=True, outputs=True):
 
 
 #==============================================================================
-# Base Function class
+#------------------------------------------------------------------------------
+#                              Functions
+#------------------------------------------------------------------------------
 #==============================================================================
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Base function class
+#------------------------------------------------------------------------------
 
 # Function
 # ------------
 # inherits :
 # derives  : ReductionFunction
 class Function:
-    """
-    Function for various mathematical ops
+    """ Function for various, mostly mathematical ops
+
+    Designed to abstract as much functionality from
+    child classes as possible to reduce boilerplate.
+
+    In practice, this works well with the "caching"
+    operations for functions, and in some cases,
+    the forward ops
 
     Function ops
     -------------
         forward : f(X)
             the function
+
         backward : f'(X)
             the derivative of the function
 
     Attributes
     ----------
+    name : str
+        name of the function (based on function class name)
+
+    cache : object
+        cache is whatever the functions need to store to reduce
+        redundant computation and restore crucial data during
+        backpropagation
+            WARNING: cache is automatically cleared when getted
+
+    function : object (most likely a numpy function)
+        The function the class is defined by. All Functions use
+        numpy ops, and for the more atomic functions, like
+        exponential, square-root, etc., storing it as a class variable
+        works okay
+
+    function_kwargs : dict | None
+        some functions take kwargs. Most don't. This allows, again,
+        for some Functions to exploit the parent class (Function)
+        super forward
 
     """
-    name = 'Function'
-    #updates = False
-    cache = {}
+    name : str
+    _cache = None
+    function = lambda *args: print("DID NOT OVERRIDE cls.function ATTR")
+    function_kwargs = None
 
-    def __init__(self, *args, initializer=None, caller_label=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        self.name = self.__class__.__name__
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
 
+    def __repr__(self):
+        return "functions.{}".format(self.name)
 
     @property
-    def fn_vars(self):
-        fvars = self._fn_vars
-        return fvars
+    def cache(self):
+        """ NOTE: 'clears' cache upon access
+        (since it is always reset in backprop)
+        """
+        cache_objs = self._cache
+        self._cache = None
+        return cache_objs
 
-    @fn_vars.setter
-    def fn_vars(self, *fvars):
-        self._fn_vars = fvars if len(fvars) > 1 else fvars[0]
+    @cache.setter
+    def cache(self, *fvars):
+        self._cache = fvars if len(fvars) > 1 else fvars[0]
 
-    def get_fn_vars(self,reset=True):
-        fvars = self.fn_vars
-        if reset:
-            self.reset_fn_vars()
-        return fvars
-
-    def reset_fn_vars(self,):
-        self._fn_vars = None
+    def forward(self, X, *args):
+        func = self.function
+        if len(self.function_kwargs) > 0:
+            Y = self.func(X, *args, **self.function_kwargs)
+        else:
+            Y = self.func(X, *args)
+        self.cache = X, *args, Y
+        return Y
 
     @NOTIMPLEMENTED
-    def forward(self):
-        pass
+    def backward(self, gY, *args): pass
 
-    @NOTIMPLEMENTED
-    def backward(self):
-        pass
-
-    def __call__(self, *args, backprop=False, **kwargs):
-        """ Dispatch to forward or backward """
+    def __call__(self, *args, backprop=False):
         func = self.backward if backprop else self.forward
-        print('Function call func: {}'.format(str(func)))
-        if backprop:
-            pass
-            #import IPython
-            #IPython.embed()
-            #poo = func(*args, **kwargs)
-            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-        return func(*args, **kwargs)
+        return func(*args)
 
-'''
-def backward(self, gY, *args, **kwargs):
-        gX = self.function(gY, *args, backprop=True, **kwargs)
-        return gX
 
-    def __call__(self, *args, backprop=False, **kwargs):
-        func = self.backward if backprop else self.forward
-        return func(*args, **kwargs)
-'''
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # ReductionFunction

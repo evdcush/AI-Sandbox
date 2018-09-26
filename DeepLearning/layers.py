@@ -92,12 +92,17 @@ class Dense:
             self.initialize_params()
 
     def __repr__(self):
+        # eval repr format:
         rep = "{}('{}, {}, init_W={}, init_B={}, nobias={}')"
+
+        # Instance vars
         cls_name = self.__class__.__name__
         init_W_name = self.init_W.__class__.__name__
         init_W_name = self.init_B.__class__.__name__
         ID = self.ID
         kdims = self.kdims
+
+        # Format eval repr and ret
         rep_args = (cls_name, ID, kdims, init_W_name, init_B_name, self.nobias)
         return rep.format(*rep_args)
 
