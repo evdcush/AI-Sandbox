@@ -8,18 +8,17 @@ Other functions, for training or data processing, can be found in `utils.py`
 
 Module components
 =================
-Function : base class for all functions
-    Function : base class for math ops
-        atomic functions: elementary functions and factors
-            Log, Square, Exp, Power, Bias, Matmul, Sqrt
-        composite functions : functions that combine other functions
-            Linear
-        ReductionFunction : functions that reduce dimensionality
-            Sum, Mean, Prod, Max, Min
-    activation functions: nonlinearities
-        ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax
-    loss functions : objectives for gradient descent
-        SoftmaxCrossEntropy
+Function : base class for functions
+    atomic functions: elementary functions and factors
+        Log, Square, Exp, Power, Bias, Matmul, Sqrt
+    composite functions : functions that combine other functions
+        Linear
+    ReductionFunction : functions that reduce dimensionality
+        Sum, Mean, Prod, Max, Min
+activation functions: nonlinearities
+    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax
+loss functions : objectives for gradient descent
+    SoftmaxCrossEntropy
 
 """
 import code
