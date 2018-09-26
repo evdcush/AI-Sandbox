@@ -30,6 +30,11 @@ from initializers import HeNormal, Zeros, Ones
 """ These layers all have parameters that are updated through gradient descent
 """
 
+#class ParametricLayer:
+#    """ Abstracts some of the boilerplate from most parametric layers """
+#    __slots__ = ('name', 'func', 'updates', 'params', key)
+
+
 class Dense:
     """ Vanilla fully-connected hidden layer
     The Dense layer is defined by the linear transformation function:
@@ -68,13 +73,13 @@ class Dense:
     W_key  = 'W'
     B_key  = 'B'
     params = {} # nested as {'W_key': {'var':array, 'grad': None}}
-    def __init__(self, kdims, ID, init_W=HeNormal, init_B=Zeros,
+    def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros,
                  nobias=False, restore=None):
         self.ID = ID            # int : Layer's position in the parent network
         self.kdims = kdims      # tuple(int) : channel-sizes
-        self.init_W  = init_W() # Initializer : for weights
-        self.init_B  = init_B() # Initializer : for bias
-        self.nobias  = nobias   # bool : whether Dense instance uses a bias
+        self.init_W = init_W() # Initializer : for weights
+        self.init_B = init_B() # Initializer : for bias
+        self.nobias = nobias   # bool : whether Dense instance uses a bias
 
         # Format name and param keys
         self.name = '{}{}'.format(self.name, self.ID)
@@ -85,6 +90,16 @@ class Dense:
             self.restore_params(restore)
         else:
             self.initialize_params()
+
+    def __repr__(self):
+        rep = "{}('{}, {}, init_W={}, init_B={}, nobias={}')"
+        cls_name = self.__class__.__name__
+        init_W_name = self.init_W.__class__.__name__
+        init_W_name = self.init_B.__class__.__name__
+        ID = self.ID
+        kdims = self.kdims
+        rep_args = (cls_name, ID, kdims, init_W_name, init_B_name, self.nobias)
+        return rep.format(*rep_args)
 
     # Parameter access through properties
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -103,7 +118,7 @@ class Dense:
 
     @gW.setter
     def gW(self, grad):
-        .params.[self.W_key]['grad'] = grad
+        self.params.[self.W_key]['grad'] = grad
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # ===== B
@@ -222,7 +237,7 @@ class SwishActivation:
     updates = True
     B_key  = 'beta'
     params = {} # nested as {'B_key': {'var':array, 'grad': None}}
-    def __init__(self, kdims, ID, init_B=Ones, restore=None):
+    def __init__(self, ID, kdims, init_B=Ones, restore=None):
         self.ID = ID            # int : Layer's position in the parent network
         self.kdims = kdims[-1:] # tuple(int) : 1D shape of beta
         self.init_B = init_B()  # Initializer : for beta
@@ -254,7 +269,7 @@ class SwishActivation:
 
     @gBeta.setter
     def gBeta(self, grad):
-        .params.[self.B_key]['grad'] = grad
+        self.params.[self.B_key]['grad'] = grad
 
 
     # Layer initialization
@@ -317,13 +332,15 @@ class SwishActivation:
 """ Layers without updating variables, mostly activations """
 
 class StaticLayer:
-    """ Super class covering most ops performed by static layers """
-    name = 'static_layer'
-    func = None
+    """ Parent class covering most ops performed by static layers """
     updates = False
-    def __init__(self, *args, ID=-1, **kwargs):
+    __slots__ = ('name', 'func', 'ID')
+    def __init__(self, ID, *args, **kwargs):
         self.ID = ID
         self.name = self.name + str(ID)
+
+    def __repr__(self):
+        return "{}('{}')".format(self.__class__.__name__, self.ID)
 
     def forward(self, X):
         return self.func(X)
@@ -331,29 +348,36 @@ class StaticLayer:
     def backward(self, gY):
         return self.func(gY, backprop=True)
 
+
 # Activations
 #------------------------------------------------------------------------------
 class SigmoidActivation(StaticLayer):
+    __slots__ = ()
     name = 'sigmoid_layer'
     func = F.Sigmoid()
 
 class SoftmaxActivation(StaticLayer):
+    __slots__ = ()
     name = 'softmax_layer'
     func = F.Softmax()
 
 class TanhActivation(StaticLayer):
+    __slots__ = ()
     name = 'tanh_layer'
     func = F.Tanh()
 
 class ReLUActivation(StaticLayer):
+    __slots__ = ()
     name = 'relu_layer'
     func = F.ReLU()
 
 class ELUActivation(StaticLayer):
+    __slots__ = ()
     name = 'elu_layer'
     func = F.ELU()
 
 class SeLUActivation(StaticLayer):
+    __slots__ = ()
     name = 'selu_layer'
     func = F.SeLU()
 
