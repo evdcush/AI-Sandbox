@@ -161,14 +161,11 @@ LOSS_TEST_FNAME  = RESULTS_BASE_NAME.format('test_error')
 
 # Parameters
 #------------------------------------------------------------------------------
-
 # Random seeds
-# ========================================
 RNG_SEED_DATA   = 98765 # for shuffling data
 RNG_SEED_PARAMS = 12345 # seeding parameter inits
 
 # Hyperparameters
-# ========================================
 LEARNING_RATE = 0.01
 
 #==============================================================================
@@ -224,13 +221,25 @@ IRIS = {'label' : 'iris',
 
 
 #==============================================================================
-# Data processing functions
+# Dataset utils
 #==============================================================================
 
+
+# Loading dataset from disk
 #------------------------------------------------------------------------------
+def load_dataset(path):
+    """ Loads dataset located at path """
+    dataset = np.load(path)
+    return dataset
+
+def load_iris(path=IRIS_DATA_PATH):
+    """ Load full Iris dataset """
+    iris_dataset = load_dataset(path)
+    return iris_dataset
+
+
 # Split into Train/Test sets
 #------------------------------------------------------------------------------
-
 def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
     """ Splits a dataset (or array) into training and testing sets.
     (this is only called if train and test sets have NOT been
@@ -281,49 +290,14 @@ def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
     return X_train, X_test
 
 
-def to_one_hot(Y):
-    """ make one-hot encoding for truth labels
-
-    Assumptions
-    -----------
-    - Y is a column vector of ints, representing classes,
-      with the same length as the number of samples
-
-    Example
-    -------
-    Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
-    Y.shape = (10,)
-
-    one_hot(Y) = [[0, 0, 0, 1], # 3
-                  [0, 1, 0, 0], # 1
-                  [0, 1, 0, 0], # 1
-                  [1, 0, 0, 0], # 0
-                  [0, 0, 1, 0], # 2
-                  [0, 0, 0, 1], # 3
-                  [0, 1, 0, 0], # 2
-                  [0, 1, 0, 0], # 2
-                  [0, 1, 0, 0], # 2
-                  [1, 0, 0, 0], # 1
-                 ]
-    """
-    # dims for one-hot
-    n = Y.shape[0]
-    d = np.max(Y) + 1
-
-    # make one-hot
-    one_hot = np.zeros((n, d))
-    one_hot[np.arange(n), Y] = 1
-    return one_hot
-
 
 #==============================================================================
-# Data preprocessing for training/test
+# Training utils
 #==============================================================================
 
-#------------------------------------------------------------------------------
-#
-#------------------------------------------------------------------------------
 
+# Batching
+#------------------------------------------------------------------------------
 def get_training_batch(X, batch_size, step, split_idx=-1):
     """ Get training batch
 
@@ -363,7 +337,7 @@ def get_training_batch(X, batch_size, step, split_idx=-1):
     j = i + b
 
     # Check if we need to reshuffle
-    if step != 0 and i == 0:
+    if i == 0:
         np.random.shuffle(X)
 
     # Batch and split data
@@ -375,6 +349,40 @@ def get_training_batch(X, batch_size, step, split_idx=-1):
 
     return x, y
 
+
+def to_one_hot(Y):
+    """ make one-hot encoding for truth labels
+
+    Assumptions
+    -----------
+    - Y is a column vector of ints, representing classes,
+      with the same length as the number of samples
+
+    Example
+    -------
+    Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
+    Y.shape = (10,)
+
+    one_hot(Y) = [[0, 0, 0, 1], # 3
+                  [0, 1, 0, 0], # 1
+                  [0, 1, 0, 0], # 1
+                  [1, 0, 0, 0], # 0
+                  [0, 0, 1, 0], # 2
+                  [0, 0, 0, 1], # 3
+                  [0, 1, 0, 0], # 2
+                  [0, 1, 0, 0], # 2
+                  [0, 1, 0, 0], # 2
+                  [1, 0, 0, 0], # 1
+                 ]
+    """
+    # dims for one-hot
+    n = Y.shape[0]
+    d = np.max(Y) + 1
+
+    # make one-hot
+    one_hot = np.zeros((n, d))
+    one_hot[np.arange(n), Y] = 1
+    return one_hot
 
 
 #==============================================================================
@@ -399,21 +407,21 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        adg('--block_op',   '-o', type=str, default='dense')
-        adg('--block_act',  '-a', type=str, default='sigmoid')
-        adg('--channels',   '-c', type=int, default=[4, 32, 1], nargs='+')
+        adg('--layer_op',   '-o', type=str, default='dense')
+        adg('--layer_act',  '-a', type=str, default='sigmoid')
+        adg('--channels',   '-c', type=int, default=[4, 32, 3], nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
         adg('--num_iters',  '-i', type=int, default=500)
         adg('--batch_size', '-b', type=int, default=6)
         adg('--restore',    '-r', **self.p_bool)
-        adg('--checkpoint', '-p', type=int, default=50)
+        adg('--checkpoint', '-p', type=int, default=100)
         self.parse_args()
 
     def parse_args(self):
         parsed = AttrDict(vars(self.P.parse_args()))
-        parsed.restore = parsed.restore == 1
+        parsed.restore = bool(parsed.restore)
         self.args = parsed
         return parsed
 
@@ -426,15 +434,14 @@ class Parser:
 
 
 
-
-
 #==============================================================================
 #------------------------------------------------------------------------------
 #                      Training stats and other info
 #------------------------------------------------------------------------------
 #==============================================================================
 
-
+# Classification eval
+#------------------------------------------------------------------------------
 def get_predictions(Y_hat):
     """ Select the highest valued class labels in prediction from
     network output distribution
@@ -485,3 +492,6 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
     accuracy = np.mean(Y_pred == Y_truth)
 
     return accuracy
+
+
+

@@ -18,8 +18,10 @@ config = arg_parser.parse_args()
 arg_parser.print_args()
 
 # Load data
-X = np.load(utils.IRIS_DATA_PATH)
-num_classes = int(X[...,-1:].max()) + 1
+X = utils.load_iris()
+X_train, X_test = utils.split_dataset(X)
+X = None
+
 X_train, X_test = utils.split_dataset(X)
 X = None
 
@@ -35,8 +37,9 @@ checkpoint = config.checkpoint
 
 # Model config
 #------------------
+num_classes = len(utils.IRIS['classes'])
 learning_rate = config.learn_rate
-blocks = [config.block_op, config.block_act] # ['dense', 'sigmoid']
+layer_types = [config.layer_op, config.layer_act] # ['dense', 'sigmoid']
 #channels = [4, 16, 64, 32, 8, num_classes] # config.channels
 channels = [4, 16, num_classes] # config.channels
 
@@ -76,8 +79,8 @@ for step in range(num_iters):
     #------------------
     #y_hat = model(x)
     y_hat = model.forward(x)
-    #if (step % 100) == 0:
-    #    print('step: {}'.format(step))
+    if (step+1) % 50 == 0:
+        print('step: {}'.format(step+1))
 
     #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     error = objective(y_hat, y)
