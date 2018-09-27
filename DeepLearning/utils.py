@@ -224,56 +224,12 @@ IRIS = {'label' : 'iris',
 
 
 #==============================================================================
-# Dataset class
-#==============================================================================
-
-@TODO
-class Dataset:
-    """ Contains generic attributes and functions for a dataset """
-    data_dir = DATA_PATH_ROOT # constant defined by user
-
-    def __init__(self, label, fname, data_subdirs='', url=None, **kwargs):
-        """ Instance vars here are limited to what would likely be used
-            by any dataset.
-        Potentially many more instance vars would be set through
-        kwargs
-
-        Parameters
-        ----------
-        label : str
-            name of the dataset, eg. "Iris"
-        fname : str
-            name of the dataset file
-        data_subdirs : str
-            additional subdirectories within root data directory
-        url : str
-            the url to the source dataset online
-
-        """
-        #self.label = label
-        #self.fname = fname
-        #self.data_path = self + data_subdirs + fname
-        #self.url = url
-        ## init other possible class instance vars
-        #for attribute, value in kwargs.items():
-        #    setattr(self, attribute, value)
-        pass
-
-    def download_dataset_from_source(self,):
-        pass
-
-
-#==============================================================================
 # Data processing functions
 #==============================================================================
 
 #------------------------------------------------------------------------------
 # Split into Train/Test sets
 #------------------------------------------------------------------------------
-@TODO
-def load_dataset(data_path, XY_split=False, train_test_split=False):
-    """   """
-    pass
 
 def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
     """ Splits a dataset (or array) into training and testing sets.
@@ -325,7 +281,7 @@ def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
     return X_train, X_test
 
 
-def one_hot(Y):
+def to_one_hot(Y):
     """ make one-hot encoding for truth labels
 
     Assumptions
@@ -355,9 +311,9 @@ def one_hot(Y):
     d = np.max(Y) + 1
 
     # make one-hot
-    Y1h = np.zeros((n, d))
-    Y1h[np.arange(n), Y] = 1
-    return Y1h
+    one_hot = np.zeros((n, d))
+    one_hot[np.arange(n), Y] = 1
+    return one_hot
 
 
 #==============================================================================
@@ -468,13 +424,64 @@ class Parser:
             print('{:>{margin}}: {}'.format(k,v, margin=margin))
 
 
+
+
+
+
 #==============================================================================
 #------------------------------------------------------------------------------
-#                              Trainer
+#                      Training stats and other info
 #------------------------------------------------------------------------------
 #==============================================================================
 
 
-@TODO
-class Trainer:
-    pass
+def get_predictions(Y_hat):
+    """ Select the highest valued class labels in prediction from
+    network output distribution
+
+    Y_hat is assumed to of shape (N, D), where
+      N is the number of independent samples in the prediction, and
+      D is the number of classes
+
+    We can approximate a single label prediction from a distribution
+    of prediction values over the different classes by selecting
+    the largest value (value the model is most confident in)
+
+    Params
+    ------
+    Y_hat : ndarray, (N, D)
+        network output, "predictions" or scores on the D classes
+
+    Returns
+    -------
+    Y_pred : ndarray, (N,)
+        the maximal class score per sample
+    """
+    Y_pred = np.argmax(Y_hat, axis=-1)
+    return Y_pred
+
+
+def classification_accuracy(Y_hat, Y_truth, strict=False):
+    """ Computes classification accuracy over different classes
+
+    Params
+    ------
+    Y_pred : ndarray float32, (N, D)
+        raw class "scores" from network output for the D classes
+
+    Y_truth : ndarray int32, (N,)
+        ground truth
+
+    Returns
+    -------
+    accuracy : float
+        the averaged percentage of matching predictions between
+        Y_hat and Y_truth
+    """
+    # Reduce Y_hat to highest scores
+    Y_pred = get_predictions(Y_hat)
+
+    # Take average percentage match
+    accuracy = np.mean(Y_pred == Y_truth)
+
+    return accuracy

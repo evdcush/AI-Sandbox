@@ -66,7 +66,7 @@ class NeuralNetwork:
     layers = []
     def __init__(self, channels,
                  connection_layer='dense_layer',
-                 activation_layer='softmax_layer',
+                 activation_layer='sigmoid_layer',
                  final_activation=False, restore=None, initializers=None):
 
         self.channels = list(zip(channels, channels[1:]))

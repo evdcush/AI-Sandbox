@@ -57,6 +57,7 @@ opt = OptSGD(learning_rate)
 #------------------
 train_loss_history = np.zeros((num_iters,))
 
+
 # Train
 #==============================================================================
 def print_train_status(step, err):
@@ -75,6 +76,9 @@ for step in range(num_iters):
     #------------------
     #y_hat = model(x)
     y_hat = model.forward(x)
+    #if (step % 100) == 0:
+    #    print('step: {}'.format(step))
+
     #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     error = objective(y_hat, y)
     train_loss_history[step] = error
