@@ -68,13 +68,14 @@ class Dense:
              'B_key' ...}
     """
     name = 'dense_layer'
-    matmul = F.MatMul()
+    #matmul = F.MatMul()
     updates = True
     W_key  = 'W'
     B_key  = 'B'
-    params = {} # nested as {'W_key': {'var':array, 'grad': None}}
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros,
                  nobias=False, restore=None):
+        self.matmul = F.MatMul()
+        self.params = {} # nested as {'W_key': {'var':array, 'grad': None}}
         self.ID = ID            # int : Layer's position in the parent network
         self.kdims = kdims      # tuple(int) : channel-sizes
         self.init_W = init_W() # Initializer : for weights
@@ -339,7 +340,7 @@ class SwishActivation:
 class StaticLayer:
     """ Parent class covering most ops performed by static layers """
     updates = False
-    __slots__ = ('name', 'func', 'ID')
+    #__slots__ = ('name', 'func', 'ID')
     def __init__(self, ID, *args, **kwargs):
         self.ID = ID
         self.name = self.name + str(ID)
@@ -356,15 +357,50 @@ class StaticLayer:
 
 # Activations
 #------------------------------------------------------------------------------
-class SigmoidActivation(StaticLayer):
-    __slots__ = ()
-    name = 'sigmoid_layer'
-    func = F.Sigmoid()
+class SigmoidActivation:
+    """ Parent class covering most ops performed by static layers """
+    base_name = 'sigmoid_layer'
+    updates = False
+    #__slots__ = ('name', 'func', 'ID')
+    def __init__(self, ID, *args, **kwargs):
+        self.ID = ID
+        self.name = self.base_name + str(ID)
+        self.func = F.Sigmoid()
 
-class SoftmaxActivation(StaticLayer):
-    __slots__ = ()
-    name = 'softmax_layer'
-    func = F.Softmax()
+    def __repr__(self):
+        return "{}('{}')".format(self.__class__.__name__, self.ID)
+
+    def forward(self, X):
+        return self.func(X)
+
+    def backward(self, gY):
+        return self.func(gY, backprop=True)
+
+
+class SoftmaxActivation:
+    """ Parent class covering most ops performed by static layers """
+    base_name = 'softmax_layer'
+    updates = False
+    #__slots__ = ('name', 'func', 'ID')
+    def __init__(self, ID, *args, **kwargs):
+        self.ID = ID
+        self.name = self.base_name + str(ID)
+        self.func = F.Softmax()
+
+    def __repr__(self):
+        return "{}('{}')".format(self.__class__.__name__, self.ID)
+
+    def forward(self, X):
+        return self.func(X)
+
+    def backward(self, gY):
+        return self.func(gY, backprop=True)
+
+
+#class SoftmaxActivation(StaticLayer):
+#    __slots__ = ()
+#    name = 'softmax_layer'
+#    func = F.Softmax()
 
 class TanhActivation(StaticLayer):
     __slots__ = ()

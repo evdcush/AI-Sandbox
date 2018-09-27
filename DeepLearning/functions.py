@@ -180,7 +180,7 @@ class Function:
 
     @cache.setter
     def cache(self, *fvars):
-        print(repr(self))
+        #print(repr(self))
         self._cache = fvars if len(fvars) > 1 else fvars[0]
 
     def forward(self, X, *args): pass
@@ -269,7 +269,7 @@ class MatMul(Function):
         # retrieve inputs
         X, W = self.cache
         m, k = W.shape
-
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
         # get grads
         gX = np.matmul(gY, W.T)
 
@@ -564,7 +564,6 @@ class Softmax(Function):
     # reduction kwargs
     kw = {'axis':1, 'keepdims':True}
 
-    @preserve(inputs=False)
     def forward(self, X):
         """ Since softmax is translation invariant
         (eg, softmax(x) == softmax(x+c), where c is some constant),
@@ -585,10 +584,12 @@ class Softmax(Function):
         kw = self.kw # (axis=1, keepdims=True)
         eX = np.exp(X - X.max(**kw))
         Y = eX / np.sum(eX, **kw)
+        self.cache = Y
         return Y
 
     def backward(self, gY):
-        Y = self.get_fn_vars()
+        Y = self.cache
+        #Y = self.get_fn_vars()
         gY *= Y
         Y *= np.sum(gY, **self.kw)
         gX = gY - Y

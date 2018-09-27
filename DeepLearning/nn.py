@@ -27,7 +27,7 @@ NeuralNetwork : vanilla MLP
     (activations).
 
 """
-
+import sys
 import code
 import numpy as np
 import layers as L
@@ -66,7 +66,7 @@ class NeuralNetwork:
     layers = []
     def __init__(self, channels,
                  connection_layer='dense_layer',
-                 activation_layer='sigmoid_layer',
+                 activation_layer='softmax_layer',
                  final_activation=False, restore=None, initializers=None):
 
         self.channels = list(zip(channels, channels[1:]))
@@ -96,11 +96,11 @@ class NeuralNetwork:
         last_layer = len(self.channels) - 1
 
         if not last_layer:
-            activation = self.act(ID, kdim, **kwargs)
+            activation = act(ID, kdim, **kwargs)
             self.layers.append(activation)
         else:
             if self.final_activation:
-                activation = self.act(ID, kdim, **kwargs)
+                activation = act(ID, kdim, **kwargs)
                 self.layers.append(activation)
 
     def initialize_layers(self, **kwargs):
@@ -124,6 +124,8 @@ class NeuralNetwork:
         for ID, kdim in enumerate(kdims):
             connection = connection_layer(ID, kdim, )#**kwargs)
             self.layers.append(connection)
+            #print('{}, {} ---- id(params) = {}'.format(ID, kdim, id(connection.params)))
+            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             self.add_activation(ID, kdim, activation_layer, )#**kwargs)
 
     def forward(self, X):
@@ -144,7 +146,10 @@ class NeuralNetwork:
         """
         gX = np.copy(gY)
         for layer in reversed(self.layers):
-            print(repr(layer))
+            #print('BACKWARD LOOP, NN, DEBUGGING LAYER INIT AND FORWARD, EXITING NOW')
+            #sys.exit()
+            #print(repr(layer))
+            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             gX = layer.backward(gX)
 
     def update(self, opt):
@@ -154,3 +159,34 @@ class NeuralNetwork:
                 layer.update(opt)
 
 
+"""
+ID: 0
+kdim: 4, 16
+
+>>> id(connection)
+140466774141696
+
+>>> id(connection.params)
+140466779102808
+
+>>> connection.params.keys()
+dict_keys(['dense_layer0_W', 'dense_layer0_B'])
+
+--------------
+ID: 1
+kdim: 16, 3
+
+>>> id(connection)
+140466774246736
+
+>>> id(connection.params)
+140466779102808 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# SAME PARAMS OBJECT SHARED
+
+>>> connection.params.keys()
+dict_keys(['dense_layer0_W', 'dense_layer0_B', 'dense_layer1_W', 'dense_layer1_B'])
+
+
+# REMOVE PARAMS FROM BEING A CLASS VARIABLE
+
+"""

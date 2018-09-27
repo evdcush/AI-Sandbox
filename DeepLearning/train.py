@@ -15,6 +15,7 @@ from functions import SoftmaxCrossEntropy
 # Data setup
 arg_parser = utils.Parser()
 config = arg_parser.parse_args()
+arg_parser.print_args()
 
 # Load data
 X = np.load(utils.IRIS_DATA_PATH)
@@ -47,7 +48,7 @@ channels = [4, 16, num_classes] # config.channels
 # Instantiate model
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
-model = nn.NeuralNetwork(channels)
+model = nn.NeuralNetwork(channels, final_activation=False)
 objective = SoftmaxCrossEntropy()
 #opt = Adam()
 opt = OptSGD(learning_rate)
@@ -100,7 +101,7 @@ print('# Finished training\n#{}'.format('-'*78))
 print(' * Elapsed time: {} minutes'.format(elapsed_time))
 print(' * Average error, final 50 iterations: {:.6f} '.format(avg_final_error))
 print(' * Median error,  final 50 iterations: {:.6f} '.format(median_final_error))
-
+'''
 # Validation
 #==============================================================================
 
@@ -132,3 +133,4 @@ median_test_error = np.median(test_loss_history)
 print('\n# Finished Testing\n#{}'.format('-'*78))
 print(' * Average error : {:.6f} '.format(avg_test_error))
 print(' * Median error  : {:.6f} '.format(median_test_error))
+'''
