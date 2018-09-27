@@ -9,12 +9,15 @@ Other functions, for training or data processing, can be found in `utils.py`
 Module components
 =================
 Function : base class for functions
-    atomic functions: elementary functions and factors
-        Log, Square, Exp, Power, Bias, Matmul, Sqrt
-    composite functions : functions that combine other functions
-        Linear
-    ReductionFunction : functions that reduce dimensionality
-        Sum, Mean, Prod, Max, Min
+
+atomic functions: elementary functions and factors
+    Log, Square, Exp, Power, Bias, Matmul, Sqrt
+
+composite functions : functions that combine other Functions
+    Linear
+
+ReductionFunction : functions that reduce dimensionality
+    Sum, Mean, Prod, Max, Min
 
 activation functions: nonlinearities
     ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax
@@ -98,38 +101,39 @@ def preserve(inputs=True, outputs=True):
 
 
 
-#==============================================================================
-#------------------------------------------------------------------------------
-#                              Functions
-#------------------------------------------------------------------------------
-#==============================================================================
 
-
+#==============================================================================
+#                              Function
+#==============================================================================
 
 # Base function class
 #------------------------------------------------------------------------------
 
 # Function
-# ------------
+# --------
 # inherits :
 # derives  : ReductionFunction
 class Function:
-    """ Function for various, mostly mathematical ops
+    """ Function parent class for various, mostly mathematical ops
 
-    Designed to abstract as much functionality from
-    child classes as possible to reduce boilerplate.
+    Function defines the basic structure and interface to most of
+    the functions used in network ops
 
-    In practice, this works well with the "caching"
-    operations for functions, and in some cases,
-    the forward ops
+    In addition to ops and attributes described below, most functions
+    inherit the following, unchanged, from Function:
+     # __init__
+     # __repr__
+     # __call__
+     # Function.cache
 
     Function ops
-    -------------
-        forward : f(X)
-            the function
+    ------------
+    forward : f(X)
+        the function
 
-        backward : f'(X)
-            the derivative of the function
+    backward : f'(X)
+        the derivative of the function (wrt chained gradient)
+
 
     Attributes
     ----------
@@ -137,31 +141,14 @@ class Function:
         name of the function (based on function class name)
 
     cache : object
-        cache is whatever the functions need to store to reduce
-        redundant computation and restore crucial data during
-        backpropagation
-            WARNING: cache is automatically cleared when getted
-
-    function : object (most likely a numpy function)
-        The function the class is defined by. All Functions use
-        numpy ops, and for the more atomic functions, like
-        exponential, square-root, etc., storing it as a class variable
-        works okay
-
-    function_kwargs : dict | None
-        some functions take kwargs. Most don't. This allows, again,
-        for some Functions to exploit the parent class (Function)
-        super forward
-
+        cache is used for whatever data the functions store for
+        retrieval during backpropagation (eg, inputs/outputs or
+        reduction axes)
+        WARNING: cache is automatically cleared after access
     """
-    name : str
-    #_cache = None
-    function = lambda *args: print("DID NOT OVERRIDE cls.function ATTR")
-    function_kwargs = {}
-
     def __init__(self, *args, **kwargs):
-        _cache = None
         self.name = self.__class__.__name__
+        self._cache = None
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
 
@@ -173,24 +160,17 @@ class Function:
         """ NOTE: 'clears' cache upon access
         (since it is always reset in backprop)
         """
-        #print(repr(self))
         cache_objs = self._cache
-        #self._cache = None
+        self._cache = None
         return cache_objs
 
     @cache.setter
     def cache(self, *fvars):
-        #print(repr(self))
         self._cache = fvars if len(fvars) > 1 else fvars[0]
 
-    def forward(self, X, *args): pass
-        #func = self.function
-        #if len(self.function_kwargs) > 0:
-        #    Y = func(X, *args, **self.function_kwargs)
-        #else:
-        #    Y = func(X, *args)
-        #self.cache = X, *args, Y
-        #return Y
+    @NOTIMPLEMENTED
+    def forward(self, X, *args):
+        pass
 
     @NOTIMPLEMENTED
     def backward(self, gY, *args): pass
@@ -200,83 +180,131 @@ class Function:
         return func(*args)
 
 
-class Sigmoid(Function):
-    """ Logistic sigmoid activation """
-    #function = lambda X: 1 / (1 + np.exp(-X))
+#==============================================================================
+#                             Math Functions
+#==============================================================================
+
+#------------------------------------------------------------------------------
+#  atomic functions
+#------------------------------------------------------------------------------
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Exp(Function):
+    """ Exponential function """
+    @staticmethod
+    def exp(x):
+        return np.exp(x)
+
+    @staticmethod
+    def exp_prime(x):
+        return np.exp(x)
 
     def forward(self, X):
-        Y = 1 / (1 + np.exp(-X))
-        #self.fn_vars = Y
+        Y = self.exp(X)
+        self.cache = X, Y
+        return Y
+
+    def backward(self, gY):
+        X, Y = self.cache
+        gX = Y * gY
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Log(Function):
+    """ Natural logarithm function"""
+    @staticmethod
+    def log(x):
+        return np.log(x)
+
+    @staticmethod
+    def log_prime(x):
+        return 1.0 / x
+
+    def forward(self, X):
+        self.cache = X
+        Y = self.log(X)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = gY * self.log_prime(X)
+        return gX
+
+
+#==============================================================================
+#                          Activation Functions
+#==============================================================================
+
+class Sigmoid(Function):
+    """ Logistic sigmoid activation """
+
+    @staticmethod
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    @staticmethod
+    def sigmoid_prime(x):
+        """ ASSUMES x == sigmoidx(x) """
+        return x * (1 - x)
+
+    def forward(self, X):
+        Y = self.sigmoid(X)
         self.cache = Y
         return Y
 
     def backward(self, gY):
         Y = self.cache
-        gX = gY * Y * (1 - Y)
+        gX = gY * self.sigmoid_prime(Y)
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class SoftmaxCrossEntropy(Function):
-    """ Cross entropy loss defined on softmax activation
 
-    Notes
-    -----
-    : Assumes input had no activation applied
-    : *Assumes network input is 2D*
+class Softmax(Function):
+    """ Softmax activation """
+    #kw = {'axis':1, 'keepdims':True} # reduction kwargs
 
-    Attributes
-    ----------
-    softmax : Softmax :obj:
-        instance of Softmax function
-    """
+    @staticmethod
+    def softmax(x):
+        kw = {'axis':1, 'keepdims':True}
+        exp_x = np.exp(x - x.max(**kw))
+        return exp_x / np.sum(exp_x, **kw)
 
-    softmax = Softmax()
+    @staticmethod
+    def softmax_prime(x):
+        kw = {'axis':1, 'keepdims':True}
+        sqr_sum_x = np.square(x).sum(**kw)
+        return x - sqr_sum_x
 
-    def forward(self, X, t):
-        """ Cross entropy loss function defined on a
-        softmax activation
+    def forward(self, X):
+        """ Since softmax is translation invariant
+        (eg, softmax(x) == softmax(x+c), where c is some constant),
+        it's common to first subtract the max from x before
+        input, to avoid numerical instabilities sometimes caused
+        with very large positive values
 
         Params
         ------
-        X : ndarray float32, (N, D)
-            output of network's final layer with no activation. *2D assumed*
-
-        t : ndarray int32, (N,)
-            truth labels for each sample, where int values range [0, D)
+        X : ndarray, (N, K)
+            input assumed to be 2D, N = num samples, K = num features
 
         Returns
         -------
-        loss : float, (1,)
-            the cross entropy error between the network's predicted
-            class labels and ground truth labels
+        Y : ndarray (N, K)
+            prob. distribution over K features, sums to 1
         """
-        assert X.ndim == 2 and t.shape[0] == X.shape[0]
-
-        N = t.shape[0]
-
         Y = self.softmax(X)
-        #self.fn_vars = Y, t # preserve vars for backward
-        self.cache = Y, t
-        p = -np.log(Y[np.arange(N), t])
-        loss = np.sum(p, keepdims=True) / float(N)
-        return loss
+        self.cache = Y
+        return Y
 
-    def backward(self, gLoss):
-        """ gradient function for cross entropy loss
-
-        Params
-        ------
-        gLoss : ndarray, (1,)
-            cross entropy error (output of self.forward)
-
-        Returns
-        -------
-        gX : ndarray, (N, D)
-            derivative of X (network prediction) wrt the cross entropy loss
-        """
-        #gX, t = self.get_fn_vars() # (Y, t)
-        gX, t = self.cache
-        N = t.shape[0]
-        gX[np.arange(N), t] -= 1
-        gX = gLoss * (gX / float(N))
+    def backward(self, gY):
+        Y = self.cache
+        gX = gY * self.softmax_prime(Y)
         return gX
+
+#==============================================================================
+#                          Loss Functions
+#==============================================================================
+
