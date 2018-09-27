@@ -190,7 +190,7 @@ class Function:
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Exp(Function):
+class Exp(Function): #
     """ Exponential function """
     @staticmethod
     def exp(x):
@@ -202,18 +202,17 @@ class Exp(Function):
 
     def forward(self, X):
         Y = self.exp(X)
-        self.cache = X, Y
+        self.cache = Y
         return Y
 
     def backward(self, gY):
-        X, Y = self.cache
+        Y = self.cache
         gX = Y * gY
         return gX
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Log(Function):
-    """ Natural logarithm function"""
+class Log(Function): #
+    """ Natural logarithm function """
     @staticmethod
     def log(x):
         return np.log(x)
@@ -233,11 +232,56 @@ class Log(Function):
         return gX
 
 
+class Square(Function):#
+    """ Square """
+    @staticmethod
+    def square(x):
+        return np.square(x)
+
+    @staticmethod
+    def square_prime(x):
+        return 2.0 * x
+
+    def forward(self, X):
+        self.cache = X
+        Y = self.square(X)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = gY * self.square_prime(X)
+        return gX
+
+
+class Sqrt(Function): #
+    """ Square root """
+    @staticmethod
+    def sqrt(x):
+        return np.sqrt(x)
+
+    @staticmethod
+    def sqrt_prime(y):
+        return 1.0 / (2 * y)
+
+    def forward(self, X):
+        Y = self.sqrt(X)
+        self.cache = Y
+        return Y
+
+    def backward(self, gY):
+        Y = self.cache
+        gX = gY * self.sqrt_prime(Y)
+        return gX
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
 #==============================================================================
 #                          Activation Functions
 #==============================================================================
 
-class Sigmoid(Function):
+class Sigmoid(Function): #
     """ Logistic sigmoid activation """
 
     @staticmethod
@@ -245,9 +289,9 @@ class Sigmoid(Function):
         return 1 / (1 + np.exp(-x))
 
     @staticmethod
-    def sigmoid_prime(x):
+    def sigmoid_prime(y):
         """ ASSUMES x == sigmoidx(x) """
-        return x * (1 - x)
+        return y * (1 - y)
 
     def forward(self, X):
         Y = self.sigmoid(X)
@@ -259,10 +303,32 @@ class Sigmoid(Function):
         gX = gY * self.sigmoid_prime(Y)
         return gX
 
+
+class Tanh(Function): #
+    """ Hyperbolic tangent activation """
+    @staticmethod
+    def tanh(x):
+        return np.tanh(x)
+
+    @staticmethod
+    def tanh_prime(y):
+        return 1.0 - np.square(y)
+
+    def forward(self, X):
+        Y = self.tanh(X)
+        self.cache = Y
+        return Y
+
+    def backward(self, gY):
+        Y = self.cache
+        gX = gY * self.tanh_prime(Y)
+        return gX
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
-class Softmax(Function):
+class Softmax(Function): #
     """ Softmax activation """
     #kw = {'axis':1, 'keepdims':True} # reduction kwargs
 
@@ -273,10 +339,10 @@ class Softmax(Function):
         return exp_x / np.sum(exp_x, **kw)
 
     @staticmethod
-    def softmax_prime(x):
+    def softmax_prime(y):
         kw = {'axis':1, 'keepdims':True}
-        sqr_sum_x = np.square(x).sum(**kw)
-        return x - sqr_sum_x
+        sqr_sum_y = np.square(y).sum(**kw)
+        return y - sqr_sum_y
 
     def forward(self, X):
         """ Since softmax is translation invariant
