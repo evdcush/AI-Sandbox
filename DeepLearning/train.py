@@ -5,10 +5,11 @@ import sys
 import code
 import numpy as np
 
+import nn
 import utils
 import layers
 import initializers
-from optimizers import SGD, Adam
+from optimizers import SGD, Adam, OptSGD
 from functions import SoftmaxCrossEntropy
 
 # Data setup
@@ -46,10 +47,10 @@ channels = [4, 16, num_classes] # config.channels
 # Instantiate model
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
-model = layers.NeuralNetwork(channels, 'M', layer_blocks=blocks)
+model = nn.NeuralNetwork(channels)
 objective = SoftmaxCrossEntropy()
 #opt = Adam()
-opt = SGD(learning_rate)
+opt = OptSGD(learning_rate)
 
 # Instantiate model results collections
 #------------------
@@ -71,7 +72,8 @@ for step in range(num_iters):
 
     # forward pass
     #------------------
-    y_hat = model(x)
+    #y_hat = model(x)
+    y_hat = model.forward(x)
     #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     error = objective(y_hat, y)
     train_loss_history[step] = error
@@ -81,7 +83,8 @@ for step in range(num_iters):
     # backprop and update
     #------------------
     grad_loss = objective(error, backprop=True)
-    model(grad_loss, opt, backprop=True)
+    model.backward(grad_loss)
+    model.update(opt)
 
 # Finished training
 #------------------------------------------------------------------------------
@@ -113,7 +116,8 @@ for i in range(num_test_samples):
 
     # forward pass
     #------------------
-    y_hat = model(x)
+    #y_hat = model(x)
+    y_hat = model.forward(x)
     error = objective(y_hat, y)
     test_loss_history[i] = error
 

@@ -155,11 +155,12 @@ class Function:
 
     """
     name : str
-    _cache = None
+    #_cache = None
     function = lambda *args: print("DID NOT OVERRIDE cls.function ATTR")
-    function_kwargs = None
+    function_kwargs = {}
 
     def __init__(self, *args, **kwargs):
+        _cache = None
         self.name = self.__class__.__name__
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
@@ -172,22 +173,24 @@ class Function:
         """ NOTE: 'clears' cache upon access
         (since it is always reset in backprop)
         """
+        #print(repr(self))
         cache_objs = self._cache
-        self._cache = None
+        #self._cache = None
         return cache_objs
 
     @cache.setter
     def cache(self, *fvars):
+        print(repr(self))
         self._cache = fvars if len(fvars) > 1 else fvars[0]
 
-    def forward(self, X, *args):
-        func = self.function
-        if len(self.function_kwargs) > 0:
-            Y = self.func(X, *args, **self.function_kwargs)
-        else:
-            Y = self.func(X, *args)
-        self.cache = X, *args, Y
-        return Y
+    def forward(self, X, *args): pass
+        #func = self.function
+        #if len(self.function_kwargs) > 0:
+        #    Y = func(X, *args, **self.function_kwargs)
+        #else:
+        #    Y = func(X, *args)
+        #self.cache = X, *args, Y
+        #return Y
 
     @NOTIMPLEMENTED
     def backward(self, gY, *args): pass
@@ -249,11 +252,11 @@ class MatMul(Function):
     W : ndarray, weight matrix
         Of shape (m, k)
     """
+    #function = np.matmul
     def forward(self, X, W):
         """ matmul on X, W assumes X.shape[-1] == W.shape[0] """
-        self.fn_vars = X, W
-
         Y = np.matmul(X, W)
+        self.cache = X, W
         return Y
 
     def backward(self, gY):
@@ -264,7 +267,7 @@ class MatMul(Function):
         gW shape
         """
         # retrieve inputs
-        X, W = self.get_fn_vars()
+        X, W = self.cache
         m, k = W.shape
 
         # get grads
@@ -530,13 +533,16 @@ class Swish(Function):
 
 class Sigmoid(Function):
     """ Logistic sigmoid activation """
+    #function = lambda X: 1 / (1 + np.exp(-X))
+
     def forward(self, X):
         Y = 1 / (1 + np.exp(-X))
-        self.fn_vars = Y
+        #self.fn_vars = Y
+        self.cache = Y
         return Y
 
-    def backward(self, gY, *args, **kwargs):
-        Y = self.get_fn_vars()
+    def backward(self, gY):
+        Y = self.cache
         gX = gY * Y * (1 - Y)
         return gX
 
@@ -632,7 +638,8 @@ class SoftmaxCrossEntropy(Function):
         N = t.shape[0]
 
         Y = self.softmax(X)
-        self.fn_vars = Y, t # preserve vars for backward
+        #self.fn_vars = Y, t # preserve vars for backward
+        self.cache = Y, t
         p = -np.log(Y[np.arange(N), t])
         loss = np.sum(p, keepdims=True) / float(N)
         return loss
@@ -650,7 +657,8 @@ class SoftmaxCrossEntropy(Function):
         gX : ndarray, (N, D)
             derivative of X (network prediction) wrt the cross entropy loss
         """
-        gX, t = self.get_fn_vars() # (Y, t)
+        #gX, t = self.get_fn_vars() # (Y, t)
+        gX, t = self.cache
         N = t.shape[0]
         gX[np.arange(N), t] -= 1
         gX = gLoss * (gX / float(N))

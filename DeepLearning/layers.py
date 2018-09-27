@@ -98,7 +98,7 @@ class Dense:
         # Instance vars
         cls_name = self.__class__.__name__
         init_W_name = self.init_W.__class__.__name__
-        init_W_name = self.init_B.__class__.__name__
+        init_B_name = self.init_B.__class__.__name__
         ID = self.ID
         kdims = self.kdims
 
@@ -115,7 +115,7 @@ class Dense:
 
     @W.setter
     def W(self, var):
-        self.params.[self.W_key]['var'] = var
+        self.params[self.W_key]['var'] = var
 
     @property
     def gW(self):
@@ -123,7 +123,7 @@ class Dense:
 
     @gW.setter
     def gW(self, grad):
-        self.params.[self.W_key]['grad'] = grad
+        self.params[self.W_key]['grad'] = grad
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # ===== B
@@ -133,7 +133,7 @@ class Dense:
 
     @B.setter
     def B(self, var):
-        self.params.[self.B_key]['var'] = var
+        self.params[self.B_key]['var'] = var
 
     @property
     def gB(self):
@@ -141,7 +141,7 @@ class Dense:
 
     @gB.setter
     def gB(self, grad):
-        self.params.[self.B_key]['grad'] = grad
+        self.params[self.B_key]['grad'] = grad
 
 
     # Layer initialization
@@ -266,7 +266,7 @@ class SwishActivation:
 
     @Beta.setter
     def Beta(self, var):
-        self.params.[self.B_key]['var'] = var
+        self.params[self.B_key]['var'] = var
 
     @property
     def gBeta(self):
@@ -274,7 +274,7 @@ class SwishActivation:
 
     @gBeta.setter
     def gBeta(self, grad):
-        self.params.[self.B_key]['grad'] = grad
+        self.params[self.B_key]['grad'] = grad
 
 
     # Layer initialization

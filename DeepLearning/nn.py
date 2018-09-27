@@ -26,7 +26,6 @@ NeuralNetwork : vanilla MLP
     linear-transformations on input data, followed by nonlinearities
     (activations).
 
-
 """
 
 import code
@@ -69,7 +68,8 @@ class NeuralNetwork:
                  connection_layer='dense_layer',
                  activation_layer='sigmoid_layer',
                  final_activation=False, restore=None, initializers=None):
-        self.channels = channels
+
+        self.channels = list(zip(channels, channels[1:]))
         self.connection_layer = connection_layer
         self.activation_layer = activation_layer
         self.final_activation = final_activation
@@ -86,10 +86,10 @@ class NeuralNetwork:
         chans = self.channels
         conn = self.connection_layer
         act  = self.activation_layer
-        final_act = self.final_activation
+        final_activation = self.final_activation
 
         # format repr and return
-        rep = rep.format(name, chans, conn, act, final_act)
+        rep = rep.format(name, chans, conn, act, final_activation)
         return rep
 
     def add_activation(self, ID, kdim, act, **kwargs):
@@ -99,10 +99,9 @@ class NeuralNetwork:
             activation = self.act(ID, kdim, **kwargs)
             self.layers.append(activation)
         else:
-            if self.final_act:
+            if self.final_activation:
                 activation = self.act(ID, kdim, **kwargs)
                 self.layers.append(activation)
-
 
     def initialize_layers(self, **kwargs):
         """ """
@@ -123,15 +122,16 @@ class NeuralNetwork:
         activation_layer = layers[act_label]
 
         for ID, kdim in enumerate(kdims):
-            connection = connection_layer(ID, kdim, **kwargs)
+            connection = connection_layer(ID, kdim, )#**kwargs)
             self.layers.append(connection)
-            self.add_activation(ID, kdim, activation_layer, **kwargs)
+            self.add_activation(ID, kdim, activation_layer, )#**kwargs)
 
     def forward(self, X):
         """ Propagates input X through network layers """
         Y = np.copy(X)
         for layer in self.layers:
-            Y = layer(Y)
+            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+            Y = layer.forward(Y)
         return Y
 
     def backward(self, gY):
@@ -144,12 +144,13 @@ class NeuralNetwork:
         """
         gX = np.copy(gY)
         for layer in reversed(self.layers):
-            gX = layer(gX, backprop=True)
+            print(repr(layer))
+            gX = layer.backward(gX)
 
     def update(self, opt):
         """ Pass optimizer through layers to update layers with params """
         for layer in self.layers:
             if layer.updates:
-                opt(layer)
+                layer.update(opt)
 
 

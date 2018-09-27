@@ -30,47 +30,33 @@ import numpy as np
 
 from utils import TODO, NOTIMPLEMENTED, INSPECT
 
-""" module imports
-utils :
-    `TODO` : decorator
-        serves as comment and call safety
 
-    `NOTIMPLEMENTED` : decorator
-        raises NotImplementedErrorforces if class func has not been overridden
 
-    `INSPECT` : decorator
-        interrupts computation and enters interactive shell,
-        where the user can evaluate the input and output to func
-"""
-#==============================================================================
-#------------------------------------------------------------------------------
-#                              Functions
-#------------------------------------------------------------------------------
-#==============================================================================
-#==============================================================================
-# Globals
-#==============================================================================
-#------------------------------------------------------------------------------
-# Shift invariant ops
-#------------------------------------------------------------------------------
 
-#------------------------------------------------------------------------------
+class OptSGD:
+    def __init__(self, lr):
+        self.lr = lr
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def update(self, P, gP):
+        return P - self.lr * gP
 
-# Shift invariant nodes
-# ========================================
+    def __call__(self, params):
+        """ params = {'var': ndarray, 'grad: ndarray}"""
+        updated_params = {}
+        for p_key, p_set in params.items():
+            var  = p_set['var']
+            grad = p_set['grad']
 
-#==== Thing
+            # update var
+            updated_var = self.update(var, grad)
+            updated_p_set = {'var': updated_var, 'grad':None}
 
-# Thing
-#-----------
+            # add to updated
+            updated_params[p_key] = updated_p_set
 
-#==============================================================================
-#------------------------------------------------------------------------------
-#                              Optimizers
-#------------------------------------------------------------------------------
-#==============================================================================
+        return updated_params
+
+
 
 #==============================================================================
 # Base Optimizer classes :
@@ -92,7 +78,7 @@ class Optimizer:
         learning-rate for optimizer, typically a small
         float value within [0.1, 1e-4], serves as the
         "step-size" during gradient descent in terms of
-        how far we want to move towards the opposite of
+        how far we want to move away from the
         gradient. The greater the value, the greater
         the updates to a param.
 
@@ -187,7 +173,7 @@ class AdaptiveOptimizer(Optimizer):
         updated_params = {}
         for p_key in params.keys():
             # get param and it's respective grad
-            code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             P = params[p_key]
             gP = grads[p_key]
 
