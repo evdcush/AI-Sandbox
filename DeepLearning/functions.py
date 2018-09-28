@@ -403,7 +403,8 @@ class LogisticCrossEntropy(Function):
 
     @staticmethod
     def log_cross_entropy_prime(x, t):
-        return x - t
+        return (x - t) / x.size
+
 
     def forward(self, X, t_vec):
         """
@@ -421,7 +422,7 @@ class LogisticCrossEntropy(Function):
         Y : float, (1,)
             average cross entropy error over all samples
 
-        p : ndarray.int32, (N,)
+        p : ndarray.int32, (N,D)
             Network approximations on class labels (for accuracy metrics)
         """
         # Check dimensional integrity
@@ -438,8 +439,8 @@ class LogisticCrossEntropy(Function):
         # Average cross-entropy
         #----------------------
         Y = self.log_cross_entropy(np.copy(p), t)
-
         return Y, p
+
 
     def backward(self, *args):
         """ Initial gradient to be chained through the network
@@ -464,7 +465,7 @@ class LogisticCrossEntropy(Function):
 
         # Get grad
         #---------
-        gX = self.log_cross_entropy_prime(np.copy(p), t) / p.size
+        gX = self.log_cross_entropy_prime(p, t)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -472,20 +473,25 @@ class LogisticCrossEntropy(Function):
 class SoftmaxCrossEntropy(Function):
     """ Cross entropy loss defined on softmax activation
 
-    Notes
-    -----
-    : Assumes input had no activation applied
-    : *Assumes network input is 2D*
+    Truth labels are converted to one-hot encoding to reduce
+    the duplicate select and reduction ops in forward and backprop
 
-    Attributes
-    ----------
-    softmax : Softmax :obj:
-        instance of Softmax function
     """
+    @staticmethod
+    def softmax(x):
+        return Softmax.softmax(x)
 
-    softmax = Softmax()
+    @staticmethod
+    def softmax_cross_entropy(x, t):
+        tlog_x = -(t * np.log(x))
+        return np.mean(np.sum(tlog_x, axis=1))
 
-    def forward(self, X, t):
+    @staticmethod
+    def softmax_cross_entropy_prime(x, t):
+        return (x - t) / x.shape[0]
+
+
+    def forward(self, X, t_vec):
         """ Cross entropy loss function defined on a
         softmax activation
 
@@ -494,42 +500,56 @@ class SoftmaxCrossEntropy(Function):
         X : ndarray float32, (N, D)
             output of network's final layer with no activation. *2D assumed*
 
-        t : ndarray int32, (N,)
+        t_vec : ndarray int32, (N,) ----> (N, D)
             truth labels for each sample, where int values range [0, D)
+            converted to (N, D) one-hot encoding
 
         Returns
         -------
-        loss : float, (1,)
-            the cross entropy error between the network's predicted
-            class labels and ground truth labels
+        Y : float, (1,)
+            average cross entropy error over all samples
+
+        p : ndarray.int32, (N,D)
+            Network approximations on class labels (for accuracy metrics)
         """
-        assert X.ndim == 2 and t.shape[0] == X.shape[0]
+        # Check dimensional integrity
+        assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
-        N = t.shape[0]
+        # Convert labels to 1-hot
+        t = utils.to_one_hot(np.copy(t_vec)) # (N,D)
 
-        Y = self.softmax(X)
-        #self.fn_vars = Y, t # preserve vars for backward
-        self.cache = Y, t
-        p = -np.log(Y[np.arange(N), t])
-        loss = np.sum(p, keepdims=True) / float(N)
-        return loss
+        # Softmax activation
+        #-------------------
+        p = self.softmax(X)
+        self.cache = p, t
 
-    def backward(self, gLoss):
-        """ gradient function for cross entropy loss
+        # Average cross entropy
+        #----------------------
+        Y = self.softmax_cross_entropy(np.copy(p), t)
+        return Y, p
+
+
+    def backward(self, *args):
+        """ Initial backprop gradient grad on X wrt loss
 
         Params
         ------
-        gLoss : ndarray, (1,)
-            cross entropy error (output of self.forward)
+        p : ndarray.float32, (N,D)
+            sigmoid activation on network forward output
+
+        t : ndarray.int32, (N,D), 1-hot
+            ground truth labels for this sample set
 
         Returns
         -------
         gX : ndarray, (N, D)
             derivative of X (network prediction) wrt the cross entropy loss
         """
-        #gX, t = self.get_fn_vars() # (Y, t)
-        gX, t = self.cache
-        N = t.shape[0]
-        gX[np.arange(N), t] -= 1
-        gX = gLoss * (gX / float(N))
+        # Retrieve data
+        p, t = self.cache
+
+        # Calculate grad
+        #---------------
+        gX = self.softmax_cross_entropy_prime(p, t)
         return gX
+
