@@ -32,6 +32,7 @@ from pprint import PrettyPrinter
 
 import numpy as np
 
+import utils
 from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 pretty_printer = PrettyPrinter()
@@ -64,6 +65,24 @@ class AttrDict(dict):
     """ dict accessed/mutated by attribute instead of index """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
+
+
+def restore_axis_shape(x, ax, d):
+    """ Restores an axis 'ax' that was reduced from 'x'
+    to it's original shape 'd'
+
+    Just a wrapper for the tedious
+    broadcast_to(expand_dims(...)...) op
+    """
+
+    # Assumes:
+    # x is at least 1D
+    # only on dim is being restored through ax
+    assert x.ndim >= 1 and isinstance(ax, int)
+
+    # Restore shape
+    bcast_shape = x.shape[:ax] + (d,) + x.shape[ax:]
+    return np.broadcast_to(np.expand_dims(x, ax), bcast_shape)
 
 
 def preserve_default(method):
@@ -210,6 +229,7 @@ class Exp(Function): #
         gX = Y * gY
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Log(Function): #
     """ Natural logarithm function """
@@ -231,6 +251,7 @@ class Log(Function): #
         gX = gY * self.log_prime(X)
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Square(Function):#
     """ Square """
@@ -251,6 +272,8 @@ class Square(Function):#
         X = self.cache
         gX = gY * self.square_prime(X)
         return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
 class Sqrt(Function): #
@@ -303,6 +326,7 @@ class Sigmoid(Function): #
         gX = gY * self.sigmoid_prime(Y)
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Tanh(Function): #
     """ Hyperbolic tangent activation """
@@ -324,13 +348,10 @@ class Tanh(Function): #
         gX = gY * self.tanh_prime(Y)
         return gX
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 
 class Softmax(Function): #
     """ Softmax activation """
-    #kw = {'axis':1, 'keepdims':True} # reduction kwargs
 
     @staticmethod
     def softmax(x):
@@ -345,22 +366,6 @@ class Softmax(Function): #
         return y - sqr_sum_y
 
     def forward(self, X):
-        """ Since softmax is translation invariant
-        (eg, softmax(x) == softmax(x+c), where c is some constant),
-        it's common to first subtract the max from x before
-        input, to avoid numerical instabilities sometimes caused
-        with very large positive values
-
-        Params
-        ------
-        X : ndarray, (N, K)
-            input assumed to be 2D, N = num samples, K = num features
-
-        Returns
-        -------
-        Y : ndarray (N, K)
-            prob. distribution over K features, sums to 1
-        """
         Y = self.softmax(X)
         self.cache = Y
         return Y
@@ -374,3 +379,157 @@ class Softmax(Function): #
 #                          Loss Functions
 #==============================================================================
 
+
+#------------------------------------------------------------------------------
+# Cross entropy
+#------------------------------------------------------------------------------
+
+class LogisticCrossEntropy(Function):
+    """ Logistic cross-entropy loss defined on sigmoid activation
+
+    Truth labels are converted to one-hot encoding to reduce
+    the duplicate select and reduction ops in forward and backprop
+
+    """
+    @staticmethod
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    @staticmethod
+    def log_cross_entropy(x, t):
+        lhs = -t * np.log(x)
+        rhs = (1 - t) * np.log(1 - x)
+        return np.mean(lhs - rhs)
+
+    @staticmethod
+    def log_cross_entropy_prime(x, t):
+        return x - t
+
+    def forward(self, X, t_vec):
+        """
+        Params
+        ------
+        X : ndarray.float32, (N, D)
+            linear output of network's final layer
+
+        t_vec : ndarray.int32, (N,) ----> (N, D)
+            truth labels on each sample, converted from a 1D
+            vector of vals within [0, D) to 2D 1-hot (with binary vals)
+
+        Returns
+        -------
+        Y : float, (1,)
+            average cross entropy error over all samples
+
+        p : ndarray.int32, (N,)
+            Network approximations on class labels (for accuracy metrics)
+        """
+        # Check dimensional integrity
+        assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
+
+        # Convert labels to 1-hot
+        t = utils.to_one_hot(np.copy(t_vec)) # (N,D)
+
+        # Sigmoid activation
+        #-------------------
+        p = self.sigmoid(X)
+        self.cache = p, t
+
+        # Average cross-entropy
+        #----------------------
+        Y = self.log_cross_entropy(np.copy(p), t)
+
+        return Y, p
+
+    def backward(self, *args):
+        """ Initial gradient to be chained through the network
+        during backprop
+
+        Params
+        ------
+        p : ndarray.float32, (N,D)
+            sigmoid activation on network forward output
+
+        t : ndarray.int32, (N,D), 1-hot
+            ground truth labels for this sample set
+
+        Returns
+        -------
+        gX : ndarray.float32, (N, D)
+            derivative of X (network output) wrt the logistic loss
+
+        """
+        # Retrieve vars
+        p, t = self.cache
+
+        # Get grad
+        #---------
+        gX = self.log_cross_entropy_prime(np.copy(p), t) / p.size
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class SoftmaxCrossEntropy(Function):
+    """ Cross entropy loss defined on softmax activation
+
+    Notes
+    -----
+    : Assumes input had no activation applied
+    : *Assumes network input is 2D*
+
+    Attributes
+    ----------
+    softmax : Softmax :obj:
+        instance of Softmax function
+    """
+
+    softmax = Softmax()
+
+    def forward(self, X, t):
+        """ Cross entropy loss function defined on a
+        softmax activation
+
+        Params
+        ------
+        X : ndarray float32, (N, D)
+            output of network's final layer with no activation. *2D assumed*
+
+        t : ndarray int32, (N,)
+            truth labels for each sample, where int values range [0, D)
+
+        Returns
+        -------
+        loss : float, (1,)
+            the cross entropy error between the network's predicted
+            class labels and ground truth labels
+        """
+        assert X.ndim == 2 and t.shape[0] == X.shape[0]
+
+        N = t.shape[0]
+
+        Y = self.softmax(X)
+        #self.fn_vars = Y, t # preserve vars for backward
+        self.cache = Y, t
+        p = -np.log(Y[np.arange(N), t])
+        loss = np.sum(p, keepdims=True) / float(N)
+        return loss
+
+    def backward(self, gLoss):
+        """ gradient function for cross entropy loss
+
+        Params
+        ------
+        gLoss : ndarray, (1,)
+            cross entropy error (output of self.forward)
+
+        Returns
+        -------
+        gX : ndarray, (N, D)
+            derivative of X (network prediction) wrt the cross entropy loss
+        """
+        #gX, t = self.get_fn_vars() # (Y, t)
+        gX, t = self.cache
+        N = t.shape[0]
+        gX[np.arange(N), t] -= 1
+        gX = gLoss * (gX / float(N))
+        return gX

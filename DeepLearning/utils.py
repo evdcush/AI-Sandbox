@@ -382,7 +382,7 @@ def to_one_hot(Y):
     # make one-hot
     one_hot = np.zeros((n, d))
     one_hot[np.arange(n), Y] = 1
-    return one_hot
+    return one_hot.astype(np.int32)
 
 
 #==============================================================================
