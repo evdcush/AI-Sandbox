@@ -10,26 +10,25 @@ Module components
 =================
 Function : base class for functions
 
-atomic functions: elementary functions and factors
-    Log, Square, Exp, Power, Bias, Matmul, Sqrt
+atomic functions : elementary functions and factors
+    Log, Square, Exp, Power, Sqrt
 
-composite functions : functions that combine other Functions
-    Linear
+connection functions : functions using learnable variables
+    Bias, Matmul, Linear
 
 ReductionFunction : functions that reduce dimensionality
     Sum, Mean, Prod, Max, Min
 
-activation functions: nonlinearities
-    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax
+activation functions : nonlinearities
+    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax, Swish
 
 loss functions : objectives for gradient descent
-    SoftmaxCrossEntropy
+    LogisticCrossEntropy, SoftmaxCrossEntropy
 
 """
 import code
 from functools import wraps
 from pprint import PrettyPrinter
-
 import numpy as np
 
 import utils
@@ -37,7 +36,6 @@ from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 pretty_printer = PrettyPrinter()
 pprint = lambda x: pretty_printer.pprint(x)
-
 
 """ submodule imports
 utils :
@@ -51,9 +49,6 @@ utils :
         interrupts computation and enters interactive shell,
         where the user can evaluate the input and output to func
 """
-
-
-
 
 
 
@@ -83,41 +78,6 @@ def restore_axis_shape(x, ax, d):
     # Restore shape
     bcast_shape = x.shape[:ax] + (d,) + x.shape[ax:]
     return np.broadcast_to(np.expand_dims(x, ax), bcast_shape)
-
-
-def preserve_default(method):
-    """ always saves method inputs to fn_vars """
-    @wraps(method)
-    def preserve_args(self, *args, **kwargs):
-        self.fn_vars = args
-        return method(self, *args, **kwargs)
-    return preserve_args
-
-
-def preserve(inputs=True, outputs=True):
-    """ Preserve inputs and outputs to fn_vars
-    Also provides kwargs for individual cases
-     - sometimes you only need inputs, or outputs
-       this decorator allows you to choose which
-       parts of the function you want to preserve
-    """
-    def inner_preserve(method):
-        """ outer preserve is like a decorator to this
-        decorator
-        """
-        @wraps(method)
-        def preserve_args(self, *args, **kwargs):
-            my_args = ()
-            if inputs:
-                my_args += args
-            ret = method(self, *args, **kwargs)
-            if outputs:
-                my_args += (ret,)
-            self.fn_vars = my_args
-            return ret
-        return preserve_args
-    return inner_preserve
-
 
 
 
@@ -184,12 +144,50 @@ class Function:
     def cache(self, *fvars):
         self._cache = fvars if len(fvars) > 1 else fvars[0]
 
-    @NOTIMPLEMENTED
     def forward(self, X, *args):
-        pass
+        """ Forward serves as an interface to a staticmethod for most Functions
+        These methods are purely functional, and perform the function
+        represented by the class.
+
+        Function, as the base class, provides a simple implementation
+        of this behavior.
+
+        If the Function class uses a staticmethod as such,
+        the methods are generally the lower-case version of the class name,
+        and the derivative functions have '_prime' concatenated.
+
+        For example, the following Functions have staticmethods:
+            Tanh : tanh, tanh_prime
+            Sqrt : sqrt, sqrt_prime
+            MatMul : matmul, matmul_prime
+
+        However, many Functions have forward or backward processes
+        that have more significant side-effects or other constraints
+        that would not be complete by the pure functions alone.
+          - LogisticCrossEntropy, for instance, cannot use its
+            functions alone (and, incidentally, does not have
+            conforming function names)
+
+        For any function where this is the case, they will override the
+        forward and backward methods to meet their constraints
+        """
+        # in this case, self.name = 'Function'
+        fn_name = self.name.lower()
+        if hasattr(self, fn_name): # is there a 'self.function' ?
+            fn = getattr(self, fn_name)
+            return fn(X, *args)
+        else:
+            raise NotImplementedError
+
 
     @NOTIMPLEMENTED
-    def backward(self, gY, *args): pass
+    def backward(self, gY, *args):
+        fn_name = self.name.lower() + '_prime'
+        if hasattr(self, fn_name):
+            fn = getattr(self, fn_name)
+            return fn(gY, *args)
+        else:
+            raise NotImplementedError
 
     def __call__(self, *args, backprop=False):
         func = self.backward if backprop else self.forward
@@ -270,7 +268,6 @@ class Square(Function):#
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
 class Sqrt(Function): #
     """ Square root """
     @staticmethod
@@ -294,7 +291,7 @@ class Sqrt(Function): #
 
 #------------------------------------------------------------------------------
 # Connection functions :
-#  Functions with learnable variables
+#     Functions using learnable variables
 #------------------------------------------------------------------------------
 
 class Bias(Function): #
@@ -382,7 +379,7 @@ class Linear(Function): #
     @staticmethod
     def linear_prime(y, x, w, b):
         dx, dw = MatMul.matmul_prime(np.copy(y), x, w)
-        _, db = Bias.bias_prime(y, b) # bias dx just identity func
+        _, db = Bias.bias_prime(y, b) # bias just identity func on gradient
         return dx, dw, db
 
     def forward(self, X, W, B):
@@ -489,13 +486,13 @@ class LogisticCrossEntropy(Function): #
         return 1 / (1 + np.exp(-x))
 
     @staticmethod
-    def log_cross_entropy(x, t):
+    def logistic_cross_entropy(x, t):
         lhs = -t * np.log(x)
         rhs = (1 - t) * np.log(1 - x)
         return np.mean(lhs - rhs)
 
     @staticmethod
-    def log_cross_entropy_prime(x, t):
+    def logistic_cross_prime(x, t):
         return (x - t) / x.size
 
 
