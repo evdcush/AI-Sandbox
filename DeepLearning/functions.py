@@ -483,6 +483,57 @@ class Softmax(Function): #
         gX = gY * self.softmax_prime(Y)
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+class Swish(Function): #
+    """ Self-gated activation function
+    Can be viewed as a smooth function where the nonlinearity
+    interpolates between the linear function (x/2), and the
+    ReLU function.
+    Intended to improve/replace the ReLU masterrace
+
+    "The best discovered activation function",
+    - Authors
+    See: https://arxiv.org/abs/1710.05941
+
+     Params
+     ------
+     X : ndarray
+        the usual
+     b : ndarray
+        scaling parameter. Authors say it can be a
+        constant scalar (1.0), but always immediately follow it up
+        saying it's best as a channel-wise trainable param.
+
+        So it's going to be always be treated as an array with the same
+        shape as X.shape[1:] (exlude batch dim)
+    """
+    @staticmethod
+    def swish(x, b):
+        return x * Sigmoid.sigmoid(x * b)
+
+    @staticmethod
+    def swish_prime(x, b):
+        sig_xb = Sigmoid.sigmoid(x*b)
+        y = x * sig_xb
+        gb = y * (x - y)
+        gx = sig_xb + b * (y * (1 - sig_xb))
+        return gx, gb
+
+    def forward(self, X, b):
+        self.cache = np.copy(X)
+        Y = self.swish(X, b)
+        return Y
+
+    def backward(self, gY, B):
+        X = self.cache
+        gx, gb = self.swish_prime(X, B)
+        gX = gY * gx
+        gB = np.sum(gY * gb, axis=0)
+        return gX, gB
+
+
 #==============================================================================
 #                          Loss Functions
 #==============================================================================
