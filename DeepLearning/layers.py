@@ -171,13 +171,14 @@ class Dense:
     # Layer network ops
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def forward(self, X):
+        # Outputs
         W = self.W
         B = self.B
         Y = self.linear(X, W, B)
         return Y
 
     def backward(self, gY):
-        # Backprop
+        # Grads
         W = self.W
         B = self.B
         gX, gW, gB = self.linear(gY, W, B, backprop=True)
@@ -208,13 +209,41 @@ class StaticLayer:
     """ Static layer parent class """
     updates = False
     def __init__(self, ID, func, *args):
-        self.name = 'foo'
+        self.ID = ID
+        self.function = func()
+        self.name = '{}Layer{}'.format(str(self.function), ID)
+
+    def __str__(self):
+        # simple instance name
+        #   eg: 'SigmoidLayer2'
+        return self.name
+
+    def __repr__(self):
+        # eval form
+        #   eg: "StaticLayer('2, functions.Sigmoid')"
+        cls_name = self.__class__.__name__
+        ID = self.ID
+        func_repr  = repr(self.function)
+        layer_repr = "{}('{}, {}')".format(cls_name, ID, func_repr)
+        return layer_repr
+
+    def __call__(self, *args, backprop=False):
+        return self.function(*args, backprop=backprop)
 
 
-
-
-
-
+def activation_layer(ID, func, *args):
+    """ factory for StaticLayer instances with activation funcs """
+    acts = functions.ACTIVATIONS
+    if func in acts:
+        # then func is key to Function class
+        func_cls = acts[func]
+        return StaticLayer(ID, func_cls, *args)
+    elif func in acts.values():
+        # func is actual Function class
+        return StaticLayer(ID, func, *args)
+    else:
+        print('Invalid activation function argument')
+        raise ValueError
 
 
 '''

@@ -101,6 +101,7 @@ class Function:
     In addition to ops and attributes described below, most functions
     inherit the following, unchanged, from Function:
      # __init__
+     # __str__
      # __repr__
      # __call__
      # Function.cache
@@ -128,7 +129,14 @@ class Function:
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
 
+    def __str__(self,):
+        # str : $classname
+        #     eg 'MatMul'
+        return self.name
+
     def __repr__(self):
+        # repr : functions.$classname
+        #    eg "functions.MatMul"
         return "functions.{}".format(self.name)
 
     @property
@@ -179,8 +187,6 @@ class Function:
         else:
             raise NotImplementedError
 
-
-    @NOTIMPLEMENTED
     def backward(self, gY, *args):
         fn_name = self.name.lower() + '_prime'
         if hasattr(self, fn_name):
@@ -651,3 +657,26 @@ class SoftmaxCrossEntropy(Function): #
         gX = self.softmax_cross_entropy_prime(p, t)
         return gX
 
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            FUNCTION COLLECTIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+
+MATH = {}
+
+ACTIVATIONS = {'sigmoid': Sigmoid,
+                'tanh': Tanh,
+                'Softmax': Softmax,
+                }
+
+CONNECTIONS = {'bias': Bias,
+               'matmul': MatMul,
+               'linear': Linear,
+               }
+
+OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
+              'softmax_cross_entropy':  SoftmaxCrossEntropy,
+              }
