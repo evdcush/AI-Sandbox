@@ -326,50 +326,62 @@ class Bias(Function): #
 
 class MatMul(Function): #
     """ Matrix multiplication function defined on 2D matrices
-    Y = X.W
 
-    Assumed: input args must conform to ordinality (X, W) where
-             X.size > W.size, (eg, W is assumed to be weight matrix),
-             and X.shape[-1] == W.shape[0]
+    Assumes: matrices A, B are properly ordered as input args
+        In other words, A.shape[-1] == B.shape[0]
+
     Params
     ------
-    X : ndarray.float32, (N, D)
-        external input data to be transformed
-    W : ndarray.float32, (D, K)
-        weight matrix
+    A : ndarray
+        2D matrix with shape (N, K), N an arbitrary int
+    B : ndarray
+        2D matrix with shape (K, P), P an arbitrary int
 
     Returns
     -------
-    Y : ndarray.float32, (N, K)
-        input transformed by weight matrix
+    Y : ndarray
+        2D matrix product of AB, with shape (N, P)
     """
     @staticmethod
-    def matmul(x, w):
-        return np.matmul(x, w)
+    def matmul(a, b):
+        return np.matmul(a, b)
 
     @staticmethod
-    def matmul_prime(y, x, w):
-        dx = np.matmul(y, w.T)
-        dw = np.matmul(x.T, y)
-        return dx, dw
+    def matmul_prime(y, a, b):
+        da = np.matmul(y, b.T)
+        db = np.matmul(a.T, y)
+        return da, db
 
-    def forward(self, X, W):
-        self.cache = np.copy(X)
-        Y = self.matmul(X, W)
+    def forward(self, A, B):
+        self.cache = np.copy(A)
+        Y = self.matmul(A, B)
         return Y
 
-    def backward(self, gY, W):
-        X = self.cache
-        gX, gW = self.matmul_prime(gY, X, W)
-        return gX, gW
+    def backward(self, gY, B):
+        A = self.cache
+        gA, gB = self.matmul_prime(gY, A, B)
+        return gA, gB
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Linear(Function): #
-    """ Linear transformation function, Y = X.W + B
+    """ Affine transformation function, Y = X.W + B
 
-    Uses MatMul and Bias methods
-    Please reference those functions for greater detail
+    See also: MatMul and Bias, which Linear composes
+
+    Params
+    ------
+    X : ndarray.float32, (N, D)
+        2D data matrix, N samples, D features
+    W : ndarray.float32, (D, K)
+        2D weights matrix mapped to features
+    B : ndarray.float32, (K,)
+        1D bias vector
+
+    Returns
+    -------
+    Y : ndarray.float32, (N, K)
+        transformation on data X
     """
     @staticmethod
     def linear(x, w, b):

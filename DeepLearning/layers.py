@@ -39,10 +39,11 @@ class Dense:
     """ Vanilla fully-connected hidden layer
     The Dense layer is defined by the linear transformation function:
 
-         f(X) = X.W + b
+         f(X) = X.W + B
     Where
-    : W is a weight matrix
-    : b is a bias vector,
+    X : input matrix
+    W : weight matrix
+    B : bias vector
     and both are learnable parameters optimized through gradient descent.
 
     Attributes
@@ -71,29 +72,33 @@ class Dense:
 
     """
     updates = True
-
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
-        self.name = str(self.__class__.__name__) + ID
+        self.name = '{}{}'.format(self.__class__.__name__, ID)
         self.ID = ID
         self.kdims = kdims
         self.linear = functions.Linear()
         self.initialize_params(init_W, init_B)
 
+    def __str__(self,):
+        # str : Dense$ID
+        #     eg 'Dense3'
+        return self.name
+
     def __repr__(self):
-        # eval repr format:
-        rep = "{}('{}, {}')"
+        # repr : Dense($ID, $kdims)
+        #     eg "Dense('3, (32, 16)')"
         cls_name = self.__class__.__name__
         kdims = self.kdims
         ID = self.ID
 
-        # Format eval repr and ret
-        rep_args = (cls_name, ID, kdims, self.nobias)
-        return rep.format(*rep_args)
+        # Formal repr to eval form
+        rep = "{}('{}, {}')".format(cls_name, ID, kdims)
+        return rep
 
     # Layer parameter initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def initialize_params(self, init_W, init_B):
-        """ Initializes the parameters for the Dense layer instance
+        """ Initializes the parameters W and B for the Dense layer instance
 
         This function both can initialize new variables for the
         parameters, as well as restore pretrained variables,
@@ -137,7 +142,6 @@ class Dense:
         self.W_grad = None
         self.B_grad = None
 
-
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def update(self, opt):
@@ -169,7 +173,7 @@ class Dense:
     def forward(self, X):
         W = self.W
         B = self.B
-        Y  = self.linear(X, W, B)
+        Y = self.linear(X, W, B)
         return Y
 
     def backward(self, gY):
@@ -183,13 +187,37 @@ class Dense:
         self.B_grad = gB
         return gX
 
+    def __call__(self, *args, backprop=False):
+        func = self.backward if backprop else forward
+        return func(*args)
+
+
 #==============================================================================
 #==============================================================================
 
 
 
 #==============================================================================
+#------------------------------------------------------------------------------
+#                             Static Layer
+#------------------------------------------------------------------------------
 #==============================================================================
+""" Layers without updating variables, mostly activations """
+
+class StaticLayer:
+    """ Static layer parent class """
+    updates = False
+    def __init__(self, ID, func, *args):
+        self.name = 'foo'
+
+
+
+
+
+
+
+
+'''
 
 # Available Layers
 #-----------------
@@ -208,3 +236,4 @@ LAYERS = {**OPS, **ACTIVATIONS}
 
 def get_all_layers():
     return LAYERS
+'''
