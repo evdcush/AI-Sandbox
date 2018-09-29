@@ -149,16 +149,13 @@ class Function:
     ------------
     forward : f(X)
         the function
-
     backward : f'(X)
         the derivative of the function (wrt chained gradient)
-
 
     Attributes
     ----------
     name : str
         name of the function (based on function class name)
-
     cache : object
         cache is used for whatever data the functions store for
         retrieval during backpropagation (eg, inputs/outputs or
@@ -206,8 +203,6 @@ class Function:
 #------------------------------------------------------------------------------
 #  atomic functions
 #------------------------------------------------------------------------------
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class Exp(Function): #
     """ Exponential function """
@@ -297,8 +292,108 @@ class Sqrt(Function): #
         return gX
 
 
+#------------------------------------------------------------------------------
+# Connection functions :
+#  Functions with learnable variables
+#------------------------------------------------------------------------------
+
+class Bias(Function): #
+    """ Adds to matrix X a bias vector B
+
+    Params
+    ------
+    X : ndarray.float32, (N, D)
+        input matrix data
+    B : ndarray.float32, (D,)
+        bias array
+    """
+    @staticmethod
+    def bias(x, b):
+        return x + b
+
+    @staticmethod
+    def bias_prime(y, b):
+        gx = np.copy(y)
+        gb = y.sum(0)
+        return gx, gb
+
+    def forward(self, X, B):
+        Y = self.bias(X, B)
+        return Y
+
+    def backward(self, gY, B):
+        gX, gB = self.bias_prime(gY, B)
+        return gX, gB
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class MatMul(Function): #
+    """ Matrix multiplication function defined on 2D matrices
+    Y = X.W
+
+    Assumed: input args must conform to ordinality (X, W) where
+             X.size > W.size, (eg, W is assumed to be weight matrix),
+             and X.shape[-1] == W.shape[0]
+    Params
+    ------
+    X : ndarray.float32, (N, D)
+        external input data to be transformed
+    W : ndarray.float32, (D, K)
+        weight matrix
+
+    Returns
+    -------
+    Y : ndarray.float32, (N, K)
+        input transformed by weight matrix
+    """
+    @staticmethod
+    def matmul(x, w):
+        return np.matmul(x, w)
+
+    @staticmethod
+    def matmul_prime(y, x, w):
+        dx = np.matmul(y, w.T)
+        dw = np.matmul(x.T, y)
+        return dx, dw
+
+    def forward(self, X, W):
+        self.cache = np.copy(X)
+        Y = self.matmul(X, W)
+        return Y
+
+    def backward(self, gY, W):
+        X = self.cache
+        gX, gW = self.matmul_prime(gY, X, W)
+        return gX, gW
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Linear(Function): #
+    """ Linear transformation function, Y = X.W + B
+
+    Uses MatMul and Bias methods
+    Please reference those functions for greater detail
+    """
+    @staticmethod
+    def linear(x, w, b):
+        y = MatMul.matmul(x, w)
+        return Bias.bias(y, b)
+
+    @staticmethod
+    def linear_prime(y, x, w, b):
+        dx, dw = MatMul.matmul_prime(np.copy(y), x, w)
+        _, db = Bias.bias_prime(y, b) # bias dx just identity func
+        return dx, dw, db
+
+    def forward(self, X, W, B):
+        self.cache = np.copy(X)
+        Y = self.linear(X, W, B)
+        return Y
+
+    def backward(self, gY, W, B):
+        X = self.cache
+        gX, gW, gB = self.linear_prime(gY, X, W, B)
+        return gX, gW, gB
 
 #==============================================================================
 #                          Activation Functions
@@ -306,7 +401,6 @@ class Sqrt(Function): #
 
 class Sigmoid(Function): #
     """ Logistic sigmoid activation """
-
     @staticmethod
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
@@ -352,7 +446,6 @@ class Tanh(Function): #
 
 class Softmax(Function): #
     """ Softmax activation """
-
     @staticmethod
     def softmax(x):
         kw = {'axis':1, 'keepdims':True}
@@ -384,7 +477,7 @@ class Softmax(Function): #
 # Cross entropy
 #------------------------------------------------------------------------------
 
-class LogisticCrossEntropy(Function):
+class LogisticCrossEntropy(Function): #
     """ Logistic cross-entropy loss defined on sigmoid activation
 
     Truth labels are converted to one-hot encoding to reduce
@@ -412,7 +505,6 @@ class LogisticCrossEntropy(Function):
         ------
         X : ndarray.float32, (N, D)
             linear output of network's final layer
-
         t_vec : ndarray.int32, (N,) ----> (N, D)
             truth labels on each sample, converted from a 1D
             vector of vals within [0, D) to 2D 1-hot (with binary vals)
@@ -421,7 +513,6 @@ class LogisticCrossEntropy(Function):
         -------
         Y : float, (1,)
             average cross entropy error over all samples
-
         p : ndarray.int32, (N,D)
             Network approximations on class labels (for accuracy metrics)
         """
@@ -450,7 +541,6 @@ class LogisticCrossEntropy(Function):
         ------
         p : ndarray.float32, (N,D)
             sigmoid activation on network forward output
-
         t : ndarray.int32, (N,D), 1-hot
             ground truth labels for this sample set
 
@@ -470,7 +560,7 @@ class LogisticCrossEntropy(Function):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class SoftmaxCrossEntropy(Function):
+class SoftmaxCrossEntropy(Function): #
     """ Cross entropy loss defined on softmax activation
 
     Truth labels are converted to one-hot encoding to reduce
@@ -499,7 +589,6 @@ class SoftmaxCrossEntropy(Function):
         ------
         X : ndarray float32, (N, D)
             output of network's final layer with no activation. *2D assumed*
-
         t_vec : ndarray int32, (N,) ----> (N, D)
             truth labels for each sample, where int values range [0, D)
             converted to (N, D) one-hot encoding
@@ -508,10 +597,10 @@ class SoftmaxCrossEntropy(Function):
         -------
         Y : float, (1,)
             average cross entropy error over all samples
-
         p : ndarray.int32, (N,D)
             Network approximations on class labels (for accuracy metrics)
         """
+
         # Check dimensional integrity
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
@@ -536,7 +625,6 @@ class SoftmaxCrossEntropy(Function):
         ------
         p : ndarray.float32, (N,D)
             sigmoid activation on network forward output
-
         t : ndarray.int32, (N,D), 1-hot
             ground truth labels for this sample set
 
@@ -545,6 +633,7 @@ class SoftmaxCrossEntropy(Function):
         gX : ndarray, (N, D)
             derivative of X (network prediction) wrt the cross entropy loss
         """
+
         # Retrieve data
         p, t = self.cache
 
