@@ -19,7 +19,7 @@ Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
 """
 import code
 import numpy as np
-import functions as F
+import functions
 from initializers import HeNormal, Zeros, Ones
 
 #==============================================================================
@@ -45,177 +45,142 @@ class Dense:
     : b is a bias vector,
     and both are learnable parameters optimized through gradient descent.
 
-    Note: the bias parameter is OPTIONAL in this implementation.
-          (The weights matrix, of course, is always used)
+    Attributes
+    ----------
+    updates : bool
+        whether the layer has learnable parameters
+    name : str
+        layer name, as class-name + ID
+    ID : int
+        Dense layer instance's position in the network
+    kdims : tuple(int)
+        channel sizes (determines dimensions of params)
+    linear : Function.Linear
+        linear function instance, which performs the Y = X.W + B function
+    W_Key : str
+        unique string identifier for W
+    B_key : str
+        unique string identifier for B
 
     Params
     ------
-    name : str
-        layer name
-    matmul : Function
-        matrix multiplication function (the X.W part in the example above)
-    updates : bool
-        whether the layer has learnable parameters
-    W_key : str
-        name of the weight matrix parameter
-    B_key : str
-        name of the bias parameter
-    params : dict
-        the collection containing the layer's parameters, keyed by the
-        "*_key" attributes
-        params is structured in the following manner:
-            {'W_key' : {'var': ndarray, 'grad': ndarray|None},
-             'B_key' ...}
+    W : ndarray.float32, of shape kdims
+        weight matrix
+    B : ndarray.float32, of shape kdims[-1]
+        bias vector
+
     """
-    name = 'dense_layer'
-    #matmul = F.MatMul()
     updates = True
-    W_key  = 'W'
-    B_key  = 'B'
-    def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros,
-                 nobias=False, restore=None):
-        self.matmul = F.MatMul()
-        self.params = {} # nested as {'W_key': {'var':array, 'grad': None}}
-        self.ID = ID            # int : Layer's position in the parent network
-        self.kdims = kdims      # tuple(int) : channel-sizes
-        self.init_W = init_W() # Initializer : for weights
-        self.init_B = init_B() # Initializer : for bias
-        self.nobias = nobias   # bool : whether Dense instance uses a bias
 
-        # Format name and param keys
-        self.name = '{}{}'.format(self.name, self.ID)
-        self.format_keys()
-
-        # Initialize params
-        if restore is not None:
-            self.restore_params(restore)
-        else:
-            self.initialize_params()
+    def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
+        self.name = str(self.__class__.__name__) + ID
+        self.ID = ID
+        self.kdims = kdims
+        self.linear = functions.Linear()
+        self.initialize_params(init_W, init_B)
 
     def __repr__(self):
         # eval repr format:
-        rep = "{}('{}, {}, init_W={}, init_B={}, nobias={}')"
-
-        # Instance vars
+        rep = "{}('{}, {}')"
         cls_name = self.__class__.__name__
-        init_W_name = self.init_W.__class__.__name__
-        init_B_name = self.init_B.__class__.__name__
-        ID = self.ID
         kdims = self.kdims
+        ID = self.ID
 
         # Format eval repr and ret
-        rep_args = (cls_name, ID, kdims, init_W_name, init_B_name, self.nobias)
+        rep_args = (cls_name, ID, kdims, self.nobias)
         return rep.format(*rep_args)
 
-    # Parameter access through properties
+    # Layer parameter initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # ===== W
-    @property
-    def W(self):
-        return self.params[self.W_key]['var']
+    def initialize_params(self, init_W, init_B):
+        """ Initializes the parameters for the Dense layer instance
 
-    @W.setter
-    def W(self, var):
-        self.params[self.W_key]['var'] = var
+        This function both can initialize new variables for the
+        parameters, as well as restore pretrained variables,
+        based on the `type` of init_W/init_B. Both variables
+        are restored as a pair.
 
-    @property
-    def gW(self):
-        return self.params[self.W_key]['grad']
+        If the init args are of type ndarray, than they are
+        pretrained (or preinitialized) variables. Otherwise,
+        they are Initializers.
 
-    @gW.setter
-    def gW(self, grad):
-        self.params[self.W_key]['grad'] = grad
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # ===== B
-    @property
-    def B(self):
-        return self.params[self.B_key]['var']
-
-    @B.setter
-    def B(self, var):
-        self.params[self.B_key]['var'] = var
-
-    @property
-    def gB(self):
-        return self.params[self.B_key]['grad']
-
-    @gB.setter
-    def gB(self, grad):
-        self.params[self.B_key]['grad'] = grad
-
-
-    # Layer initialization
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def format_keys(self,):
-        # format key for params; eg W_key : 'dense_layer2_W'
-        form_key = lambda key: '{}_{}'.format(self.name, key)
-        self.W_key = form_key(self.W_key)
-        if not self.nobias:
-            self.B_key = form_key(self.B_key)
-
-    def restore_params(self, pmap):
-        """ init layer params with pretrained parameters
-        pmap is a dict with the same structure and keys as self.params
+        Params
+        ------
+        init_W : Initializer OR ndarray
+            initializes the starting values for the weight matrix
+        init_B : Initializer OR ndarray
+            initializes the starting values for the bias
         """
-        #==== Integrity check: keys ----> are they for the same layer?
-        assert self.params.keys() == pmap.keys()
+        # Layer dims
+        w_dims = self.kdims
+        b_dims = self.kdims[-1:]
 
-        #==== Integrity check: channels ----> do the weights have same dims?
-        assert self.kdims == pmap[self.W_key]['var'].shape
+        # Var keys
+        self.W_Key = self.name + 'W'
+        self.B_key = self.name + 'B'
 
-        #==== Keys match, channels match, safe to restore
-        self.params = pmap
+        # Check whether inits are arrays
+        if isinstance(init_W, np.ndarray):
+            # Check dimensional integrity
+            assert (init_W.shape == w_dims) and (init_B.shape == b_dims)
+            self.W = init_W
+            self.B = init_B
+        else:
+            # Initializer instances
+            w_init = init_W()
+            b_init = init_B()
+            # Initialize vars
+            self.W = w_init(w_dims)
+            self.B = b_init(b_dims)
 
-        # init bias func if used
-        if not self.nobias:
-            self.bias = F.Bias()
+        # Gradient placeholders
+        self.W_grad = None
+        self.B_grad = None
 
-    @staticmethod
-    def init_param(init_fn, kdims):
-        # initializes param from Initializer, into params sub-dict form
-        var = init_fn(kdims)
-        param = {'var': var, 'grad': None}
-        return param
 
-    def initialize_params(self):
-        """ initializes params as a dictionary mapped to variables
-        self.params has form :
-            {var_key: {'var': ndarray, 'grad': ndarray OR None}}
-
-        """
-        # Initializing weight W
-        W_param = self.init_param(self.init_W, self.kdims)
-        self.params[self.W_key] = W_param
-
-        # Initializing bias B
-        if not self.nobias:
-            self.bias = F.Bias()
-            B_dims = self.kdims[-1:]
-            B_param = self.init_param(self.init_B, B_dims)
-            self.params[self.B_key] = B_param
-
-    # Layer computation
+    # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def update(self, opt):
-        assert all([v['grad'] is not None for v in self.params.values()])
-        self.params = opt(self.params)
+        """ Update weights and bias with gradients from backprop
+        Params
+        ------
+        opt : Optimizer instance
+            Optimizing algorithm, updates through __call__
+        """
+        # Make sure grads exist
+        assert self.W_grad is not None and self.B_grad is not None
 
+        # Group vars with their grads, keyed to their respective keys
+        params = {}
+        params[self.W_Key] = (self.W, self.W_grad)
+        params[self.B_Key] = (self.B, self.B_grad)
+
+        # Get updates
+        updated_params = opt(params)
+        self.W = updated_params[self.W_key]
+        self.B = updated_params[self.B_key]
+
+        # Reset grads
+        self.W_grad = None
+        self.B_grad = None
+
+    # Layer network ops
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def forward(self, X):
         W = self.W
-        Y = self.matmul(X, W)
-        if not self.nobias:
-            Y += self.bias(Y, self.B)
+        B = self.B
+        Y  = self.linear(X, W, B)
         return Y
 
     def backward(self, gY):
-        gX, gW = self.matmul(np.copy(gY), backprop=True)
-        self.gW = gW
-        if not self.nobias:
-            _,  gB = self.bias(np.copy(gY), backprop=True)
-            self.gB = gB
-        #if not self.ID == 0:
-        #    return gX
+        # Backprop
+        W = self.W
+        B = self.B
+        gX, gW, gB = self.linear(gY, W, B, backprop=True)
+
+        # Assign var grads and chain gX to next layer
+        self.W_grad = gW
+        self.B_grad = gB
         return gX
 
 #==============================================================================

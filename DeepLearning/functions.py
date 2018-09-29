@@ -404,7 +404,7 @@ class Sigmoid(Function): #
 
     @staticmethod
     def sigmoid_prime(y):
-        """ ASSUMES x == sigmoidx(x) """
+        """ ASSUMES y == sigmoidx(x) """
         return y * (1 - y)
 
     def forward(self, X):
