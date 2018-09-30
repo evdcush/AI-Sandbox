@@ -88,13 +88,13 @@ class ParametricLayer:
             # Initialize instance attrs
             #------------------------------
             # var key
-            setattr(self, '{}_Key'.format(tag)) = key_val.format(tag)
+            setattr(self, '{}_Key'.format(tag), key_val.format(tag))
 
             # variable
-            setattr(self, tag) = initializer(dims)
+            setattr(self, tag, initializer(dims))# = initializer(dims)
 
             # variable grad placeholder
-            setattr(self, '{}_grad'format(tag)) = None
+            setattr(self, '{}_grad'.format(tag), None) #= None
 
     def __call__(self, *args, backprop=False):
         func = self.backward if backprop else forward

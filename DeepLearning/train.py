@@ -84,6 +84,7 @@ for step in range(num_iters):
 
     #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     error = objective(y_hat, y)
+# YOU ALSO GET THE CLASS PREDICTION FROM THE LOSS FUNCTION
     train_loss_history[step] = error
     print_train_status(step, error)
 

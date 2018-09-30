@@ -40,20 +40,15 @@ class NeuralNetwork:
     ------------
     1 - Network instance initialized with a list of channels
         and Layer-types
-
     2 - Network receives external data input X, and propagates
         it through it's Layers
-
     3 - A final output Layer returns a prediction
-
       - (error between network prediction and truth is evaluated by an objective)
-
     4 - If training: the network receives the gradient of a loss
         function and backpropagates the gradient through its
         layers (in reverse order)
         - If the layer has learnable parameters, such as a Dense layer,
           it will store the gradients for its variables
-
     5 - An optimizer then updates all learnable variables in the network's
         layers
 
@@ -85,22 +80,29 @@ class NeuralNetwork:
             pretrained weights, they would be passed through **kwargs
         """
         self.channels = list(zip(channels, channels[1:])) # tuple (k_in, k_out)
+        self.final_activation = final_activation
         self.register_layers(connection_tag, activation_tag)
 
+        # Initialize layers
+        #------------------
         self.layers = []
         for ID, kdims in enumerate(self.channels):
+            # Connection
+            #------------------
             connection = self.connection(ID, kdims, **kwargs)
-            activation =
+            self.layers.append(connection)
 
-
-
-        self.initialize_layers(**kwargs)
+            # Activation
+            #------------------
+            # check whether last-layer activation
+            if (not ID == (len(self.channels) - 1)) or final_activation:
+                activation = L.activation_layer(ID, self.activation)
+                self.layers.append(activation)
 
     def __repr__(self):
         # eval-style repr
         rep = ("{}('{}, connection_tag={}, activation_tag={}, \
             final_activation={}')")
-
         # Get instance vars
         name  = self.__class__.__name__
         chans = self.channels
@@ -111,17 +113,6 @@ class NeuralNetwork:
         # format repr and return
         rep = rep.format(name, chans, conn, act, final_act)
         return rep
-
-    def add_activation(self, ID, kdim, act, **kwargs):
-        last_layer = len(self.channels) - 1
-
-        if not last_layer:
-            activation = act(ID, kdim, **kwargs)
-            self.layers.append(activation)
-        else:
-            if self.final_activation:
-                activation = act(ID, kdim, **kwargs)
-                self.layers.append(activation)
 
     def register_layers(self, connection_tag, activation_tag):
         """ Registers layers to attributes if tags are valid
@@ -138,32 +129,8 @@ class NeuralNetwork:
 
         # Register layers
         self.connection = L.CONNECTIONS[connection_tag] # layers
+        self.activation = L.ACTIVATIONS[activation_tag] #
 
-
-    def initialize_layers(self, **kwargs):
-        """ """
-        # Get layers
-        layers = L.LAYERS
-
-        # Network specs
-        kdims = self.channels
-        conn_label = self.connection_layer
-        act_label  = self.activation_layer
-        act_output = self.final_activation
-
-        # Integrity check on specified layers
-        assert conn_label in layers and act_label in layers
-
-        # Get network layers and initialize
-        connection_layer = layers[conn_label]
-        activation_layer = layers[act_label]
-
-        for ID, kdim in enumerate(kdims):
-            connection = connection_layer(ID, kdim, )#**kwargs)
-            self.layers.append(connection)
-            #print('{}, {} ---- id(params) = {}'.format(ID, kdim, id(connection.params)))
-            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-            self.add_activation(ID, kdim, activation_layer, )#**kwargs)
 
     def forward(self, X):
         """ Propagates input X through network layers """
@@ -175,7 +142,6 @@ class NeuralNetwork:
 
     def backward(self, gY):
         """ Backpropagation through layers
-
         Params
         ------
         gY : ndarray
@@ -183,10 +149,6 @@ class NeuralNetwork:
         """
         gX = np.copy(gY)
         for layer in reversed(self.layers):
-            #print('BACKWARD LOOP, NN, DEBUGGING LAYER INIT AND FORWARD, EXITING NOW')
-            #sys.exit()
-            #print(repr(layer))
-            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             gX = layer.backward(gX)
 
     def update(self, opt):
@@ -194,36 +156,3 @@ class NeuralNetwork:
         for layer in self.layers:
             if layer.updates:
                 layer.update(opt)
-
-
-"""
-ID: 0
-kdim: 4, 16
-
->>> id(connection)
-140466774141696
-
->>> id(connection.params)
-140466779102808
-
->>> connection.params.keys()
-dict_keys(['dense_layer0_W', 'dense_layer0_B'])
-
---------------
-ID: 1
-kdim: 16, 3
-
->>> id(connection)
-140466774246736
-
->>> id(connection.params)
-140466779102808 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# SAME PARAMS OBJECT SHARED
-
->>> connection.params.keys()
-dict_keys(['dense_layer0_W', 'dense_layer0_B', 'dense_layer1_W', 'dense_layer1_B'])
-
-
-# REMOVE PARAMS FROM BEING A CLASS VARIABLE
-
-"""
