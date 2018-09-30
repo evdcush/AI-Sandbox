@@ -96,6 +96,37 @@ class ParametricLayer:
             # variable grad placeholder
             setattr(self, '{}_grad'.format(tag), None) #= None
 
+
+    # Layer optimization
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    @TODO
+    def update(self, opt):
+        """ Update weights and bias with gradients from backprop
+        Params
+        ------
+        opt : Optimizer instance
+            Optimizing algorithm, updates through __call__
+        """
+        pass
+        '''
+        # Make sure grads exist
+        assert self.W_grad is not None and self.B_grad is not None
+
+        # Group vars with their grads, keyed to their respective keys
+        params = {}
+        params[self.W_Key] = (self.W, self.W_grad)
+        params[self.B_Key] = (self.B, self.B_grad)
+
+        # Get updates
+        updated_params = opt(params)
+        self.W = updated_params[self.W_key]
+        self.B = updated_params[self.B_key]
+
+        # Reset gradsinitialize
+        self.W_grad = None
+        self.B_grad = None
+        '''
+
     def __call__(self, *args, backprop=False):
         func = self.backward if backprop else forward
         return func(*args)
@@ -192,7 +223,7 @@ class Swish(ParametricLayer):
     def __init__(self, ID, kdims, init_B=Ones, **kwargs):
         super().__init__(ID, kdims, **kwargs)
         self.swish = functions.Swish()
-        self.initialize(init_B)
+        self.initialize_vars(init_B)
 
     def initialize_vars(self, init_B):
         var_features = [{'tag': 'B', 'dims': self.kdims[-1:], 'init': init_B},]

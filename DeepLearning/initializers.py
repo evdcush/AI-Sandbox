@@ -89,7 +89,7 @@ class Uniform(Initializer):
 # Constant
 # --------
 # inherits : Initializer
-# derives : Zeros
+# derives  : Zeros
 class Constant(Initializer):
     """ Initializes array with repeated constants """
     def __init__(self, fill_value=1.0):
