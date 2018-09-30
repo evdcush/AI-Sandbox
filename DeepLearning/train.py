@@ -9,8 +9,8 @@ import nn
 import utils
 import layers
 import initializers
-from optimizers import SGD, Adam, OptSGD
-from functions import SoftmaxCrossEntropy
+import optimizers
+from functions import SoftmaxCrossEntropy, LogisticCrossEntropy
 
 # Data setup
 arg_parser = utils.Parser()
@@ -19,9 +19,6 @@ arg_parser.print_args()
 
 # Load data
 X = utils.load_iris()
-X_train, X_test = utils.split_dataset(X)
-X = None
-
 X_train, X_test = utils.split_dataset(X)
 X = None
 
@@ -41,7 +38,8 @@ num_classes = len(utils.IRIS['classes'])
 learning_rate = config.learn_rate
 layer_types = [config.layer_op, config.layer_act] # ['dense', 'sigmoid']
 #channels = [4, 16, 64, 32, 8, num_classes] # config.channels
-channels = [4, 16, num_classes] # config.channels
+#channels = [4, 16, num_classes] # config.channels
+channels = [4, 64, num_classes] # config.channels
 
 
 
@@ -51,20 +49,21 @@ channels = [4, 16, num_classes] # config.channels
 # Instantiate model
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
-model = nn.NeuralNetwork(channels, final_activation=False)
-objective = SoftmaxCrossEntropy()
+model = nn.NeuralNetwork(channels, activation_tag='sigmoid', final_activation=False)
+#objective = SoftmaxCrossEntropy()
+objective = LogisticCrossEntropy()
 #opt = Adam()
-opt = OptSGD(learning_rate)
+opt = optimizers.SGD(lr=learning_rate)
 
 # Instantiate model results collections
 #------------------
-train_loss_history = np.zeros((num_iters,))
+train_loss_history = np.zeros((num_iters,2))
 
 
 # Train
 #==============================================================================
-def print_train_status(step, err):
-    pformat = '{:>3}: {:.5f}'.format(step+1, float(err))
+def print_train_status(step, err, acc):
+    pformat = '{:>3}: {:.5f}  |  {:.4f}'.format(step+1, float(err), float(acc))
     print(pformat)
 
 t_start = time.time()
@@ -78,16 +77,16 @@ for step in range(num_iters):
     # forward pass
     #------------------
     #y_hat = model(x)
+    #print('step {}: x_in =\n {}'.format(step+1, x))
     y_hat = model.forward(x)
     if (step+1) % 50 == 0:
         print('step: {}'.format(step+1))
 
     #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-    error = objective(y_hat, y)
-# YOU ALSO GET THE CLASS PREDICTION FROM THE LOSS FUNCTION
-    train_loss_history[step] = error
-    print_train_status(step, error)
-
+    error, class_scores = objective(y_hat, y)
+    accuracy = utils.classification_accuracy(class_scores, y)
+    train_loss_history[step] = error, accuracy
+    print_train_status(step, error, accuracy)
 
     # backprop and update
     #------------------
@@ -101,14 +100,16 @@ t_finish = time.time()
 
 # Summary info
 elapsed_time = (t_finish - t_start) / 60.
-avg_final_error = np.mean(train_loss_history[-50:])
-median_final_error = np.median(train_loss_history[-50:])
+percent = .2
+idx = int(num_iters * (1 - percent))
+avg_final_error = np.mean(train_loss_history[idx:], axis=0)
+median_final_error = np.median(train_loss_history[idx:], axis=0)
 
 # Print training summary
 print('# Finished training\n#{}'.format('-'*78))
 print(' * Elapsed time: {} minutes'.format(elapsed_time))
-print(' * Average error, final 50 iterations: {:.6f} '.format(avg_final_error))
-print(' * Median error,  final 50 iterations: {:.6f} '.format(median_final_error))
+print(' * Average error, last 20% iterations: {:.6f} |  {:.6f}'.format(avg_final_error[0], avg_final_error[1]))
+print(' * Median error,  last 20% iterations: {:.6f} |  {:.6f}'.format(median_final_error[0], median_final_error[1]))
 '''
 # Validation
 #==============================================================================

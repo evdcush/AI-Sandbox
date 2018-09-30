@@ -20,6 +20,7 @@ Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
 import code
 import numpy as np
 import functions
+from utils import TODO
 from initializers import HeNormal, Zeros, Ones
 
 #==============================================================================
@@ -44,6 +45,7 @@ class ParametricLayer:
     kdims : tuple(int)
         channel sizes (determines dimensions of params)
     """
+    updates = True
     def __init__(self, ID, kdims, **kwargs):
         self.name = '{}{}'.format(self.__class__.__name__, ID)
         self.ID = ID
@@ -88,7 +90,7 @@ class ParametricLayer:
             # Initialize instance attrs
             #------------------------------
             # var key
-            setattr(self, '{}_Key'.format(tag), key_val.format(tag))
+            setattr(self, '{}_key'.format(tag), key_val.format(tag))
             #if tag == 'B': code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             # variable
             setattr(self, tag, initializer(dims))# = initializer(dims)
@@ -114,8 +116,8 @@ class ParametricLayer:
 
         # Group vars with their grads, keyed to their respective keys
         params = {}
-        params[self.W_Key] = (self.W, self.W_grad)
-        params[self.B_Key] = (self.B, self.B_grad)
+        params[self.W_key] = (self.W, self.W_grad)
+        params[self.B_key] = (self.B, self.B_grad)
 
         # Get updates
         updated_params = opt(params)
@@ -148,7 +150,7 @@ class Dense(ParametricLayer):
     ----------
     linear : Function.Linear
         linear function instance, which performs the Y = X.W + B function
-    W_Key : str
+    W_key : str
         unique string identifier for W
     B_key : str
         unique string identifier for B
@@ -177,8 +179,8 @@ class Dense(ParametricLayer):
 
         # Group vars with their grads, keyed to their respective keys
         params = {}
-        params[self.W_Key] = (self.W, self.W_grad)
-        params[self.B_Key] = (self.B, self.B_grad)
+        params[self.W_key] = (self.W, self.W_grad)
+        params[self.B_key] = (self.B, self.B_grad)
 
         # Get updates
         updated_params = opt(params)
@@ -210,7 +212,7 @@ class Dense(ParametricLayer):
         return gX
 
     def __call__(self, *args, backprop=False):
-        func = self.backward if backprop else forward
+        func = self.backward if backprop else self.forward
         return func(*args)
 
 
@@ -243,7 +245,7 @@ class Swish(ParametricLayer):
 
         # Group vars with their grads, keyed to their respective keys
         params = {}
-        params[self.B_Key] = (self.B, self.B_grad)
+        params[self.B_key] = (self.B, self.B_grad)
 
         # Get updates
         updated_params = opt(params)

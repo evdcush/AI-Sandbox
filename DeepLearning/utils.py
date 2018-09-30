@@ -350,7 +350,7 @@ def get_training_batch(X, batch_size, step, split_idx=-1):
     return x, y
 
 
-def to_one_hot(Y):
+def to_one_hot(Y, num_classes=3):
     """ make one-hot encoding for truth labels
 
     Assumptions
@@ -377,7 +377,7 @@ def to_one_hot(Y):
     """
     # dims for one-hot
     n = Y.shape[0]
-    d = np.max(Y) + 1
+    d = num_classes
 
     # make one-hot
     one_hot = np.zeros((n, d))

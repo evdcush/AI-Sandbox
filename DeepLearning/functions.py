@@ -557,12 +557,13 @@ class LogisticCrossEntropy(Function): #
 
     @staticmethod
     def logistic_cross_entropy(x, t):
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
         lhs = -t * np.log(x)
         rhs = (1 - t) * np.log(1 - x)
         return np.mean(lhs - rhs)
 
     @staticmethod
-    def logistic_cross_prime(x, t):
+    def logistic_cross_entropy_prime(x, t):
         return (x - t) / x.size
 
 
@@ -585,18 +586,21 @@ class LogisticCrossEntropy(Function): #
         """
         # Check dimensional integrity
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
+        print('Logistic forward')
+
 
         # Convert labels to 1-hot
-        t = utils.to_one_hot(np.copy(t_vec)) # (N,D)
+        t = utils.to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)
 
         # Sigmoid activation
         #-------------------
-        p = self.sigmoid(X)
+        p = self.sigmoid(np.copy(X))
         self.cache = p, t
 
         # Average cross-entropy
         #----------------------
-        Y = self.log_cross_entropy(np.copy(p), t)
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+        Y = self.logistic_cross_entropy(np.copy(p), t)
         return Y, p
 
 
@@ -622,7 +626,7 @@ class LogisticCrossEntropy(Function): #
 
         # Get grad
         #---------
-        gX = self.log_cross_entropy_prime(p, t)
+        gX = self.logistic_cross_entropy_prime(p, t)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -759,8 +763,8 @@ MATH = {}
 
 ACTIVATIONS = {'sigmoid': Sigmoid,
                 'tanh': Tanh,
-                'Softmax': Softmax,
-                'Swish': Swish,
+                'softmax': Softmax,
+                'swish': Swish,
                 }
 
 CONNECTIONS = {'bias': Bias,

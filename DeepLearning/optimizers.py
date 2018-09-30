@@ -57,7 +57,7 @@ class Optimizer:
         the updates to a param.
 
     """
-    def __init__(self, lr=0.01 **kwargs):
+    def __init__(self, lr=0.01, **kwargs):
         self.lr = lr
         for key, val in kwargs.items():
             setattr(self, key, val)
@@ -91,7 +91,7 @@ class Optimizer:
             P, P_grad = param_vars
 
             # Update parameters
-            updated_params[p_key] = self.update(P, P_grad, param_key)
+            updated_params[param_key] = self.update(P, P_grad, param_key)
         return updated_params
 
 #------------------------------------------------------------------------------

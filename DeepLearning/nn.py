@@ -136,7 +136,7 @@ class NeuralNetwork:
         Y = np.copy(X)
         for layer in self.layers:
             #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-            Y = layer.forward(Y)
+            Y = layer(Y)
         return Y
 
     def backward(self, gY):
@@ -148,7 +148,7 @@ class NeuralNetwork:
         """
         gX = np.copy(gY)
         for layer in reversed(self.layers):
-            gX = layer.backward(gX)
+            gX = layer(gX, backprop=True)
 
     def update(self, opt):
         """ Pass optimizer through layers to update layers with params """
