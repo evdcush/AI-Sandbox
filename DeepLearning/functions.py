@@ -534,6 +534,93 @@ class Swish(Function): #
         return gX, gB
 
 
+class ReLU(Function):
+    """ standard ReLU activation
+    zeroes out any negative elements within matrix
+    """
+    def forward(self, X):
+        Y = self.fn_vars = X.clip(min=0)
+        return Y
+
+    def backward(self, gY):
+        """ Since Y was clipped at 0, it's elements
+            are either 0 or a positive number.
+        We can exploit that property to use Y
+          directly for indexing the gradient
+         """
+        Y = self.get_fn_vars()
+        gX = np.where(Y, gY, 0)
+        return gX
+
+class ELU(Function):
+    """ Exponential Linear Unit """
+    def __init__(self, alpha=1.0):
+        self.alpha = alpha
+
+    def forward(self, X):
+        x = self.fn_vars = np.copy(X)
+        Y = np.where(x < 0, self.alpha*(np.exp(x)-1), x)
+        return Y
+
+    def backward(self, gY):
+        X = self.get_fn_vars()
+        gX = np.where(X < 0, self.alpha * np.exp(X), gY)
+        return gX
+
+class SeLU(ELU):
+    """ Scaled Exponential Linear Units
+    ELU, but with a scalar and finetuning
+
+    SeLU is the activation function featured in
+    "Self-Normalizing Neural Networks," and they
+    are designed to implicitly normalize feed-forward
+    networks.
+
+    Reference
+    ---------
+    Paper : https://arxiv.org/abs/1706.02515
+        explains the properties and derivations for SeLU
+        parameters, but the precision values below from their
+        project code @ github.com/bioinf-jku/SNNs/
+
+    Parameters : alpha, scale
+        github.com/bioinf-jku/SNNs/blob/master/getSELUparameters.ipynb
+        github.com/bioinf-jku/SNNs/blob/master/selu.py
+    """
+    alpha = 1.6732632423543772848170429916717
+    scale = 1.0507009873554804934193349852946
+    elu = ELU(alpha=alpha)
+
+    def __init__(self, *args, **kwargs): pass # insure alpha integrity
+
+    def forward(self, X):
+        assert self.elu.alpha == self.alpha # sanity check
+        Y = self.scale * self.elu.forward(X)
+        return Y
+
+    def backward(self, gY):
+        gX = self.scale * self.elu.backward(gY)
+        return gX
+
+@staticmethod
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    @staticmethod
+    def sigmoid_prime(y):
+        """ ASSUMES y == sigmoidx(x) """
+        return y * (1 - y)
+
+    def forward(self, X):
+        Y = self.sigmoid(X)
+        self.cache = Y
+        return Y
+
+    def backward(self, gY):
+        Y = self.cache
+        gX = gY * self.sigmoid_prime(Y)
+        return gX
+
 #==============================================================================
 #                          Loss Functions
 #==============================================================================

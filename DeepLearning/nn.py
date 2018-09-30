@@ -33,7 +33,6 @@ import numpy as np
 import layers as L
 
 
-
 class NeuralNetwork:
     """ Base Neural Network compsed of Layers
 
@@ -64,32 +63,47 @@ class NeuralNetwork:
 
     """
     layers = []
-    def __init__(self, channels,
-                 connection_layer='dense_layer',
-                 activation_layer='sigmoid_layer',
-                 final_activation=False, restore=None, initializers=None):
+    def __init__(self, channels, connection='dense', activation='sigmoid',
+                 final_activation=False, **kwargs):
+        """ Initializes a neural network that has depth len(channels)
 
-        self.channels = list(zip(channels, channels[1:]))
-        self.connection_layer = connection_layer
-        self.activation_layer = activation_layer
+        Params
+        ------
+        channels : list(int)
+            channel sizes for each layer (determines the dimensionality
+            of the layer transformations)
+        connection : str
+            keyword used to retrieve it's corresponding Layer that uses
+            connections (eg, has learnable weights)
+        activation : str
+            keyword used to generate an activation layer based from
+            its constituent Function
+        final_activation : bool
+            whether there is an activation on the final layer's output
+
+        kwargs :
+            While not explicit, if the model is reinitialized from
+            pretrained weights, they would be passed through **kwargs
+        """
+        self.channels = list(zip(channels, channels[1:])) # tuple (k_in, k_out)
+        self.connection = connection # connection layer tag
+        self.activation = activation # activation layer tag
         self.final_activation = final_activation
-
-        self.initialize_layers(restore=restore, initializers=initializers)
+        self.initialize_layers(**kwargs)
 
     def __repr__(self):
         # eval-style repr
-        rep = ("{}('{}, connection_layer={}, activation_layer={}, \
-        final_activation={}')")
+        rep = ("{}('{}, connection={}, activation={}, final_activation={}')")
 
         # Get instance vars
         name = self.__class__.__name__
         chans = self.channels
-        conn = self.connection_layer
-        act  = self.activation_layer
-        final_activation = self.final_activation
+        conn = self.connection
+        act  = self.activation
+        final_act = self.final_activation
 
         # format repr and return
-        rep = rep.format(name, chans, conn, act, final_activation)
+        rep = rep.format(name, chans, conn, act, final_act)
         return rep
 
     def add_activation(self, ID, kdim, act, **kwargs):
@@ -106,7 +120,13 @@ class NeuralNetwork:
     def initialize_layers(self, **kwargs):
         """ """
         # Get layers
-        layers = L.get_all_layers()
+        layers = L.LAYERS
+#  ______   _   _   _____    ______   _____     _    _   ______   _____    ______   #
+# |  ____| | \ | | |  __ \  |  ____| |  __ \   | |  | | |  ____| |  __ \  |  ____|  #
+# | |__    |  \| | | |  | | | |__    | |  | |  | |__| | | |__    | |__) | | |__     #
+# |  __|   | . ` | | |  | | |  __|   | |  | |  |  __  | |  __|   |  _  /  |  __|    #
+# | |____  | |\  | | |__| | | |____  | |__| |  | |  | | | |____  | | \ \  | |____   #
+# |______| |_| \_| |_____/  |______| |_____/   |_|  |_| |______| |_|  \_\ |______|  #
 
         # Network specs
         kdims = self.channels

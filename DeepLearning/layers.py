@@ -194,11 +194,6 @@ class Dense:
 
 
 #==============================================================================
-#==============================================================================
-
-
-
-#==============================================================================
 #------------------------------------------------------------------------------
 #                             Static Layer
 #------------------------------------------------------------------------------
@@ -242,12 +237,21 @@ def activation_layer(ID, func, *args):
         # func is actual Function class
         return StaticLayer(ID, func, *args)
     else:
-        print('Invalid activation function argument')
-        raise ValueError
+        raise ValueError('Invalid activation function argument')
+
+
+
+
+#==============================================================================
+
+# Available Layers
+#-----------------
+CONNECTIONS = {'dense': Dense,}
+ACTIVATIONS = functions.ACTIVATIONS
+LAYERS = {**CONNECTIONS, **ACTIVATIONS}
 
 
 '''
-
 # Available Layers
 #-----------------
 OPS = {'dense_layer': Dense,}
