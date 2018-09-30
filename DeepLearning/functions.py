@@ -713,6 +713,11 @@ class SoftmaxCrossEntropy(Function): #
         gX = self.softmax_cross_entropy_prime(p, t)
         return gX
 
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+
 #==============================================================================
 #                        Regularization and Normalization Functions
 #==============================================================================
@@ -786,3 +791,448 @@ CONNECTIONS = {'bias': Bias,
 OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
               'softmax_cross_entropy':  SoftmaxCrossEntropy,
               }
+
+
+
+
+
+#=============================================================================#
+#         ___   ___   _  _   ___    ___   _  _    ___                         #
+#        | _ \ | __| | \| | |   \  |_ _| | \| |  / __|                        #
+#        |  _/ | _|  | .` | | |) |  | |  | .` | | (_ |                        #
+#        |_|   |___| |_|\_| |___/  |___| |_|\_|  \___|                        #
+#                 ___   ___ __      __  ___    ___   _  __                    #
+#                | _ \ | __|\ \    / / / _ \  | _ \ | |/ /                    #
+#                |   / | _|  \ \/\/ / | (_) | |   / | ' <                     #
+#                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
+#=============================================================================#
+
+
+'''
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            CONNECTION FUNCTIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+
+
+# NAIVE, BY-HAND GRADIENT VERSION
+@TODO
+class LSTM(Function):
+    """ LSTM connection function
+
+    It may be difficult to do this function with the pure-function, func-deriv
+    format.
+
+    A lot needs to be cached during the process, at least now since I had to
+    step out the gradient chaining.
+
+    Just do forward and backward for now, then when we reduce the redundancy
+    we might be able to do it purely by functions.
+
+    And if not, who cares. Just make it into a layer that uses all the
+    other Functions used along the way
+
+    """
+    @staticmethod
+    def lstm(z, c, w):
+        #return h, c
+        pass
+
+    @staticmethod
+    def lstm_prime(h):
+        #return dx, dh, dc, dw
+        pass
+
+    def forward(self, X, H, C, W):
+        """
+        Params
+        ------
+        X : (N, D)
+            Input
+        H : (N, K)
+            Previous output
+        C : (N, K)
+            Cell state
+        W : (N, 4*K)
+            LSTM gate weights:
+                input
+                activation
+                forget
+                output
+        """
+        sigmoid = Sigmoid.sigmoid
+        tanh = Tanh.tanh
+
+        Z = np.concatenate([X, H], axis=1)
+        iafo = np.matmul(Z, W)
+        i, a, f, o = np.split(iafo, 4, axis=1)
+
+        si = sigmoid(i)
+        sf = sigmoid(1 + f)
+        so = sigmoid(o)
+        ta = tanh(a)
+
+        si_ta = si * ta
+        sfC = sf * C
+        c = si_ta + sfC
+        tc = tanh(c)
+        h = so * tc
+        return h, c
+        pass
+
+    def backward(self,):
+        """ THIS WONT WORK, FORWARD COMPUTATION WILL NOT ALL BE CACHED
+        JUST WRITING THE SCRATCH FOR REFERENCE
+        """
+        print('LSTM.BACKWARD JUST FOR REFERENCE')
+        assert False
+        dso = tc
+        dtc = so
+        dc = dtc * tanh_prime(c)
+        dsfc = dc
+        dsi_ta = dc
+        dsf = c * dsfc
+        dc += sf
+        dsi = dsi_ta * ta
+        dta = dsi_ta * si
+
+        da = dta * tanh_prime(a)
+        do = dso * sigmoid_prime(o)
+        df = dsf * sigmoid_prime(1 + f)
+        di = dsi * sigmoid_prime(i)
+        diafo = np.concatenate([di, da, df, do], axis=1)
+
+        dW = diafo * Z
+        dZ = diafo * W
+        dX, dH = np.split(dZ, 2, axis=1)
+        return dX, dH, dC, dW
+        pass
+
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            ATOMIC MATH FUNCTIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+
+# JUST UPDATE TO NEW FORMAT
+@TODO
+class Power(Function):
+    """ """
+    def forward(self, X, p):
+        self.fn_vars = X, p
+        Y = np.power(X, p)
+        return Y
+
+    def backward(self, gY):
+        X, p = self.get_fn_vars()
+        gX = gY * p * np.power(X, p - 1.0)
+        return gX
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            LOSS FUNCTIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+@TODO
+class MSE(Function):
+    """  """
+    @staticmethod
+    def mse(x, y):
+        pass
+
+    @staticmethod
+    def mse_prime(x, y):
+        pass
+
+    def forward(self, X, Y):
+        pass
+
+    def backward(self, gZ):
+        pass
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            ACTIVATIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class ReLU(Function):
+    """ standard ReLU activation
+    zeroes out any negative elements within matrix
+    """
+    def forward(self, X):
+        Y = self.fn_vars = X.clip(min=0)
+        return Y
+
+    def backward(self, gY):
+        """ Since Y was clipped at 0, it's elements
+            are either 0 or a positive number.
+        We can exploit that property to use Y
+          directly for indexing the gradient
+         """
+        Y = self.get_fn_vars()
+        gX = np.where(Y, gY, 0)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class ELU(Function):
+    """ Exponential Linear Unit """
+    def __init__(self, alpha=1.0):
+        self.alpha = alpha
+
+    def forward(self, X):
+        x = self.fn_vars = np.copy(X)
+        Y = np.where(x < 0, self.alpha*(np.exp(x)-1), x)
+        return Y
+
+    def backward(self, gY):
+        X = self.get_fn_vars()
+        gX = np.where(X < 0, self.alpha * np.exp(X), gY)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class SeLU(ELU):
+    """ Scaled Exponential Linear Units
+    ELU, but with a scalar and finetuning
+
+    SeLU is the activation function featured in
+    "Self-Normalizing Neural Networks," and they
+    are designed to implicitly normalize feed-forward
+    networks.
+
+    Reference
+    ---------
+    Paper : https://arxiv.org/abs/1706.02515
+        explains the properties and derivations for SeLU
+        parameters, but the precision values below from their
+        project code @ github.com/bioinf-jku/SNNs/
+
+    Parameters : alpha, scale
+        github.com/bioinf-jku/SNNs/blob/master/getSELUparameters.ipynb
+        github.com/bioinf-jku/SNNs/blob/master/selu.py
+    """
+    alpha = 1.6732632423543772848170429916717
+    scale = 1.0507009873554804934193349852946
+    elu = ELU(alpha=alpha)
+
+    def __init__(self, *args, **kwargs): pass # insure alpha integrity
+
+    def forward(self, X):
+        assert self.elu.alpha == self.alpha # sanity check
+        Y = self.scale * self.elu.forward(X)
+        return Y
+
+    def backward(self, gY):
+        gX = self.scale * self.elu.backward(gY)
+        return gX
+
+    @staticmethod
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    @staticmethod
+    def sigmoid_prime(y):
+        """ ASSUMES y == sigmoidx(x) """
+        return y * (1 - y)
+
+    def forward(self, X):
+        Y = self.sigmoid(X)
+        self.cache = Y
+        return Y
+
+    def backward(self, gY):
+        Y = self.cache
+        gX = gY * self.sigmoid_prime(Y)
+        return gX
+
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            REDUCTION FUNCTIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+#------------------------------------------------------------------------------
+# Reduction functions :
+#  Sum, Mean, Prod, Max, Min
+#------------------------------------------------------------------------------
+# ReductionFunction
+# -----------------
+# inherits : Function
+# derives  : Sum, Mean, Prod, Max Min
+class ReductionFunction(Function):
+    """
+    Function for dimensionality reduction ops
+    like sum or mean
+
+    # Attributes
+    #-----------
+    fn_vars : (dims, axes)
+        dims : list (int)
+            the original shape of the input before reduction
+        axes : list (int)
+            the axes or axis that were reduced
+    """
+    @NOTIMPLEMENTED
+    def forward(self, X, axis=None, keepdims=False):
+        pass
+
+    @staticmethod
+    def apply(fn, L):
+        """ a map function with no return """
+        for i in L:
+            fn(i)
+
+    def format_axes(self, axes):
+        ax = []
+        if axes is None: return ax
+        if type(axes) == int:
+            ax.append(axes)
+            return ax
+        return list(axes)
+
+    def restore_shape(self, Y, reset=False):
+        """ Restores a variable Y to the original
+            shape of the input var X
+
+        Restore_shape is called in self.backward, during backpropagation
+
+        Restoration steps
+        -----------------
+        1 - The dimensions (shape) of the original input X and the
+            axes used to reduce Y are retrieved
+
+        2 - The current dimensions of Y have any missing axes
+            restored
+            For example:
+                if X.shape = (8, 32, 32, 3) and
+                Y = a_reduction_function(X, axis=2)
+                    (so Y.shape = (8, 32, 3))
+                Y would first have axis 2 restored,
+                so that Y.shape --> (8, 32, 1, 3)
+
+        3 - Y has the full original shape of the input X restored by
+            broadcasting
+        """
+        # Dimension vars
+        dims_X, axes = self.get_fn_vars(reset=reset)
+        dims_X = list(dims_X)
+        axes = self.format(axes)
+        dims_Y = Y.shape
+
+        # Get reshape dims
+        #-----------------
+        # reshape_dims will have a 1 for whatever axes were reduced
+        #   (will be all 1s if no axes were given)
+        reshape_dims = list(dims_X) if dims_Y else [1]*len(dims_X)
+        self.apply(lambda i: reshape_dims.__setitem__(i, 1), list(axes))
+
+        # Restore the dimensionality of y
+        Y = np.broadcast_to(Y.reshape(reshape_dims), dims_X)
+        return Y
+
+class Sum(ReductionFunction):
+    """ Compute sum along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = np.sum(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        gX = self.restore_shape(gY, reset=True)
+        return gX
+
+
+class Mean(ReductionFunction):
+    """ Compute mean along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = np.mean(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        shape_in, axes = self.fn_vars
+        axes = self.format_axes(axes)
+
+        # Recover number of elements averaged out
+        if axes:
+            num_elements_avgd = np.prod([shape_in[i] for i in axes])
+        else:
+            # if axes is empty, mean was taken over all elements
+            num_elements_avgd = np.prod(shape_in)
+
+        gX = self.restore_shape(gY, reset=True) / num_elements_avgd
+        return gX
+
+
+class Prod(ReductionFunction):
+    """ Compute product along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = np.prod(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def backward(self, gY):
+        X = self.X
+        Y = self.Y
+        gX = self.restore_shape(gY*Y) / X
+        self.reset_fn_vars()
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class MaxMin(ReductionFunction):
+    """ Base class for max, min funcs """
+    MM_func  = None
+    cmp_func = None
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = self.MM_func(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def backward(self, gY):
+        X  = self.X
+        Y  = self.restore_shape(self.Y)
+        gY = self.restore_shape(gY)
+        gX = np.where(self.cmp_func(X, Y), gY, 0)
+        self.reset_fn_vars()
+        return gX
+
+
+class Max(MaxMin):
+    """ Computes max along axis """
+    MM_func  = np.max
+    cmp_func = lambda x, y: x >= y
+
+class Min(MaxMin):
+    """ Computes min along axis """
+    MM_func  = np.min
+    cmp_func = lambda x, y: x < y
+
+'''
