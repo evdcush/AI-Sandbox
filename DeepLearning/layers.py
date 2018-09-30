@@ -31,8 +31,19 @@ from initializers import HeNormal, Zeros, Ones
 """
 
 class ParametricLayer:
-    """ Layers with learnable variables updated through gradient descent """
-    updates = True
+    """ Layers with learnable variables updated through gradient descent
+
+    Attributes
+    ----------
+    updates : bool
+        whether the layer has learnable parameters
+    name : str
+        layer name, as class-name + ID
+    ID : int
+        layer instance position in the network
+    kdims : tuple(int)
+        channel sizes (determines dimensions of params)
+    """
     def __init__(self, ID, kdims, **kwargs):
         self.name = '{}{}'.format(self.__class__.__name__, ID)
         self.ID = ID
@@ -64,7 +75,7 @@ class ParametricLayer:
             the features of a different variable that needs to be
             initialized.
                 each dict in layer_vars has the following form:
-                {'tag': 'W', 'dims': tuple(int), 'init': Initializer}
+                {'tag': str, 'dims': tuple(int), 'init': Initializer}
         """
         key_val = '{}_{{}}'.format(self.name)
         for layer_var in layer_vars:
@@ -85,13 +96,17 @@ class ParametricLayer:
             # variable grad placeholder
             setattr(self, '{}_grad'format(tag)) = None
 
+    def __call__(self, *args, backprop=False):
+        func = self.backward if backprop else forward
+        return func(*args)
 
+#==============================================================================
 
-class Dense:
+class Dense(ParametricLayer):
     """ Vanilla fully-connected hidden layer
-    The Dense layer is defined by the linear transformation function:
-
-         f(X) = X.W + B
+    Dense essentially provides the layer interface to functions.Linear,
+    maintaining the connection variables W, and B, in the function:
+        f(X) = X.W + B
     Where
     X : input matrix
     W : weight matrix
@@ -100,45 +115,22 @@ class Dense:
 
     Attributes
     ----------
-    updates : bool
-        whether the layer has learnable parameters
-    name : str
-        layer name, as class-name + ID
-    ID : int
-        Dense layer instance's position in the network
-    kdims : tuple(int)
-        channel sizes (determines dimensions of params)
     linear : Function.Linear
         linear function instance, which performs the Y = X.W + B function
     W_Key : str
         unique string identifier for W
     B_key : str
         unique string identifier for B
-
-    Params
-    ------
-    W : ndarray.float32, of shape kdims
-        weight matrix
-    B : ndarray.float32, of shape kdims[-1]
-        bias vector
-
     """
-    updates = True
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
         super().__init__(ID, kdims, **kwargs)
-        #self.name = '{}{}'.format(self.__class__.__name__, ID)
-        #self.ID = ID
-        #self.kdims = kdims
         self.linear = functions.Linear()
         self.initialize(init_W, init_B)
 
-    def initialize(self, init_W, init_B):
+    def initialize_vars(self, init_W, init_B):
         var_features = [{'tag': 'W', 'dims': self.kdims, 'init': init_W},
                         {'tag': 'B', 'dims': self.kdims[-1:], 'init': init_B},]
         super().initialize_params(var_features)
-
-
-
 
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -183,6 +175,64 @@ class Dense:
 
         # Assign var grads and chain gX to next layer
         self.W_grad = gW
+        self.B_grad = gB
+        return gX
+
+    def __call__(self, *args, backprop=False):
+        func = self.backward if backprop else forward
+        return func(*args)
+
+
+
+#==============================================================================
+
+class Swish(ParametricLayer):
+    """ Swish activation layer """
+    updates = True
+    def __init__(self, ID, kdims, init_B=Ones, **kwargs):
+        super().__init__(ID, kdims, **kwargs)
+        self.swish = functions.Swish()
+        self.initialize(init_B)
+
+    def initialize_vars(self, init_B):
+        var_features = [{'tag': 'B', 'dims': self.kdims[-1:], 'init': init_B},]
+        super().initialize_params(var_features)
+
+    # Layer optimization
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def update(self, opt):
+        """ Update weights and bias with gradients from backprop
+        Params
+        ------
+        opt : Optimizer instance
+            Optimizing algorithm, updates through __call__
+        """
+        # Make sure grads exist
+        assert self.B_grad is not None
+
+        # Group vars with their grads, keyed to their respective keys
+        params = {}
+        params[self.B_Key] = (self.B, self.B_grad)
+
+        # Get updates
+        updated_params = opt(params)
+        self.B = updated_params[self.B_key]
+        self.B_grad = None
+
+    # Layer network ops
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def forward(self, X):
+        # Outputs
+        B = self.B
+        Y = self.swish(X, B)
+        return Y
+
+    def backward(self, gY):
+        # Grads
+        B = self.B
+        gX, gB = self.linear(gY, B, backprop=True)
+
+        # Assign var grads and chain gX to next layer
         self.B_grad = gB
         return gX
 
