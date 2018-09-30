@@ -731,24 +731,35 @@ class Dropout(Function):
     detection and context of others, the connections are instead encouraged
     to learn more robust detection of features.
 
-
     """
     def __init__(self, drop_ratio=0.5):
         self.drop_ratio = drop_ratio
 
+    def get_mask(self, X):
+        rands = np.random.rand(*X.shape)
+        drop  = self.drop_ratio
+        scale = 1 / (1 - drop)
+        mask = (rands >= drop) * scale
+        return mask.astype(np.float32)
+
     @staticmethod
     def dropout(x, mask):
-        pass
+        return x * mask
 
     @staticmethod
     def dropout_prime(y, mask):
-        pass
+        return y * mask
 
     def forward(self, X):
-        pass
+        mask = self.get_mask(X)
+        self.cache = mask
+        Y = self.dropout(np.copy(X), mask)
+        return Y
 
     def backward(self, gY):
-        pass
+        mask = self.cache
+        gX = self.dropout_prime(gY, mask)
+        return gX
 
 
 
