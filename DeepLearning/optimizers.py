@@ -31,8 +31,6 @@ import numpy as np
 from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 
-
-
 class OptSGD:
     def __init__(self, lr):
         self.lr = lr

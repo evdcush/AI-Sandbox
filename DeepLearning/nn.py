@@ -1,7 +1,6 @@
 """
 Neural network implementations are located in this module.
 
-
 # Neural networks:
 #---------------------------
 Neural networks are composed of Layers

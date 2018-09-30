@@ -92,8 +92,10 @@ class Uniform(Initializer):
 # derives : Zeros
 class Constant(Initializer):
     """ Initializes array with repeated constants """
-    def __call__(self, kdims, fill_value=1.0):
+    def __init__(self, fill_value=1.0):
         self.fill_value = fill_value
+
+    def __call__(self, kdims):
         param_array = np.full(kdims, self.fill_value, dtype=self.dtype_)
         return param_array
 
@@ -184,13 +186,13 @@ class GlorotUniform(Uniform):
 
 class Zeros(Constant):
     """ Initializes array with all zeros """
-    def __call__(self, kdims, fill_value=0.0):
-        super().__init__(kdims, fill_value=fill_value)
+    def __init__(self, fill_value=0.0):
+        super().__init__(fill_value)
 
 class Ones(Constant):
     """ Initializes array with all ones """
-    def __call__(self, kdims, fill_value=1.0):
-        super().__init__(kdims, fill_value=fill_value)
+    def __init__(self, fill_value=1.0):
+        super().__init__(fill_value)
 
 
 #==============================================================================

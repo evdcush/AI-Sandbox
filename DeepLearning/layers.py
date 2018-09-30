@@ -83,13 +83,13 @@ class ParametricLayer:
             #-----------------------------
             tag = layer_var['tag']
             dims = layer_var['dims']
-            initializer = layer_var['init']
+            initializer = layer_var['init']()
 
             # Initialize instance attrs
             #------------------------------
             # var key
             setattr(self, '{}_Key'.format(tag), key_val.format(tag))
-
+            #if tag == 'B': code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
             # variable
             setattr(self, tag, initializer(dims))# = initializer(dims)
 
@@ -123,9 +123,9 @@ class Dense(ParametricLayer):
         unique string identifier for B
     """
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
-        super().__init__(ID, kdims, **kwargs)
+        super().__init__(ID, kdims)
         self.linear = functions.Linear()
-        self.initialize(init_W, init_B)
+        self.initialize_vars(init_W, init_B)
 
     def initialize_vars(self, init_W, init_B):
         var_features = [{'tag': 'W', 'dims': self.kdims, 'init': init_W},
