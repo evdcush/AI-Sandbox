@@ -1,11 +1,11 @@
 import numpy as np
-from utils import NOTIMPLEMENTED
+from utils import NOTIMPLEMENTED, TODO
 
 
 
 #==============================================================================
 #------------------------------------------------------------------------------
-#                              Initializers
+#                         Standard Initializers
 #------------------------------------------------------------------------------
 #==============================================================================
 
@@ -20,7 +20,6 @@ from utils import NOTIMPLEMENTED
 # derives : Normal, Uniform, Constant
 class Initializer:
     """ Base class for initializer """
-
     dtype_ = np.float32
     def __init__(self, **kwargs):
         for attribute, value in kwargs.items():
@@ -49,10 +48,9 @@ class Normal(Initializer):
     Values are drawn from a Gaussian distribution with
     mean 0 and stdv 'scale'
     """
-    normal = np.random.normal
-
     def __init__(self, scale=0.05, **kwargs):
         super().__init__(**kwargs)
+        self.normal = np.random.normal
         self.scale = 0.05
 
     def __call__(self, kdims):
@@ -72,12 +70,10 @@ class Uniform(Initializer):
 
     Values are drawn uniformly from the interval
     [-scale, scale)
-
     """
-    uniform = np.random.uniform
-
     def __init__(self, scale=0.05, **kwargs):
         super().__init__(**kwargs)
+        self.uniform = np.random.uniform
         self.scale = 0.05
 
     def __call__(self, kdims):
@@ -96,11 +92,9 @@ class Uniform(Initializer):
 # derives : Zeros
 class Constant(Initializer):
     """ Initializes array with repeated constants """
-    fill_value = 1.0
-
-    def __call__(self, kdims, f_value=None):
-        fill_val = self.fill_value if f_value is None else f_value
-        param_array = np.full(kdims, fill_val, dtype=self.dtype_)
+    def __call__(self, kdims, fill_value=1.0):
+        self.fill_value = fill_value
+        param_array = np.full(kdims, self.fill_value, dtype=self.dtype_)
         return param_array
 
 #==============================================================================
@@ -190,8 +184,27 @@ class GlorotUniform(Uniform):
 
 class Zeros(Constant):
     """ Initializes array with all zeros """
-    fill_value = 0.0
+    def __call__(self, kdims, fill_value=0.0):
+        super().__init__(kdims, fill_value=fill_value)
 
 class Ones(Constant):
     """ Initializes array with all ones """
-    fill_value = 1.0
+    def __call__(self, kdims, fill_value=1.0):
+        super().__init__(kdims, fill_value=fill_value)
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                    Pretrained variable Initializers
+#------------------------------------------------------------------------------
+#==============================================================================
+
+@TODO
+class Pretrained:
+    """ Restores a pretrained variable """
+    def __init__(self, trained_params):
+        self.trained_params = trained_params
+
+
+    def __call__(self, kdims):
+        pass

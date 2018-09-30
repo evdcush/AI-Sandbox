@@ -30,9 +30,61 @@ from initializers import HeNormal, Zeros, Ones
 """ These layers all have parameters that are updated through gradient descent
 """
 
-#class ParametricLayer:
-#    """ Abstracts some of the boilerplate from most parametric layers """
-#    __slots__ = ('name', 'func', 'updates', 'params', key)
+class ParametricLayer:
+    """ Layers with learnable variables updated through gradient descent """
+    updates = True
+    def __init__(self, ID, kdims, **kwargs):
+        self.name = '{}{}'.format(self.__class__.__name__, ID)
+        self.ID = ID
+        self.kdims = kdims
+
+    def __str__(self,):
+        # str : Dense$ID
+        #     eg 'Dense3'
+        return self.name
+
+    def __repr__(self):
+        # repr : Dense($ID, $kdims)
+        #     eg "Dense('3, (32, 16)')"
+        ID = self.ID
+        kdims = self.kdims
+        cls_name = self.__class__.__name__
+
+        # Formal repr to eval form
+        rep = "{}('{}, {}')".format(cls_name, ID, kdims)
+        return rep
+
+    def initialize_params(self, layer_vars):
+        """ Initializes optimizable layer_vars for a ParametricLayer instance
+
+        Params
+        ------
+        layer_vars : list(dict)
+            Each element in layer_vars is a dictionary specifying
+            the features of a different variable that needs to be
+            initialized.
+                each dict in layer_vars has the following form:
+                {'tag': 'W', 'dims': tuple(int), 'init': Initializer}
+        """
+        key_val = '{}_{{}}'.format(self.name)
+        for layer_var in layer_vars:
+            # Unpack var attributes
+            #-----------------------------
+            tag = layer_var['tag']
+            dims = layer_var['dims']
+            initializer = layer_var['init']
+
+            # Initialize instance attrs
+            #------------------------------
+            # var key
+            setattr(self, '{}_Key'.format(tag)) = key_val.format(tag)
+
+            # variable
+            setattr(self, tag) = initializer(dims)
+
+            # variable grad placeholder
+            setattr(self, '{}_grad'format(tag)) = None
+
 
 
 class Dense:
@@ -73,74 +125,20 @@ class Dense:
     """
     updates = True
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
-        self.name = '{}{}'.format(self.__class__.__name__, ID)
-        self.ID = ID
-        self.kdims = kdims
+        super().__init__(ID, kdims, **kwargs)
+        #self.name = '{}{}'.format(self.__class__.__name__, ID)
+        #self.ID = ID
+        #self.kdims = kdims
         self.linear = functions.Linear()
-        self.initialize_params(init_W, init_B)
+        self.initialize(init_W, init_B)
 
-    def __str__(self,):
-        # str : Dense$ID
-        #     eg 'Dense3'
-        return self.name
+    def initialize(self, init_W, init_B):
+        var_features = [{'tag': 'W', 'dims': self.kdims, 'init': init_W},
+                        {'tag': 'B', 'dims': self.kdims[-1:], 'init': init_B},]
+        super().initialize_params(var_features)
 
-    def __repr__(self):
-        # repr : Dense($ID, $kdims)
-        #     eg "Dense('3, (32, 16)')"
-        cls_name = self.__class__.__name__
-        kdims = self.kdims
-        ID = self.ID
 
-        # Formal repr to eval form
-        rep = "{}('{}, {}')".format(cls_name, ID, kdims)
-        return rep
 
-    # Layer parameter initialization
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def initialize_params(self, init_W, init_B):
-        """ Initializes the parameters W and B for the Dense layer instance
-
-        This function both can initialize new variables for the
-        parameters, as well as restore pretrained variables,
-        based on the `type` of init_W/init_B. Both variables
-        are restored as a pair.
-
-        If the init args are of type ndarray, than they are
-        pretrained (or preinitialized) variables. Otherwise,
-        they are Initializers.
-
-        Params
-        ------
-        init_W : Initializer OR ndarray
-            initializes the starting values for the weight matrix
-        init_B : Initializer OR ndarray
-            initializes the starting values for the bias
-        """
-        # Layer dims
-        w_dims = self.kdims
-        b_dims = self.kdims[-1:]
-
-        # Var keys
-        self.W_Key = self.name + 'W'
-        self.B_key = self.name + 'B'
-
-        # Check whether inits are arrays
-        if isinstance(init_W, np.ndarray):
-            # Check dimensional integrity
-            assert (init_W.shape == w_dims) and (init_B.shape == b_dims)
-            self.W = init_W
-            self.B = init_B
-        else:
-            # Initializer instances
-            w_init = init_W()
-            b_init = init_B()
-            # Initialize vars
-            self.W = w_init(w_dims)
-            self.B = b_init(b_dims)
-
-        # Gradient placeholders
-        self.W_grad = None
-        self.B_grad = None
 
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

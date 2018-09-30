@@ -846,6 +846,7 @@ MATH = {}
 ACTIVATIONS = {'sigmoid': Sigmoid,
                 'tanh': Tanh,
                 'Softmax': Softmax,
+                'Swish': Swish,
                 }
 
 CONNECTIONS = {'bias': Bias,

@@ -62,44 +62,50 @@ class NeuralNetwork:
       or iterations has been reached
 
     """
-    layers = []
-    def __init__(self, channels, connection='dense', activation='sigmoid',
+    def __init__(self, channels,
+                 connection_tag='dense',
+                 activation_tag='sigmoid',
                  final_activation=False, **kwargs):
         """ Initializes a neural network that has depth len(channels)
-
         Params
         ------
         channels : list(int)
             channel sizes for each layer (determines the dimensionality
             of the layer transformations)
-        connection : str
+        connection_tag : str
             keyword used to retrieve it's corresponding Layer that uses
             connections (eg, has learnable weights)
-        activation : str
+        activation_tag : str
             keyword used to generate an activation layer based from
             its constituent Function
         final_activation : bool
             whether there is an activation on the final layer's output
-
         kwargs :
             While not explicit, if the model is reinitialized from
             pretrained weights, they would be passed through **kwargs
         """
         self.channels = list(zip(channels, channels[1:])) # tuple (k_in, k_out)
-        self.connection = connection # connection layer tag
-        self.activation = activation # activation layer tag
-        self.final_activation = final_activation
+        self.register_layers(connection_tag, activation_tag)
+
+        self.layers = []
+        for ID, kdims in enumerate(self.channels):
+            connection = self.connection(ID, kdims, **kwargs)
+            activation =
+
+
+
         self.initialize_layers(**kwargs)
 
     def __repr__(self):
         # eval-style repr
-        rep = ("{}('{}, connection={}, activation={}, final_activation={}')")
+        rep = ("{}('{}, connection_tag={}, activation_tag={}, \
+            final_activation={}')")
 
         # Get instance vars
-        name = self.__class__.__name__
+        name  = self.__class__.__name__
         chans = self.channels
-        conn = self.connection
-        act  = self.activation
+        conn  = self.connection_tag
+        act   = self.activation_tag
         final_act = self.final_activation
 
         # format repr and return
@@ -117,16 +123,27 @@ class NeuralNetwork:
                 activation = act(ID, kdim, **kwargs)
                 self.layers.append(activation)
 
+    def register_layers(self, connection_tag, activation_tag):
+        """ Registers layers to attributes if tags are valid
+
+        Note: self.connection is of type Layer, but
+              self.activation is actually a Function, and will be
+              instantiated as a 'layers.StaticLayer' when initialized
+        """
+        assert (activation_tag in L.ACTIVATIONS and
+                connection_tag in L.CONNECTIONS)
+        # Assign tags as attributes
+        self.connection_tag = connection_tag
+        self.activation_tag = activation_tag
+
+        # Register layers
+        self.connection = L.CONNECTIONS[connection_tag] # layers
+
+
     def initialize_layers(self, **kwargs):
         """ """
         # Get layers
         layers = L.LAYERS
-#  ______   _   _   _____    ______   _____     _    _   ______   _____    ______   #
-# |  ____| | \ | | |  __ \  |  ____| |  __ \   | |  | | |  ____| |  __ \  |  ____|  #
-# | |__    |  \| | | |  | | | |__    | |  | |  | |__| | | |__    | |__) | | |__     #
-# |  __|   | . ` | | |  | | |  __|   | |  | |  |  __  | |  __|   |  _  /  |  __|    #
-# | |____  | |\  | | |__| | | |____  | |__| |  | |  | | | |____  | | \ \  | |____   #
-# |______| |_| \_| |_____/  |______| |_____/   |_|  |_| |______| |_|  \_\ |______|  #
 
         # Network specs
         kdims = self.channels
