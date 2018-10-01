@@ -12,10 +12,6 @@ import initializers
 import optimizers
 from functions import SoftmaxCrossEntropy, LogisticCrossEntropy
 
-from pprint import PrettyPrinter
-
-pretty = PrettyPrinter()
-pp = pretty.pprint
 
 # args parser
 #------------------

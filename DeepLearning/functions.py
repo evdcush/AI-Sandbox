@@ -543,7 +543,6 @@ class Swish(Function): #
 #------------------------------------------------------------------------------
 # Cross entropy
 #------------------------------------------------------------------------------
-
 class LogisticCrossEntropy(Function): #
     """ Logistic cross-entropy loss defined on sigmoid activation
 
@@ -553,19 +552,17 @@ class LogisticCrossEntropy(Function): #
     """
     @staticmethod
     def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
+        return Sigmoid.sigmoid(x)
 
     @staticmethod
     def logistic_cross_entropy(x, t):
-        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-        lhs = -t * np.log(x)
+        lhs = -(t * np.log(x))
         rhs = (1 - t) * np.log(1 - x)
         return np.mean(lhs - rhs)
 
     @staticmethod
     def logistic_cross_entropy_prime(x, t):
         return (x - t) / x.size
-
 
     def forward(self, X, t_vec):
         """
@@ -584,6 +581,8 @@ class LogisticCrossEntropy(Function): #
         p : ndarray.int32, (N,D)
             Network approximations on class labels (for accuracy metrics)
         """
+        # Process inputs
+        #----------------------
         # Check dimensional integrity
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
@@ -591,13 +590,12 @@ class LogisticCrossEntropy(Function): #
         t = utils.to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)
 
         # Sigmoid activation
-        #-------------------
+        #----------------------
         p = self.sigmoid(np.copy(X))
         self.cache = p, t
 
         # Average cross-entropy
         #----------------------
-        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
         Y = self.logistic_cross_entropy(np.copy(p), t)
         return Y, p
 
@@ -620,10 +618,11 @@ class LogisticCrossEntropy(Function): #
 
         """
         # Retrieve vars
+        #----------------------
         p, t = self.cache
 
-        # Get grad
-        #---------
+        # Get gradient
+        #----------------------
         gX = self.logistic_cross_entropy_prime(p, t)
         return gX
 
@@ -669,7 +668,8 @@ class SoftmaxCrossEntropy(Function): #
         p : ndarray.int32, (N,D)
             Network approximations on class labels (for accuracy metrics)
         """
-
+        # Preprocess inputs
+        #----------------------
         # Check dimensional integrity
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
@@ -677,7 +677,7 @@ class SoftmaxCrossEntropy(Function): #
         t = utils.to_one_hot(np.copy(t_vec)) # (N,D)
 
         # Softmax activation
-        #-------------------
+        #----------------------
         p = self.softmax(X)
         self.cache = p, t
 
@@ -711,9 +711,7 @@ class SoftmaxCrossEntropy(Function): #
         gX = self.softmax_cross_entropy_prime(p, t)
         return gX
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 
 
 #==============================================================================
@@ -775,19 +773,19 @@ class Dropout(Function):
 
 MATH = {}
 
-ACTIVATIONS = {'sigmoid': Sigmoid,
-                'tanh': Tanh,
+ACTIVATIONS = {'sigmoid' : Sigmoid,
+                'tanh'   : Tanh,
                 'softmax': Softmax,
-                'swish': Swish,
+                'swish'  : Swish,
                 }
 
-CONNECTIONS = {'bias': Bias,
+CONNECTIONS = {'bias'  : Bias,
                'matmul': MatMul,
                'linear': Linear,
                }
 
 OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
-              'softmax_cross_entropy':  SoftmaxCrossEntropy,
+              'softmax_cross_entropy' :  SoftmaxCrossEntropy,
               }
 
 
@@ -803,7 +801,52 @@ OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
 #                | _ \ | __|\ \    / / / _ \  | _ \ | |/ /                    #
 #                |   / | _|  \ \/\/ / | (_) | |   / | ' <                     #
 #                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
-#=============================================================================#
+"""===========================================================================#
+
+#-------#
+# NOTES #
+#-------#
+
+# TODO:
+- add more docstrings, even simple one-liners would do
+- add `test` kwarg to __call__ or something that
+  prevents caching vars for backprop (does't affect anything,
+  results-wise, just inefficient).
+- make clearer when derivative functions expect input to be
+  output of forward, or input of forward, or as is the case
+  with functions like sigmoid, are not true derivative funcs
+  but an expedient form with assumptions
+- the function "tags" or labels used outside functions modules
+  are often the slugified function class names, but
+  the class __str__ returns the actual (non-slug) class name
+    Options:
+    > pick one, or the other. __repr__ already has true class name
+    > interface or something that provides a perfect map
+      between slug/lower function class names and their
+      __str__/normal class names
+
+# Look into:
+- what is the benefit of using staticmethod instead of classmethod?
+- consider making base cross-entropy function class, they are nearly identical
+- been doing gradient checks by hand and with other software, which is
+  excrutiatingly tedious--maybe write up some mostly-automatic grad checking
+  funcs? and tests
+
+# Implementations:
+- still have a ton of funcs from V1 implementation that have not
+  been updated to v2, namely the reduction funcs
+- normalization/regularization funcs
+  - layernorm first, then batchnorm
+  - non-dropout regularizers
+- more connection functions:
+  - LSTM stub, with fully specified fwd/bwd computation,
+    ready for consolidation and implem.
+  - vanilla recurrent units
+  - various recurrent/non-recurrent gated stuff
+  - conv 2D
+  - graph conv
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
 
 
 '''

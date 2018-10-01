@@ -298,22 +298,32 @@ def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
 
 # Batching
 #------------------------------------------------------------------------------
-def get_training_batch(X, batch_size, step, split_idx=-1):
-    """ Get training batch
-
-    Batches are selected randomly, and without replacement wrt
-    the previous batches.
-
-    This is done based on current step. When current
-    step has become a multiple of the number of samples in X,
-    X is reshuffled at random.
+def get_batch(X, step, batch_size=1, test=False, split_idx=-1):
+    """ Batches samples from dataset X
 
     ASSUMED: batch_size is a factor of the number of samples in X
+
+    #==== Training
+    - Batches are selected randomly *and without replacement* wrt
+      the previous batches. This is done based on current step:
+      - When current step has become a multiple of the number
+        of samples in X, the samples positions in X are
+        randomly shuffled.
+
+    #==== Testing
+    - Batches are selected in order, without any stochasticity.
+    - Batch size is flexible with testing, though the number
+      should still be a factor of the number of samples in X
+      Depending on your memory constraints:
+      - You can send the entire test set to your model
+        if you select a batch_size = number of samples
+      - Or you can simply feed the model one sample
+        (batch_size=1) at a time
 
     Params
     ------
     X : ndarray, (N,...,K)
-        Full training dataset
+        Full dataset (training or testing)
     batch_size : int
         number of samples in minibatch
     step : int
@@ -324,57 +334,65 @@ def get_training_batch(X, batch_size, step, split_idx=-1):
     Returns
     -------
     x : ndarray, (batch_size, ...)
-        the training minibatch of features
-    y : ndarray(int), (batch_size,)
-        the training minibatch ground truth labels
+        batch data features
+    y : ndarray.int32, (batch_size,)
+        batch ground truth labels (or class)
     """
+    assert batch_size > 0 and isinstance(batch_size, int)
     # Dims
     N = X.shape[0]
-    b = batch_size
+    b = batch_size if batch_size <= N else batch_size % N
 
     # Subset indices
-    i = (b * step) % N
-    j = i + b
+    i = (b * step) % N  # start index [inclusive]
+    j = i + b           # end   index (exclusive)
 
-    # Check if we need to reshuffle
-    if i == 0:
+    # Check if we need to reshuffle (train only)
+    if i == 0 and not test:
         np.random.shuffle(X)
 
     # Batch and split data
     batch = np.copy(X[i:j])
     x, y = np.split(batch, [split_idx], axis=1)
 
-    # Format y from float --> int
+    # Format y dtype from float --> int
     y = np.squeeze(y.astype(np.int32))
-
     return x, y
 
 
-def to_one_hot(Y, num_classes=3):
+def to_one_hot(Y, num_classes=len(IRIS['classes'])):
     """ make one-hot encoding for truth labels
 
-    Assumptions
-    -----------
-    - Y is a column vector of ints, representing classes,
-      with the same length as the number of samples
+    Encodes a 1D vector of integer class labels into
+    a sparse binary 2D array where every sample has
+    length num_classes, with a 1 at the index of its
+    constituent label and zeros elsewhere.
 
     Example
     -------
     Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
     Y.shape = (10,)
+    num_classes = 4
+    one_hot shape == (10, 4)
 
-    one_hot(Y) = [[0, 0, 0, 1], # 3
-                  [0, 1, 0, 0], # 1
-                  [0, 1, 0, 0], # 1
-                  [1, 0, 0, 0], # 0
-                  [0, 0, 1, 0], # 2
-                  [0, 0, 0, 1], # 3
-                  [0, 1, 0, 0], # 2
-                  [0, 1, 0, 0], # 2
-                  [0, 1, 0, 0], # 2
-                  [1, 0, 0, 0], # 1
-                 ]
+    to_one_hot(Y) = [[0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 1
+                     [0, 1, 0, 0], # 1
+                     [1, 0, 0, 0], # 0
+                     [0, 0, 1, 0], # 2
+                     [0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [1, 0, 0, 0], # 1
+                    ]
     """
+    # Dimensional integrity check on Y
+    #  handles both ndim = 0 and ndim > 1 cases
+    if Y.ndim != 1:
+        Y = np.squeeze(Y)
+        assert Y.ndim == 1
+
     # dims for one-hot
     n = Y.shape[0]
     d = num_classes
