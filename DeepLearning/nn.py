@@ -81,7 +81,6 @@ class NeuralNetwork:
         """
         self.channels = list(zip(channels, channels[1:])) # tuple (k_in, k_out)
         self.final_activation = final_activation
-        self.is_last = lambda i: (not i == (len(self.channels)-1)) or final_activation
         self.register_layers(connection_tag, activation_tag)
 
         # Initialize layers
@@ -100,14 +99,33 @@ class NeuralNetwork:
                 activation = self.activation_layer(ID, kdims, **kwargs)
                 self.layers.append(activation)
 
-            #if (not ID == (len(self.channels) - 1)) or final_activation:
-            #    activation = L.activation_layer(ID, self.activation)
-            #    self.layers.append(activation)
+    def __str__(self):
+        """ Prints network architecture """
+        # Get instance vars
+        name  = self.__class__.__name__
+        chans = self.channels
+        conn  = self.connection_tag
+        act   = self.activation_tag
+        final_act = self.final_activation
+
+        # Format string
+        ret_str = '{}\n  Layers: \n'.format(name) # Intro
+        body_line_con = '    {:>2} : {:<6} {}\n'
+        body_line_act = '    {:>2} : {}\n'
+
+        for i, layer in enumerate(self.layers):
+            if hasattr(layer, 'kdims'):
+                kd = layer.kdims
+                lname = str(layer)[:-len(str(i))] # last chars are num
+                ret_str += body_line_con.format(i, lname, kd)
+            else:
+                aname = str(layer.function)
+                ret_str += body_line_act.format(i, aname)
+        return ret_str
 
     def __repr__(self):
         # eval-style repr
-        rep = ("{}('{}, connection_tag={}, activation_tag={}, \
-            final_activation={}')")
+        rep = ("{}('{}, connection_tag={}, activation_tag={}, final_activation={}')")
         # Get instance vars
         name  = self.__class__.__name__
         chans = self.channels
@@ -138,8 +156,6 @@ class NeuralNetwork:
 
         # Register layers
         self.connection_layer = L.CONNECTIONS[connection_tag] # layers
-        #self.activation = L.ACTIVATIONS[activation_tag] #
-        #self.activation = L.StaticLayer[]
         self.activation_layer = L.ActivationLayer(activation_tag)
 
     def forward(self, X):

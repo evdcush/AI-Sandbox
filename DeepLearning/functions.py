@@ -718,7 +718,6 @@ class SoftmaxCrossEntropy(Function): #
 #                        Regularization and Normalization Functions
 #==============================================================================
 
-@NOTIMPLEMENTED
 class Dropout(Function):
     """ Randomly drops input elements with the probability given by ratio
 
@@ -727,13 +726,14 @@ class Dropout(Function):
     by 1 / (1 - p).
 
     Dropout is a well established technique commonly used in feedforward
-    networks in order to reduce overfitting on a training set. The idea
-    being that network connections, instead of learning features by the
+    networks in order to reduce overfitting on a training set.
+    The idea is that network connections, instead of learning features by the
     detection and context of others, the connections are instead encouraged
     to learn more robust detection of features.
 
     """
     def __init__(self, drop_ratio=0.5):
+        """ 50% drop-rate is suggested default """
         self.drop_ratio = drop_ratio
 
     def get_mask(self, X):

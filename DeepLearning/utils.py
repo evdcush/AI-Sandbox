@@ -354,9 +354,10 @@ def get_batch(X, step, batch_size=1, test=False, split_idx=-1):
     # Batch and split data
     batch = np.copy(X[i:j])
     x, y = np.split(batch, [split_idx], axis=1)
+    y = y.astype(np.int32)
 
-    # Format y dtype from float --> int
-    y = np.squeeze(y.astype(np.int32))
+    # Squeeze Y to 1D
+    y = np.squeeze(y) if b > 1 else y[:,0]
     return x, y
 
 
@@ -462,6 +463,29 @@ class Parser:
 #------------------------------------------------------------------------------
 #==============================================================================
 
+# Status and results
+#------------------------------------------------------------------------------
+class SessionStatus:
+    """ Provides information to user on current status and results of model
+
+    In addition to helpful status updates, SessionStatus maintains
+    the loss history collections for training or validation.
+    """
+    def __init__(self, num_iters, ): pass
+
+def print_status(step, err, acc):
+    status = '{:>5}: {:.5f}  |  {:.4f}'.format(step+1, float(err), float(acc))
+    print(status)
+
+## Print training summary
+#print('# Finished training\n#{}'.format('-'*78))
+#print(' * Elapsed time: {} minutes'.format(elapsed_time))
+#print(' * Average error, last 20% iterations: {:.6f} |  {:.6f}'.format(avg_final_error[0], avg_final_error[1]))
+#print(' * Median error,  last 20% iterations: {:.6f} |  {:.6f}'.format(median_final_error[0], median_final_error[1]))
+#print('\nModel layers: {}\n'.format(model.layers))
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
+
 # Classification eval
 #------------------------------------------------------------------------------
 def get_predictions(Y_hat):
@@ -478,13 +502,13 @@ def get_predictions(Y_hat):
 
     Params
     ------
-    Y_hat : ndarray, (N, D)
+    Y_hat : ndarray.float32, (N, D)
         network output, "predictions" or scores on the D classes
 
     Returns
     -------
-    Y_pred : ndarray, (N,)
-        the maximal class score per sample
+    Y_pred : ndarray.int32, (N,)
+        the maximal class score, by index, per sample
     """
     Y_pred = np.argmax(Y_hat, axis=-1)
     return Y_pred
@@ -495,10 +519,9 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
 
     Params
     ------
-    Y_pred : ndarray float32, (N, D)
+    Y_pred : ndarray.float32, (N, D)
         raw class "scores" from network output for the D classes
-
-    Y_truth : ndarray int32, (N,)
+    Y_truth : ndarray.int32, (N,)
         ground truth
 
     Returns
@@ -510,9 +533,8 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
     # Reduce Y_hat to highest scores
     Y_pred = get_predictions(Y_hat)
 
-    # Take average percentage match
+    # Take average match
     accuracy = np.mean(Y_pred == Y_truth)
-
     return accuracy
 
 

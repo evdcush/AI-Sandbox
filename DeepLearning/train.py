@@ -61,7 +61,7 @@ opt = optimizers.SGD(lr=learning_rate)
 # Instantiate model results collections
 #------------------
 train_loss_history = np.zeros((num_iters,2))
-
+code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
 # Train
 #==============================================================================
@@ -75,8 +75,7 @@ np.random.seed(utils.RNG_SEED_DATA)
 for step in range(num_iters):
     # batch data
     #------------------
-    x, y = utils.get_training_batch(X_train, batch_size, step)
-    y = np.squeeze(y)
+    x, y = utils.get_batch(X_train, step, batch_size)
 
     # NOTE: SQUEEZE(y) (n, 1) --> (N,) MADE A HUGE DIFFERENCE TO CLASSIFICATION
     #       ACCURACY
@@ -121,17 +120,20 @@ print('\nModel layers: {}\n'.format(model.layers))
 
 # Validation
 #==============================================================================
-'''
+
 # Instantiate model test results collections
 #------------------
-num_test_samples = X_test.shape[0] // batch_size
+num_test_samples = X_test.shape[0]
 test_loss_history = np.zeros((num_test_samples, 2))
 print('# Start testing\n#{}'.format('-'*78))
 # Test
 #------------------
 for i in range(num_test_samples):
-    x, y = np.split(np.copy(X_test[i*batch_size:(i+1)*batch_size]), [-1], axis=1)
-    y = y.astype(np.int32)
+    #x, y = np.split(np.copy(X_test[i*batch_size:(i+1)*batch_size]), [-1], axis=1)
+    #y = y.astype(np.int32)
+    x, y = utils.get_batch(X_test, i, test=True)
+    #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
 
     # forward pass
     #------------------
@@ -153,21 +155,17 @@ median_test_error = np.median(test_loss_history, axis=0)
 print('\n# Finished Testing\n#{}'.format('-'*78))
 print(' * Average error : {:.6f}  |  {:.6f} '.format(avg_test_error[0], avg_test_error[1]))
 print(' * Median error  : {:.6f}  |  {:.6f} '.format(median_test_error[0], median_test_error[1]))
-'''
-x_test, y_test = np.split(np.copy(X_test), [-1], axis=1)
-y_test = np.squeeze(y_test.astype(np.int32))
 
-
-y_hat_test = model.forward(x_test)
-error, class_scores = objective(y_hat_test, y_test)
-accuracy = utils.classification_accuracy(class_scores, np.squeeze(y_test))
+#x_test, y_test = np.split(np.copy(X_test), [-1], axis=1)
+#y_test = np.squeeze(y_test.astype(np.int32))
+#y_hat_test = model.forward(x_test)
+#error, class_scores = objective(y_hat_test, y_test)
+#accuracy = utils.classification_accuracy(class_scores, np.squeeze(y_test))
 
 #test_loss_history[i] = error, accuracy
-print('\n# Finished Testing\n#{}'.format('-'*78))
-print_status(0, error, accuracy)
-np.set_printoptions(precision=4, suppress=True)
-#print(class_scores)
+#print('\n# Finished Testing\n#{}'.format('-'*78))
 #print_status(0, error, accuracy)
-scores = np.argmax(class_scores, axis=1)
+#np.set_printoptions(precision=4, suppress=True)
+#scores = np.argmax(class_scores, axis=1)
 
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
