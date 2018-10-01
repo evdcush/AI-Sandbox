@@ -393,6 +393,10 @@ def to_one_hot(Y, num_classes=3):
 
 class Parser:
     """ Wrapper for argparse parser
+
+    In addition to parsing STDIN args, Parser is a significant
+    part of setup and configuration for training, as it specifies the
+    majority of settings to use (through default)
     """
     P = argparse.ArgumentParser()
     # argparse does not like type=bool; this is a workaround
@@ -407,21 +411,21 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        adg('--layer_op',   '-o', type=str, default='dense')
-        adg('--layer_act',  '-a', type=str, default='sigmoid')
+        adg('--layer_connection', '-o', type=str, default='dense')
+        adg('--layer_activation', '-a', type=str, default='sigmoid')
         adg('--channels',   '-c', type=int, default=[4, 32, 3], nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
         adg('--num_iters',  '-i', type=int, default=500)
         adg('--batch_size', '-b', type=int, default=6)
-        adg('--restore',    '-r', **self.p_bool)
-        adg('--checkpoint', '-p', type=int, default=100)
+        #adg('--restore',    '-r', **self.p_bool) # later
+        #adg('--checkpoint', '-p', type=int, default=100) # later
         self.parse_args()
 
     def parse_args(self):
         parsed = AttrDict(vars(self.P.parse_args()))
-        parsed.restore = bool(parsed.restore)
+        #parsed.restore = bool(parsed.restore)
         self.args = parsed
         return parsed
 

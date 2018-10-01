@@ -586,8 +586,6 @@ class LogisticCrossEntropy(Function): #
         """
         # Check dimensional integrity
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
-        print('Logistic forward')
-
 
         # Convert labels to 1-hot
         t = utils.to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)

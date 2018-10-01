@@ -30,6 +30,7 @@ import sys
 import code
 import numpy as np
 import layers as L
+import functions
 
 
 class NeuralNetwork:
@@ -80,6 +81,7 @@ class NeuralNetwork:
         """
         self.channels = list(zip(channels, channels[1:])) # tuple (k_in, k_out)
         self.final_activation = final_activation
+        self.is_last = lambda i: (not i == (len(self.channels)-1)) or final_activation
         self.register_layers(connection_tag, activation_tag)
 
         # Initialize layers
@@ -88,15 +90,19 @@ class NeuralNetwork:
         for ID, kdims in enumerate(self.channels):
             # Connection
             #------------------
-            connection = self.connection(ID, kdims, **kwargs)
+            connection = self.connection_layer(ID, kdims, **kwargs)
             self.layers.append(connection)
 
             # Activation
             #------------------
             # check whether last-layer activation
-            if (not ID == (len(self.channels) - 1)) or final_activation:
-                activation = L.activation_layer(ID, self.activation)
+            if self.can_add_activation(ID):
+                activation = self.activation_layer(ID, kdims, **kwargs)
                 self.layers.append(activation)
+
+            #if (not ID == (len(self.channels) - 1)) or final_activation:
+            #    activation = L.activation_layer(ID, self.activation)
+            #    self.layers.append(activation)
 
     def __repr__(self):
         # eval-style repr
@@ -113,23 +119,28 @@ class NeuralNetwork:
         rep = rep.format(name, chans, conn, act, final_act)
         return rep
 
+    def can_add_activation(self, ID):
+        is_final_layer_id = (ID == len(self.channels) - 1)
+        return not is_final_layer_id or self.final_activation
+
     def register_layers(self, connection_tag, activation_tag):
         """ Registers layers to attributes if tags are valid
 
-        Note: self.connection is of type Layer, but
+        Note: self.connection_layer is of type Layer, but
               self.activation is actually a Function, and will be
               instantiated as a 'layers.StaticLayer' when initialized
         """
-        assert (activation_tag in L.ACTIVATIONS and
+        assert (activation_tag in functions.ACTIVATIONS and
                 connection_tag in L.CONNECTIONS)
         # Assign tags as attributes
         self.connection_tag = connection_tag
         self.activation_tag = activation_tag
 
         # Register layers
-        self.connection = L.CONNECTIONS[connection_tag] # layers
-        self.activation = L.ACTIVATIONS[activation_tag] #
-
+        self.connection_layer = L.CONNECTIONS[connection_tag] # layers
+        #self.activation = L.ACTIVATIONS[activation_tag] #
+        #self.activation = L.StaticLayer[]
+        self.activation_layer = L.ActivationLayer(activation_tag)
 
     def forward(self, X):
         """ Propagates input X through network layers """

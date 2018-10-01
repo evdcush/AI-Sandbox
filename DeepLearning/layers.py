@@ -23,6 +23,8 @@ import functions
 from utils import TODO
 from initializers import HeNormal, Zeros, Ones
 
+
+
 #==============================================================================
 #------------------------------------------------------------------------------
 #                          Parametric Layers
@@ -263,14 +265,14 @@ class Swish(ParametricLayer):
     def backward(self, gY):
         # Grads
         B = self.B
-        gX, gB = self.linear(gY, B, backprop=True)
+        gX, gB = self.swish(gY, B, backprop=True)
 
         # Assign var grads and chain gX to next layer
         self.B_grad = gB
         return gX
 
     def __call__(self, *args, backprop=False):
-        func = self.backward if backprop else forward
+        func = self.backward if backprop else self.forward
         return func(*args)
 
 
@@ -307,19 +309,28 @@ class StaticLayer:
         return self.function(*args, backprop=backprop)
 
 
-def activation_layer(ID, func, *args):
-    """ factory for StaticLayer instances with activation funcs """
-    acts = functions.ACTIVATIONS
-    if func in acts:
-        # then func is key to Function class
-        func_cls = acts[func]
-        return StaticLayer(ID, func_cls, *args)
-    elif func in acts.values():
-        # func is actual Function class
-        return StaticLayer(ID, func, *args)
-    else:
-        raise ValueError('Invalid activation function argument')
 
+class ActivationLayer:
+    """ Returns a StaticLayer or ParametricLayer depending on act func """
+    def __init__(self, activation_tag):
+        self.activation_tag = activation_tag
+        self.get_layer_class()
+
+    def get_layer_class(self):
+        tag = self.activation_tag
+        if tag in PARAMETRIC_ACTIVATIONS:
+            self.is_static = False
+            self.layer_class = PARAMETRIC_ACTIVATIONS[tag]
+        else:
+            self.is_static = True
+            self.func = functions.ACTIVATIONS[tag]
+            self.layer_class = StaticLayer
+
+    def __call__(self, ID, kdims, **kwargs):
+        if self.is_static:
+            return self.layer_class(ID, self.func)
+        else:
+            return self.layer_class(ID, kdims, **kwargs)
 
 
 
@@ -329,25 +340,17 @@ def activation_layer(ID, func, *args):
 #-----------------
 CONNECTIONS = {'dense': Dense,}
 ACTIVATIONS = functions.ACTIVATIONS
+
+# Special cases
+#-----------------
+PARAMETRIC_ACTIVATIONS = {'swish': Swish} # activation with learnable parameters
 LAYERS = {**CONNECTIONS, **ACTIVATIONS}
 
 
-'''
-# Available Layers
-#-----------------
-OPS = {'dense_layer': Dense,}
+#==============================================================================
 
-ACTIVATIONS = {'sigmoid_layer' : SigmoidActivation,
-               'softmax_layer' : SoftmaxActivation,
-                  'tanh_layer' : TanhActivation,
-                  'relu_layer' : ReLUActivation,
-                   'elu_layer' : ELUActivation,
-                  'selu_layer' : SeLUActivation,
-                  'swish_layer': SwishActivation,
-                  }
 
-LAYERS = {**OPS, **ACTIVATIONS}
 
-def get_all_layers():
-    return LAYERS
-'''
+
+
+
