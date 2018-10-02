@@ -24,9 +24,6 @@ Adam: Optimizer, Adaptive moment estimation algorithm
 import code
 import numpy as np
 
-
-
-
 #==============================================================================
 # Base Optimizer
 #==============================================================================

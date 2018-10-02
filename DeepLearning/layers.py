@@ -24,8 +24,16 @@ Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
 import code
 import numpy as np
 import functions
-#from utils import TODO
-from initializers import HeNormal, Zeros, Ones
+import utils
+import initializers
+
+# Circular import workaround
+#==== Initializers
+HeNormal = initializers.HeNormal
+Zeros    = initializers.Zeros
+Ones     = initializers.Ones
+#==== utils
+TODO = utils.TODO
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -105,7 +113,7 @@ class ParametricLayer:
 
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #@TODO
+    @TODO
     def update(self, opt):
         """ Update weights and bias with gradients from backprop
         Params

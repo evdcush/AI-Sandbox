@@ -51,8 +51,8 @@ batch_size = config.batch_size
 np.random.seed(utils.RNG_SEED_PARAMS)
 model = nn.NeuralNetwork(channels, activation=activation, use_dropout=dropout)
 opt = optimizer()
-objective = SoftmaxCrossEntropy()
-#objective = LogisticCrossEntropy()
+#objective = SoftmaxCrossEntropy()
+objective = LogisticCrossEntropy()
 
 # Model status reporter
 #------------------

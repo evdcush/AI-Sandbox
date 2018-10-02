@@ -27,9 +27,6 @@ Module components
 # Data processing
 #----------------
 
-# Trainer
-
-# CV
 """
 
 import os
@@ -434,7 +431,7 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        #adg('--layer_connection', '-c', type=str, default='dense') # always
+        #adg('--connection', '-c', type=str, default='dense') # only is dense..
         adg('--activation', '-a', type=str, default='sigmoid')
         adg('--dropout',    '-d', **self.p_bool, default=1)
         adg('--optimizer',  '-o', type=str, default='adam')
@@ -532,14 +529,6 @@ class SessionStatus:
         line_layer    = '    {:>2} : {:<5} {}\n' # ParametricLayer, eg 'Dense'
         line_function = '          : {}\n'       # Function, eg 'Tanh'
 
-        # Layer-type Helpers
-        #--------------------
-        #layers = model.layers
-        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-
-        # Format string
-        #-----------------
-
         # Traverse layers
         #-----------------
         for unit in model.layers:
@@ -604,8 +593,7 @@ class SessionStatus:
 
     def print_status(self, step, err, acc):
         i = step + 1
-        e = float(err)
-        a = float(acc)
+        e, a = float(err), float(acc)
         status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
         print(status)
 

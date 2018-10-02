@@ -58,24 +58,9 @@ from pprint import PrettyPrinter
 import numpy as np
 
 import utils
-from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 pretty_printer = PrettyPrinter()
 pprint = lambda x: pretty_printer.pprint(x)
-
-""" submodule imports
-utils :
-    `TODO` : decorator func
-        serves as comment and call safety
-
-    `NOTIMPLEMENTED` : decorator func
-        raises NotImplementedErrorforces if class func has not been overridden
-
-    `INSPECT` : decorator func
-        interrupts computation and enters interactive shell,
-        where the user can evaluate the input and output to func
-"""
-
 
 
 #------------------------------------------------------------------------------
@@ -1111,24 +1096,6 @@ class SeLU(ELU):
         gX = self.scale * self.elu.backward(gY)
         return gX
 
-    @staticmethod
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
-
-    @staticmethod
-    def sigmoid_prime(y):
-        """ ASSUMES y == sigmoidx(x) """
-        return y * (1 - y)
-
-    def forward(self, X):
-        Y = self.sigmoid(X)
-        self.cache = Y
-        return Y
-
-    def backward(self, gY):
-        Y = self.cache
-        gX = gY * self.sigmoid_prime(Y)
-        return gX
 
 
 
