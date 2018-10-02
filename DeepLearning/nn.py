@@ -100,28 +100,8 @@ class NeuralNetwork:
                 self.layers.append(activation)
 
     def __str__(self):
-        """ Prints network architecture """
-        # Get instance vars
         name  = self.__class__.__name__
-        chans = self.channels
-        conn  = self.connection_tag
-        act   = self.activation_tag
-        final_act = self.final_activation
-
-        # Format string
-        ret_str = '{}\n  Layers: \n'.format(name) # Intro
-        body_line_con = '    {:>2} : {:<6} {}\n'
-        body_line_act = '    {:>2} : {}\n'
-
-        for i, layer in enumerate(self.layers):
-            if hasattr(layer, 'kdims'):
-                kd = layer.kdims
-                lname = str(layer)[:-len(str(i))] # last chars are num
-                ret_str += body_line_con.format(i, lname, kd)
-            else:
-                aname = str(layer.function)
-                ret_str += body_line_act.format(i, aname)
-        return ret_str
+        return name
 
     def __repr__(self):
         # eval-style repr

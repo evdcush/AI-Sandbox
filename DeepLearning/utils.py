@@ -471,19 +471,93 @@ class SessionStatus:
     In addition to helpful status updates, SessionStatus maintains
     the loss history collections for training or validation.
     """
-    def __init__(self, num_iters, ): pass
+    div1 = '#' + ('=' * 78)
+    div2 = '#' + ('-' * 30)
+    def __init__(self, model, opt, obj, num_iters, num_test):
+        self.model_name = str(model)
+        self.opt_name = str(opt)
+        self.obj_name = str(obj)
+        self.num_iters = num_iters
+        self.num_test = num_test
+        self.init_loss_history()
+        self._get_network_arch(model)
+
+    def init_loss_history(self):
+        self.train_history = np.zeros((self.num_iters, 2)).astype(np.float32)
+        self.test_history  = np.zeros((self.num_test, 2)).astype(np.float32)
+
+    def _get_network_arch(self, model):
+        """ Formatted string of network architecture """
+        if hasattr(self, 'network_arch'): return
+        arch = '{}\n  Layers: \n'.format(str(model))
+
+        # Format string
+        body_line_con = '    {:>2} : {:<6} {}\n'
+        body_line_act = '    {:>2} : {}\n'
+        for i, layer in enumerate(model.layers):
+            if hasattr(layer, 'kdims'):
+                kd = layer.kdims
+                lname = str(layer)[:-len(str(i))] # last chars are num
+                arch += body_line_con.format(i, lname, kd)
+            else:
+                aname = str(layer.function)
+                arch += body_line_act.format(i, aname)
+        self.network_arch = arch
+
+    def print_results(self, train=True):
+        d2 = self.div2
+        num_tr = self.num_iters
+        num_test = self.num_test
+        header = '\n# {} results, {} {}\n' + d2
+        # Format header based on training or test
+        if train:
+            header = header.format('Training', num_tr, 'iterations')
+            loss_hist = self.train_history
+        else:
+            header = header.format('Test', num_test, 'samples')
+            loss_hist = self.test_history
+
+        # Get stats on loss hist
+        avg = np.mean(loss_hist, axis=1)
+        q50 = np.median(loss_hist, axis=1)
+
+        # Print results
+        print(header)
+        print('            Error  |  Accuracy')
+        print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
+        print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
+        print('\n{}'.format(d2))
+
+
+    def summarize_model(self, train_results=False, test_results=False):
+        arch = self.network_arch
+        opt = self.opt_name
+        obj = self.obj_name
+        d1 = self.div1
+        d2 = self.div2
+        print(d1)
+        print('# Model Summary: ')
+        print(arch)
+        print('- OPTIMIZER : {}'.format(opt))
+        print('- OBJECTIVE : {}'.format(obj))
+        if train_results:
+            self.print_results(train=True)
+        if test_results:
+            self.print_results(train=False)
+        print(d1)
+
+    def get_loss_history(self):
+        print('Returning: train_history, test_history')
+        return self.train_history, self.test_history
+
+
+
 
 def print_status(step, err, acc):
     status = '{:>5}: {:.5f}  |  {:.4f}'.format(step+1, float(err), float(acc))
     print(status)
 
-## Print training summary
-#print('# Finished training\n#{}'.format('-'*78))
-#print(' * Elapsed time: {} minutes'.format(elapsed_time))
-#print(' * Average error, last 20% iterations: {:.6f} |  {:.6f}'.format(avg_final_error[0], avg_final_error[1]))
-#print(' * Median error,  last 20% iterations: {:.6f} |  {:.6f}'.format(median_final_error[0], median_final_error[1]))
-#print('\nModel layers: {}\n'.format(model.layers))
-#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
 
 
 # Classification eval
