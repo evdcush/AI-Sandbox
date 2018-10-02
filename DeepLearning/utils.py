@@ -512,14 +512,15 @@ class SessionStatus:
         # Format header based on training or test
         if train:
             header = header.format('Training', num_tr, 'iterations')
-            loss_hist = self.train_history
+            f20 = int(num_tr * .8)
+            loss_hist = self.train_history[f20:]
         else:
             header = header.format('Test', num_test, 'samples')
             loss_hist = self.test_history
 
         # Get stats on loss hist
-        avg = np.mean(loss_hist, axis=1)
-        q50 = np.median(loss_hist, axis=1)
+        avg = np.mean(  np.copy(loss_hist), axis=0)
+        q50 = np.median(np.copy(loss_hist), axis=0)
 
         # Print results
         print(header)
@@ -536,7 +537,7 @@ class SessionStatus:
         d1 = self.div1
         d2 = self.div2
         print(d1)
-        print('# Model Summary: ')
+        print('\n# Model Summary: \n')
         print(arch)
         print('- OPTIMIZER : {}'.format(opt))
         print('- OBJECTIVE : {}'.format(obj))
@@ -550,7 +551,18 @@ class SessionStatus:
         print('Returning: train_history, test_history')
         return self.train_history, self.test_history
 
+    def print_status(self, step, err, acc):
+        i = step + 1
+        e = float(err)
+        a = float(acc)
+        status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
+        print(status)
 
+    def __call__(self, step, err, acc, train=True, pstatus=True):
+        loss_hist = self.train_history if train else self.test_history
+        loss_hist[step] = err, acc
+        if pstatus:
+            self.print_status(step, err, acc)
 
 
 def print_status(step, err, acc):

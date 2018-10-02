@@ -62,6 +62,10 @@ class Optimizer:
         for key, val in kwargs.items():
             setattr(self, key, val)
 
+    def __str__(self):
+        name = self.__class__.__name__
+        return name
+
     @NOTIMPLEMENTED
     def update(self, P, P_grad, P_key):
         """ Update parameter P with it's gradient """

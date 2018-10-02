@@ -60,8 +60,9 @@ opt = optimizers.SGD(lr=learning_rate)
 
 # Instantiate model results collections
 #------------------
-train_loss_history = np.zeros((num_iters,2))
-code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+#train_loss_history = np.zeros((num_iters,2))
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+sess_status = utils.SessionStatus(model, opt, objective, num_iters, X_test.shape[0])
 
 # Train
 #==============================================================================
@@ -86,9 +87,10 @@ for step in range(num_iters):
 
     error, class_scores = objective(y_hat, y)
     accuracy = utils.classification_accuracy(class_scores, np.squeeze(y))
-    train_loss_history[step] = error, accuracy
-    if (step+1) % 50 == 0:
-        print_status(step, error, accuracy)
+
+    sess_status(step, error, accuracy)
+    #train_loss_history[step] = error, accuracy
+    #if (step+1) % 50 == 0: print_status(step, error, accuracy)
     #print_train_status(step, error, accuracy)
 
     # backprop and update
@@ -103,17 +105,18 @@ t_finish = time.time()
 
 # Summary info
 elapsed_time = (t_finish - t_start) / 60.
-percent = .2
-idx = int(num_iters * (1 - percent))
-avg_final_error = np.mean(train_loss_history[idx:], axis=0)
-median_final_error = np.median(train_loss_history[idx:], axis=0)
+#percent = .2
+#idx = int(num_iters * (1 - percent))
+#avg_final_error = np.mean(train_loss_history[idx:], axis=0)
+#median_final_error = np.median(train_loss_history[idx:], axis=0)
 
 # Print training summary
 print('# Finished training\n#{}'.format('-'*78))
 print(' * Elapsed time: {} minutes'.format(elapsed_time))
-print(' * Average error, last 20% iterations: {:.6f} |  {:.6f}'.format(avg_final_error[0], avg_final_error[1]))
-print(' * Median error,  last 20% iterations: {:.6f} |  {:.6f}'.format(median_final_error[0], median_final_error[1]))
-print('\nModel layers: {}\n'.format(model.layers))
+sess_status.print_results()
+#print(' * Average error, last 20% iterations: {:.6f} |  A{:.6f}'.format(avg_final_error[0], avg_final_error[1]))
+#print(' * Median error,  last 20% iterations: {:.6f} |  {:.6f}'.format(median_final_error[0], median_final_error[1]))
+#print('\nModel layers: {}\n'.format(model.layers))
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
 
@@ -124,7 +127,7 @@ print('\nModel layers: {}\n'.format(model.layers))
 # Instantiate model test results collections
 #------------------
 num_test_samples = X_test.shape[0]
-test_loss_history = np.zeros((num_test_samples, 2))
+#test_loss_history = np.zeros((num_test_samples, 2))
 print('# Start testing\n#{}'.format('-'*78))
 # Test
 #------------------
@@ -141,20 +144,24 @@ for i in range(num_test_samples):
     #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     error, class_scores = objective(y_hat, y)
     accuracy = utils.classification_accuracy(class_scores, y)
-    test_loss_history[i] = error, accuracy
-    print_status(i, error, accuracy)
+    sess_status(i, error, accuracy, train=False)
+    #test_loss_history[i] = error, accuracy
+    #print_status(i, error, accuracy)
 
 
 # Finished test
 #------------------------------------------------------------------------------
 # Summary info
-avg_test_error = np.mean(test_loss_history, axis=0)
-median_test_error = np.median(test_loss_history, axis=0)
+#avg_test_error = np.mean(test_loss_history, axis=0)
+#median_test_error = np.median(test_loss_history, axis=0)
 
 # Print training summary
 print('\n# Finished Testing\n#{}'.format('-'*78))
-print(' * Average error : {:.6f}  |  {:.6f} '.format(avg_test_error[0], avg_test_error[1]))
-print(' * Median error  : {:.6f}  |  {:.6f} '.format(median_test_error[0], median_test_error[1]))
+sess_status.print_results(train=False)
+
+sess_status.summarize_model(True, True)
+#print(' * Average error : {:.6f}  |  {:.6f} '.format(avg_test_error[0], avg_test_error[1]))
+#print(' * Median error  : {:.6f}  |  {:.6f} '.format(median_test_error[0], median_test_error[1]))
 
 #x_test, y_test = np.split(np.copy(X_test), [-1], axis=1)
 #y_test = np.squeeze(y_test.astype(np.int32))
@@ -167,5 +174,5 @@ print(' * Median error  : {:.6f}  |  {:.6f} '.format(median_test_error[0], media
 #print_status(0, error, accuracy)
 #np.set_printoptions(precision=4, suppress=True)
 #scores = np.argmax(class_scores, axis=1)
-
-#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+trl, tel = sess_status.get_loss_history()
+code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
