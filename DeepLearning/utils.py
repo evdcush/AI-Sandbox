@@ -527,30 +527,31 @@ class SessionStatus:
         #-----------------
         arch = '{}\n  Layers: \n'.format(str(model)) # 'NeuralNetwork'
 
-        # Layer prints
+        # Layer body
         #-----------------
-        body_line_con = '    {:>2} : {:<6} {}\n' # ParametricLayer, eg 'Dense'
-        body_line_act = '    {:>2} : {}\n'       # StaticLayer, eg 'Tanh'
+        line_layer    = '    {:>2} : {:<5} {}\n' # ParametricLayer, eg 'Dense'
+        line_function = '          : {}\n'       # Function, eg 'Tanh'
 
         # Layer-type Helpers
         #--------------------
-        code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+        #layers = model.layers
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
         # Format string
         #-----------------
 
         # Traverse layers
         #-----------------
-        for i, layer in enumerate(model.layers):
-            if hasattr(layer, 'kdims'):
-                # Only parametric layers have the kdims attribute
-                kd = layer.kdims
-                lname = str(layer)[:-len(str(i))] # last chars are layer.ID
-                arch += body_line_con.format(i, lname, kd)
+        for unit in model.layers:
+            name = str(unit)
+            if unit.__module__ == 'layers':
+                # only Layer instances have kdims attribute
+                kdims = unit.kdims
+                #==== Layer name format: '$Layer-$ID', eg 'Dense-3'
+                layer_name, layer_num = name.split('-')
+                arch += line_layer.format(layer_num, layer_name, kdims)
             else:
-                #
-                aname = str(layer.function)
-                arch += body_line_act.format(i, aname)
+                arch += line_function.format(name)
         self.network_arch = arch
 
     def print_results(self, train=True, t=None):

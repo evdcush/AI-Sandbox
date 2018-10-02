@@ -11,10 +11,6 @@ Optimizer : base class for gradient-based optimizers
     via a stochastic objective function, and updates the
     parameter through some routine
 
-AdaptiveOptimizer : base class for momentum and accelerated optimizers
-    Typically has a weight vector for each learnable/updatable parameter
-    based on that parameter's gradient history
-
 SGD : Optimizer, vanilla stochastic gradient descent algorithm
     Optimizes a parameter based on the gradients of a small
     subset (minibatch) of training data and a learning rate
@@ -27,8 +23,6 @@ Adam: Optimizer, Adaptive moment estimation algorithm
 """
 import code
 import numpy as np
-
-from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 
 
@@ -66,10 +60,9 @@ class Optimizer:
         name = self.__class__.__name__
         return name
 
-    @NOTIMPLEMENTED
     def update(self, P, P_grad, P_key):
         """ Update parameter P with it's gradient """
-        pass
+        raise NotImplementedError
 
     def __call__(self, params):
         """ Adjust parameters based on gradients from an objective

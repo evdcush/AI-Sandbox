@@ -64,7 +64,6 @@ import functions as F
 class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
     connection = L.Dense # all NeuralNetwork instances have dense connections
-    dropout = F.Dropout  # optional dropout regularizer
 
     # Network initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -91,7 +90,7 @@ class NeuralNetwork:
             last_layer = ID == len(self.channels) # layers is 1-indexed
 
             #==== Connection
-            connection = self.connection(ID, kdims, **kwargs)
+            connection = self.connection(ID, kdims, **kwargs) # Dense
             self.layers.append(connection)
 
             if not last_layer:
@@ -101,7 +100,7 @@ class NeuralNetwork:
 
                 #==== Dropout
                 if use_dropout:
-                    dropout = self.dropout()
+                    dropout = F.Dropout()
                     self.layers.append(dropout)
 
     def __str__(self):
@@ -111,12 +110,12 @@ class NeuralNetwork:
     def __repr__(self):
         # eval-style repr
         rep = ("{}('{}, activation={}, use_dropout={}')")
+        name  = self.__class__.__name__
 
         #==== Get instance vars
-        name  = self.__class__.__name__
         chans = self.channels
-        act = self.activation
-        drop = self.use_dropout
+        act   = self.activation
+        drop  = self.use_dropout
 
         #==== format repr and return
         rep = rep.format(name, chans, act, drop)
@@ -143,7 +142,7 @@ class NeuralNetwork:
             gX = layer(gX, backprop=True)
 
     def update(self, opt):
-        """ Pass optimizer through layers to update layers with params """
-        for layer in self.layers:
-            if layer.__module__ == 'layers':
-                layer.update(opt)
+        """ Pass optimizer through parametric units of layers """
+        for unit in self.layers:
+            if unit.__module__ == 'layers':
+                unit.update(opt)

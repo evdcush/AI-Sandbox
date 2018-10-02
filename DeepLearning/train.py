@@ -90,7 +90,7 @@ t_finish = time.time()
 elapsed_time = (t_finish - t_start)
 
 # Print training summary
-print('# Finished training\n#{}'.format('-'*78))t
+#print('# Finished training\n#{}'.format('-'*78))
 #print(' * Elapsed time: {}s'.format(elapsed_time))
 sess_status.print_results(t=elapsed_time)
 

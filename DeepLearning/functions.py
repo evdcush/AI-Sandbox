@@ -89,16 +89,16 @@ class AttrDict(dict):
 
 
 def restore_axis_shape(x, ax, d):
-    """ Restores an axis 'ax' that was reduced from 'x'
-    to it's original shape 'd'
-
+    """ Restores an axis ax that was reduced from x
+    to it's original shape d
     Just a wrapper for the tedious
     broadcast_to(expand_dims(...)...) op
-    """
 
-    # Assumes:
-    # x is at least 1D
-    # only on dim is being restored through ax
+    Assumes
+    -------
+        x.ndim >= 1
+        ax : int  (only one dim being restored through ax)
+    """
     assert x.ndim >= 1 and isinstance(ax, int)
 
     # Restore shape

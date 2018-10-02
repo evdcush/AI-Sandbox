@@ -12,15 +12,19 @@ There are (currently) two kinds of layers: parametric and static
 Parametric layers : [Dense, Swish, ]
     these layers use variables that receive updates from an optimizer
 
+
+@REMOVED : if there are no parameters, there is no reason you cannot
+           just use the Function as-is
 Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
     these layers do not utilize variables and do not
     need updates from optimizer
+
 
 """
 import code
 import numpy as np
 import functions
-from utils import TODO
+#from utils import TODO
 from initializers import HeNormal, Zeros, Ones
 
 #==============================================================================
@@ -101,7 +105,7 @@ class ParametricLayer:
 
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @TODO
+    #@TODO
     def update(self, opt):
         """ Update weights and bias with gradients from backprop
         Params
@@ -130,7 +134,7 @@ class ParametricLayer:
         '''
 
     def __call__(self, *args, backprop=False, test=False):
-        func = self.backward if backprop else forward
+        func = self.backward if backprop else self.forward
         return func(*args, test=False)
 
 
@@ -142,14 +146,14 @@ class Dense(ParametricLayer):
     maintaining the connection variables W, and B, in the function:
         f(X) = X.W + B
     Where
-    X : input matrix
-    W : weight matrix
-    B : bias vector
+      X : input matrix
+      W : weight matrix
+      B : bias vector
     and both are learnable parameters optimized through gradient descent.
 
     Attributes
     ----------
-    linear : Function.Linear
+    linear : functions.Linear
         linear function instance, which performs the Y = X.W + B function
     W_key : str
         unique string identifier for W
