@@ -25,16 +25,6 @@ NeuralNetwork : vanilla MLP
     linear-transformations on input data, followed by nonlinearities
     (activations).
 
-"""
-import sys
-import code
-import numpy as np
-import layers as L
-import functions
-
-
-class NeuralNetwork:
-    """ Base Neural Network compsed of Layers
 
     Control Flow
     ------------
@@ -56,6 +46,17 @@ class NeuralNetwork:
       upon the best local minimum, or whenever the specified number of epochs
       or iterations has been reached
 
+"""
+
+import sys
+import code
+import numpy as np
+import layers as L
+import functions
+
+
+class NeuralNetwork:
+    """ Fully-connected, feed-forward neural network
     """
     def __init__(self, channels,
                  connection_tag='dense',

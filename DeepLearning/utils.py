@@ -486,23 +486,40 @@ class SessionStatus:
         self._get_network_arch(model)
 
     def init_loss_history(self):
+        """ Initialize loss history containers for training and testing """
+        # Each entry of form: (error, accuracy)
         self.train_history = np.zeros((self.num_iters, 2)).astype(np.float32)
         self.test_history  = np.zeros((self.num_test, 2)).astype(np.float32)
 
     def _get_network_arch(self, model):
         """ Formatted string of network architecture """
-        if hasattr(self, 'network_arch'): return
-        arch = '{}\n  Layers: \n'.format(str(model))
+
+        # Header
+        #-----------------
+        arch = '{}\n  Layers: \n'.format(str(model)) # 'NeuralNetwork'
+
+        # Layer prints
+        #-----------------
+        body_line_con = '    {:>2} : {:<6} {}\n' # ParametricLayer, eg 'Dense'
+        body_line_act = '    {:>2} : {}\n'       # StaticLayer, eg 'Tanh'
+
+        # Layer-type Helpers
+        #--------------------
+        code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
         # Format string
-        body_line_con = '    {:>2} : {:<6} {}\n'
-        body_line_act = '    {:>2} : {}\n'
+        #-----------------
+
+        # Traverse layers
+        #-----------------
         for i, layer in enumerate(model.layers):
             if hasattr(layer, 'kdims'):
+                # Only parametric layers have the kdims attribute
                 kd = layer.kdims
-                lname = str(layer)[:-len(str(i))] # last chars are num
+                lname = str(layer)[:-len(str(i))] # last chars are layer.ID
                 arch += body_line_con.format(i, lname, kd)
             else:
+                #
                 aname = str(layer.function)
                 arch += body_line_act.format(i, aname)
         self.network_arch = arch
@@ -527,18 +544,19 @@ class SessionStatus:
 
         # Print results
         print(header)
+        if t is not None:
+            print('Elapsed time: {}'.format(t))
         print('            Error  |  Accuracy')
         print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
         print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
         print(d2)
 
-
     def summarize_model(self, train_results=False, test_results=False):
         arch = self.network_arch
         opt = self.opt_name
         obj = self.obj_name
-        d1 = self.div1
-        d2 = self.div2
+        d1  = self.div1 #=====
+        d2  = self.div2 #-----
         print(d1)
         print('# Model Summary: \n')
         print(arch)
@@ -565,7 +583,7 @@ class SessionStatus:
                  train=True, pstatus=True, pfreq=100):
         loss_hist = self.train_history if train else self.test_history
         loss_hist[step] = err, acc
-        if pstatus and ((step+1) % pfreq == 0):
+        if not train or (pstatus and ((step+1) % pfreq == 0)):
             self.print_status(step, err, acc)
 
 

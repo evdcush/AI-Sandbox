@@ -50,17 +50,16 @@ batch_size = config.batch_size
 np.random.seed(utils.RNG_SEED_PARAMS)
 model = nn.NeuralNetwork(channels, activation_tag=activation)
 opt = get_optimizer(config.optimizer)()
-#objective = SoftmaxCrossEntropy()
-objective = LogisticCrossEntropy()
-
+objective = SoftmaxCrossEntropy()
+#objective = LogisticCrossEntropy()
 
 # Model status reporter
 #------------------
 sess_status = utils.SessionStatus(model, opt, objective, num_iters, X_test.shape[0])
 
+
 # Train
 #==============================================================================
-
 t_start = time.time()
 np.random.seed(utils.RNG_SEED_DATA)
 
@@ -85,16 +84,14 @@ for step in range(num_iters):
 
 # Finished training
 #------------------------------------------------------------------------------
-t_finish = time.time()
-
 # Summary info
+t_finish = time.time()
 elapsed_time = (t_finish - t_start)
 
 # Print training summary
 print('# Finished training\n#{}'.format('-'*78))
 print(' * Elapsed time: {}s'.format(elapsed_time))
 sess_status.print_results()
-
 
 
 
@@ -109,7 +106,6 @@ print('# Start testing\n#{}'.format('-'*78))
 #------------------
 for i in range(num_test_samples):
     x, y = utils.get_batch(X_test, i, test=True)
-
 
     # forward pass
     #------------------
