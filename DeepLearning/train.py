@@ -31,10 +31,11 @@ X = None
 
 # Model config
 #------------------
-channels = config.channels
+channels   = config.channels
 activation = config.activation
-layer_types = [config.layer_connection, config.layer_activation] # ['dense', 'sigmoid']
-learning_rate = config.learn_rate # 0.01
+dropout    = config.dropout
+optimizer  = config.optimizer
+learning_rate = config.learn_rate # 0.01, omitted, opt defaults well configured
 
 # Session config
 #------------------
@@ -48,8 +49,8 @@ batch_size = config.batch_size
 # Instantiate model
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
-model = nn.NeuralNetwork(channels, activation=activation)
-opt = get_optimizer(config.optimizer)()
+model = nn.NeuralNetwork(channels, activation=activation, use_dropout=dropout)
+opt = optimizer()
 objective = SoftmaxCrossEntropy()
 #objective = LogisticCrossEntropy()
 
@@ -75,12 +76,12 @@ for step in range(num_iters):
     accuracy = utils.classification_accuracy(class_scores, np.squeeze(y))
     sess_status(step, error, accuracy)
 
-
     # backprop and update
     #------------------
     grad_loss = objective(error, backprop=True)
     model.backward(grad_loss)
     model.update(opt)
+
 
 # Finished training
 #------------------------------------------------------------------------------
@@ -89,10 +90,9 @@ t_finish = time.time()
 elapsed_time = (t_finish - t_start)
 
 # Print training summary
-print('# Finished training\n#{}'.format('-'*78))
-print(' * Elapsed time: {}s'.format(elapsed_time))
-sess_status.print_results()
-
+print('# Finished training\n#{}'.format('-'*78))t
+#print(' * Elapsed time: {}s'.format(elapsed_time))
+sess_status.print_results(t=elapsed_time)
 
 
 # Validation
@@ -121,9 +121,8 @@ for i in range(num_test_samples):
 
 # Print training summary
 print('\n# Finished Testing\n#{}'.format('-'*78))
-sess_status.print_results(train=False)
-
+#sess_status.print_results(train=False)
 sess_status.summarize_model(True, True)
 
-trl, tel = sess_status.get_loss_history()
+#trl, tel = sess_status.get_loss_history()
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use

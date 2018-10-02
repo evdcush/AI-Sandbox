@@ -34,13 +34,13 @@ from utils import TODO, NOTIMPLEMENTED, INSPECT
 
 
 #==============================================================================
-# Base Optimizers
+# Base Optimizer
 #==============================================================================
 
 # Optimizer
 # ---------
 # inherits :
-# derives : SGD, AdaptiveOptimizer
+# derives : SGD, Adam
 class Optimizer:
     """ Base optimizer
     Uses gradient descent to move towards (local) minimas in the
@@ -98,7 +98,9 @@ class Optimizer:
             updated_params[param_key] = self.update(P, P_grad, param_key)
         return updated_params
 
-#------------------------------------------------------------------------------
+#==============================================================================
+# Optimizers
+#==============================================================================
 
 class SGD(Optimizer):
     """ Vanilla stochastic gradient descent algorithm
@@ -110,7 +112,6 @@ class SGD(Optimizer):
         return P - self.lr * P_grad
 
 #------------------------------------------------------------------------------
-
 
 class Adam(Optimizer):
     """ Adaptive optimization algorithm for gradient descent
@@ -238,22 +239,17 @@ class Adam(Optimizer):
         return P_update
 
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+#==============================================================================
+# module utils
+#==============================================================================
+
 OPTIMIZERS = {'sgd': SGD, 'adam': Adam}
+
 def get_optimizer(name):
     if name not in OPTIMIZERS:
         raise ValueError('there is no optimizer for {}'.format(name))
     else:
         return OPTIMIZERS[name]
 
-
-#=============================================================================#
-#         ___   ___   _  _   ___    ___   _  _    ___                         #
-#        | _ \ | __| | \| | |   \  |_ _| | \| |  / __|                        #
-#        |  _/ | _|  | .` | | |) |  | |  | .` | | (_ |                        #
-#        |_|   |___| |_|\_| |___/  |___| |_|\_|  \___|                        #
-#                 ___   ___ __      __  ___    ___   _  __                    #
-#                | _ \ | __|\ \    / / / _ \  | _ \ | |/ /                    #
-#                |   / | _|  \ \/\/ / | (_) | |   / | ' <                     #
-#                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
-#=============================================================================#

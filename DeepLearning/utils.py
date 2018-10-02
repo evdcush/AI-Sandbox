@@ -44,6 +44,7 @@ import numpy as np
 
 import layers
 import functions
+import optimizers
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -417,7 +418,7 @@ class Parser:
 
     In addition to parsing STDIN args, Parser is a significant
     part of setup and configuration for training, as it specifies the
-    majority of settings to use (through default)
+    majority of settings to use (through `default`)
     """
     P = argparse.ArgumentParser()
     # argparse does not like type=bool; this is a workaround
@@ -433,10 +434,10 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        #adg('--layer_connection', '-c', type=str, default='dense')
+        #adg('--layer_connection', '-c', type=str, default='dense') # always
         adg('--activation', '-a', type=str, default='sigmoid')
         adg('--dropout',    '-d', **self.p_bool, default=1)
-        adg('--optimizer',  '-o', type=str, default='SGD')
+        adg('--optimizer',  '-o', type=str, default='adam')
         adg('--channels',   '-k', type=int, default=chans, nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
@@ -455,10 +456,11 @@ class Parser:
 
     def interpret_args(self, parsed):
         # Check if use dropout True
+        #-----------------------------
         parsed.dropout = parsed.dropout == 1
 
         # Evaluate activation arg
-        #-------------------------
+        #----------------------------
         pact = parsed.activation
         #==== Check if parameterized activation (Swish)
         activation = layers.PARAMETRIC_FUNCTIONS.get(pact, None)
@@ -468,11 +470,16 @@ class Parser:
             if activation is None:
                 # if None again, parsed activation arg is undefined in domain
                 raise NotImplementedError('{} is undefined'.format())
-
-        # Assign proper activation class and return
+        # Assign proper activation class
         parsed.activation = activation
-        return parsed
 
+        # Evaluate optimizer arg
+        #----------------------------
+        popt = parsed.optimizer
+        opt = optimizers.get_optimizer(popt) # raises ValueError if not defined
+        parsed.optimizer = opt
+
+        return parsed
 
     def print_args(self):
         print('SESSION CONFIG\n{}'.format('='*79))
@@ -480,8 +487,6 @@ class Parser:
         for k,v in self.args.items():
             print('{:>{margin}}: {}'.format(k,v, margin=margin))
         print('\n')
-
-
 
 
 #==============================================================================
