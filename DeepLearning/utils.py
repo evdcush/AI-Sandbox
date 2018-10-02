@@ -42,6 +42,8 @@ from functools import wraps
 
 import numpy as np
 
+import layers
+import functions
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -419,26 +421,27 @@ class Parser:
     """
     P = argparse.ArgumentParser()
     # argparse does not like type=bool; this is a workaround
-    p_bool = {'type':int, 'default':0, 'choices':[0,1]}
+    p_bool = {'type':int, 'choices':[0,1]}
 
     def __init__(self):
         adg = self.P.add_argument
         chans = [4, 64, len(IRIS['classes'])]
         # ==== Data variables
-        adg('--data_path',  '-d', type=str, default=DATA_PATH_ROOT,)
+        adg('--data_path',  '-p', type=str, default=DATA_PATH_ROOT,)
         adg('--seed',       '-s', type=int, default=RNG_SEED_PARAMS,)
         adg('--model_name', '-m', type=str, default=MODEL_NAME_BASE,)
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        adg('--layer_connection', '-c', type=str, default='dense')
-        adg('--layer_activation', '-a', type=str, default='sigmoid')
+        #adg('--layer_connection', '-c', type=str, default='dense')
+        adg('--activation', '-a', type=str, default='sigmoid')
+        adg('--dropout',    '-d', **self.p_bool, default=1)
         adg('--optimizer',  '-o', type=str, default='SGD')
         adg('--channels',   '-k', type=int, default=chans, nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
-        adg('--num_iters',  '-i', type=int, default=500)
+        adg('--num_iters',  '-i', type=int, default=2000)
         adg('--batch_size', '-b', type=int, default=6)
         #adg('--restore',    '-r', **self.p_bool) # later
         #adg('--checkpoint', '-p', type=int, default=100) # later
@@ -447,8 +450,29 @@ class Parser:
     def parse_args(self):
         parsed = AttrDict(vars(self.P.parse_args()))
         #parsed.restore = bool(parsed.restore)
-        self.args = parsed
+        self.args = self.interpret_args(parsed)
         return parsed
+
+    def interpret_args(self, parsed):
+        # Check if use dropout True
+        parsed.dropout = parsed.dropout == 1
+
+        # Evaluate activation arg
+        #-------------------------
+        pact = parsed.activation
+        #==== Check if parameterized activation (Swish)
+        activation = layers.PARAMETRIC_FUNCTIONS.get(pact, None)
+        if activation is None:
+            #==== Check if valid activation Function
+            activation = functions.ACTIVATIONS.get(pact, None)
+            if activation is None:
+                # if None again, parsed activation arg is undefined in domain
+                raise NotImplementedError('{} is undefined'.format())
+
+        # Assign proper activation class and return
+        parsed.activation = activation
+        return parsed
+
 
     def print_args(self):
         print('SESSION CONFIG\n{}'.format('='*79))

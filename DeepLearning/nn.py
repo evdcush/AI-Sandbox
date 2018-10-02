@@ -1,104 +1,108 @@
 """
 Neural network implementations are located in this module.
 
-# Neural networks:
-#---------------------------
+# Neural networks
+#=================================
+
+Basic process
+-------------
 Neural networks are composed of Layers
 For our usage, we can think of the network both as an algorithm
 and as a sort of ordered "data-structure," like a list or array,
 and Layers being the elements of that list.
 
-# Forward
-  - To generate a prediction, we iterate through the "list" in order,
-    propagating an initial input through each element.
+    # Forward
+      - To generate a prediction, we iterate through the "list" in order,
+        propagating an initial input through each element.
 
-# Backward
-  - To optimize the network's predictions, we iterate through the list
-    in reverse order, propagating the gradient of an objective
-    function through each element.
+    # Backward
+      - To optimize the network's predictions, we iterate through the list
+        in reverse order, propagating the gradient of an objective
+        function through each element.
 
-# Available implementations
-#----------------------------
-NeuralNetwork : vanilla MLP
-    The most basic neural network (though of arbitrary depth). It is
-    composed of fully-connected layers, which perform
-    linear-transformations on input data, followed by nonlinearities
-    (activations).
+Control Flow
+------------
+1 - Network instance initialized with a list of channels
+    and Layer-types
+2 - Network receives external data input X, and propagates9
+    it through it's Layers
+3 - A final output Layer returns a prediction
+  - (error between network prediction and truth is evaluated by an objective)
+4 - If training: the network receives the gradient of a loss
+    function and backpropagates the gradient through its
+    layers (in reverse order)
+    - If the layer has learnable parameters, such as a Dense layer,
+      it will store the gradients for its variables
+5 - An optimizer then updates all learnable variables in the network's
+    layers
+
+* This process is repeated indefinitely, typically until it has converged
+  upon the best local minimum, or whenever the specified number of epochs
+  or iterations has been reached
 
 
-    Control Flow
-    ------------
-    1 - Network instance initialized with a list of channels
-        and Layer-types
-    2 - Network receives external data input X, and propagates
-        it through it's Layers
-    3 - A final output Layer returns a prediction
-      - (error between network prediction and truth is evaluated by an objective)
-    4 - If training: the network receives the gradient of a loss
-        function and backpropagates the gradient through its
-        layers (in reverse order)
-        - If the layer has learnable parameters, such as a Dense layer,
-          it will store the gradients for its variables
-    5 - An optimizer then updates all learnable variables in the network's
-        layers
-
-    * This process is repeated indefinitely, typically until it has converged
-      upon the best local minimum, or whenever the specified number of epochs
-      or iterations has been reached
+Available implementations
+-------------------------
+NeuralNetwork : fully-connected, feed-forward network
+    - The fully-connected, feed-forward  neural network, is one of the most
+      elementary types of networks.
+    - It is composed of fully-connected layers that perform
+      linear-transformations on input data, that are then 'activated'
+      by nonlinear functions, such as the logistic function or
+      hyperbolic tangent.
+    - Typically shallower than other types of networks (though this
+      implementation is of arbitrary depth)
 
 """
-
 import sys
 import code
 import numpy as np
 import layers as L
-import functions
+import functions as F
 
 
 class NeuralNetwork:
-    """ Fully-connected, feed-forward neural network
-    """
-    def __init__(self, channels,
-                 connection_tag='dense',
-                 activation_tag='sigmoid',
-                 final_activation=False, **kwargs):
-        """ Initializes a neural network that has depth len(channels)
+    """ Fully-connected, feed-forward neural network """
+    connection = L.Dense # all NeuralNetwork instances have dense connections
+    dropout = F.Dropout  # optional dropout regularizer
+
+    # Network initialization
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def __init__(self, channels, activation=F.Sigmoid, use_dropout=True, **kwargs):
+        """ Initializes an arbitrarily deep neural network
         Params
         ------
         channels : list(int)
-            channel sizes for each layer (determines the dimensionality
-            of the layer transformations)
-        connection_tag : str
-            keyword used to retrieve it's corresponding Layer that uses
-            connections (eg, has learnable weights)
-        activation_tag : str
-            keyword used to generate an activation layer based from
-            its constituent Function
-        final_activation : bool
-            whether there is an activation on the final layer's output
-        kwargs :
-            While not explicit, if the model is reinitialized from
-            pretrained weights, they would be passed through **kwargs
+            channel sizes for each layer; determines the dimensionality
+            of the layer transformations, as well as depth of network
+        activation : Function OR ParametricLayer
+            activation function, or layer if parameterized
+        use_dropout : bool
+            whether to use dropout function
         """
         self.channels = list(zip(channels, channels[1:])) # tuple (k_in, k_out)
-        self.final_activation = final_activation
-        self.register_layers(connection_tag, activation_tag)
+        self.activation  = activation
+        self.use_dropout = use_dropout
 
         # Initialize layers
         #------------------
         self.layers = []
-        for ID, kdims in enumerate(self.channels):
-            # Connection
-            #------------------
-            connection = self.connection_layer(ID, kdims, **kwargs)
+        for ID, kdims in enumerate(self.channels, 1):
+            last_layer = ID == len(self.channels) # layers is 1-indexed
+
+            #==== Connection
+            connection = self.connection(ID, kdims, **kwargs)
             self.layers.append(connection)
 
-            # Activation
-            #------------------
-            # check whether last-layer activation
-            if self.can_add_activation(ID):
-                activation = self.activation_layer(ID, kdims, **kwargs)
+            if not last_layer:
+                #==== Activation
+                activation = self.activation(ID, kdims)
                 self.layers.append(activation)
+
+                #==== Dropout
+                if use_dropout:
+                    dropout = self.dropout()
+                    self.layers.append(dropout)
 
     def __str__(self):
         name  = self.__class__.__name__
@@ -106,45 +110,25 @@ class NeuralNetwork:
 
     def __repr__(self):
         # eval-style repr
-        rep = ("{}('{}, connection_tag={}, activation_tag={}, final_activation={}')")
-        # Get instance vars
+        rep = ("{}('{}, activation={}, use_dropout={}')")
+
+        #==== Get instance vars
         name  = self.__class__.__name__
         chans = self.channels
-        conn  = self.connection_tag
-        act   = self.activation_tag
-        final_act = self.final_activation
+        act = self.activation
+        drop = self.use_dropout
 
-        # format repr and return
-        rep = rep.format(name, chans, conn, act, final_act)
+        #==== format repr and return
+        rep = rep.format(name, chans, act, drop)
         return rep
 
-    def can_add_activation(self, ID):
-        is_final_layer_id = (ID == len(self.channels) - 1)
-        return not is_final_layer_id or self.final_activation
-
-    def register_layers(self, connection_tag, activation_tag):
-        """ Registers layers to attributes if tags are valid
-
-        Note: self.connection_layer is of type Layer, but
-              self.activation is actually a Function, and will be
-              instantiated as a 'layers.StaticLayer' when initialized
-        """
-        assert (activation_tag in functions.ACTIVATIONS and
-                connection_tag in L.CONNECTIONS)
-        # Assign tags as attributes
-        self.connection_tag = connection_tag
-        self.activation_tag = activation_tag
-
-        # Register layers
-        self.connection_layer = L.CONNECTIONS[connection_tag] # layers
-        self.activation_layer = L.ActivationLayer(activation_tag)
-
-    def forward(self, X):
+    # Network ops
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def forward(self, X, test=False):
         """ Propagates input X through network layers """
         Y = np.copy(X)
         for layer in self.layers:
-            #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-            Y = layer(Y)
+            Y = layer(Y, test=test)
         return Y
 
     def backward(self, gY):
@@ -161,5 +145,5 @@ class NeuralNetwork:
     def update(self, opt):
         """ Pass optimizer through layers to update layers with params """
         for layer in self.layers:
-            if layer.updates:
+            if layer.__module__ == 'layers':
                 layer.update(opt)

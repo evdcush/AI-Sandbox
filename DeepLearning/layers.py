@@ -23,8 +23,6 @@ import functions
 from utils import TODO
 from initializers import HeNormal, Zeros, Ones
 
-
-
 #==============================================================================
 #------------------------------------------------------------------------------
 #                          Parametric Layers
@@ -49,13 +47,13 @@ class ParametricLayer:
     """
     updates = True
     def __init__(self, ID, kdims, **kwargs):
-        self.name = '{}{}'.format(self.__class__.__name__, ID)
+        self.name = '{}-{}'.format(self.__class__.__name__, ID)
         self.ID = ID
         self.kdims = kdims
 
     def __str__(self,):
-        # str : Dense$ID
-        #     eg 'Dense3'
+        # str : Dense-$ID
+        #     eg 'Dense-3'
         return self.name
 
     def __repr__(self):
@@ -131,9 +129,10 @@ class ParametricLayer:
         self.B_grad = None
         '''
 
-    def __call__(self, *args, backprop=False):
+    def __call__(self, *args, backprop=False, test=False):
         func = self.backward if backprop else forward
-        return func(*args)
+        return func(*args, test=False)
+
 
 #==============================================================================
 
@@ -195,14 +194,14 @@ class Dense(ParametricLayer):
 
     # Layer network ops
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def forward(self, X):
+    def forward(self, X, **kwargs):
         # Outputs
         W = self.W
         B = self.B
-        Y = self.linear(X, W, B)
+        Y = self.linear(X, W, B, **kwargs)
         return Y
 
-    def backward(self, gY):
+    def backward(self, gY, **kwargs):
         # Grads
         W = self.W
         B = self.B
@@ -212,12 +211,6 @@ class Dense(ParametricLayer):
         self.W_grad = gW
         self.B_grad = gB
         return gX
-
-    def __call__(self, *args, backprop=False):
-        func = self.backward if backprop else self.forward
-        return func(*args)
-
-
 
 #==============================================================================
 
@@ -256,13 +249,13 @@ class Swish(ParametricLayer):
 
     # Layer network ops
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def forward(self, X):
+    def forward(self, X, **kwargs):
         # Outputs
         B = self.B
-        Y = self.swish(X, B)
+        Y = self.swish(X, B, **kwargs)
         return Y
 
-    def backward(self, gY):
+    def backward(self, gY, **kwargs):
         # Grads
         B = self.B
         gX, gB = self.swish(gY, B, backprop=True)
@@ -271,86 +264,17 @@ class Swish(ParametricLayer):
         self.B_grad = gB
         return gX
 
-    def __call__(self, *args, backprop=False):
-        func = self.backward if backprop else self.forward
-        return func(*args)
-
-
-#==============================================================================
-#------------------------------------------------------------------------------
-#                             Static Layer
-#------------------------------------------------------------------------------
-#==============================================================================
-""" Layers without updating variables, mostly activations """
-
-class StaticLayer:
-    """ Static layer parent class """
-    updates = False
-    def __init__(self, ID, func, *args):
-        self.ID = ID
-        self.function = func()
-        self.name = '{}Layer{}'.format(str(self.function), ID)
-
-    def __str__(self):
-        # simple instance name
-        #   eg: 'SigmoidLayer2'
-        return self.name
-
-    def __repr__(self):
-        # eval form
-        #   eg: "StaticLayer('2, functions.Sigmoid')"
-        cls_name = self.__class__.__name__
-        ID = self.ID
-        func_repr  = repr(self.function)
-        layer_repr = "{}('{}, {}')".format(cls_name, ID, func_repr)
-        return layer_repr
-
-    def __call__(self, *args, backprop=False):
-        return self.function(*args, backprop=backprop)
-
-
-
-class ActivationLayer:
-    """ Returns a StaticLayer or ParametricLayer depending on act func """
-    def __init__(self, activation_tag):
-        self.activation_tag = activation_tag
-        self.get_layer_class()
-
-    def get_layer_class(self):
-        tag = self.activation_tag
-        if tag in PARAMETRIC_ACTIVATIONS:
-            self.is_static = False
-            self.layer_class = PARAMETRIC_ACTIVATIONS[tag]
-        else:
-            self.is_static = True
-            self.func = functions.ACTIVATIONS[tag]
-            self.layer_class = StaticLayer
-
-    def __call__(self, ID, kdims, **kwargs):
-        if self.is_static:
-            return self.layer_class(ID, self.func)
-        else:
-            return self.layer_class(ID, kdims, **kwargs)
-
-
 
 #==============================================================================
 
 # Available Layers
 #-----------------
 CONNECTIONS = {'dense': Dense,}
-ACTIVATIONS = functions.ACTIVATIONS
 
 # Special cases
 #-----------------
-PARAMETRIC_ACTIVATIONS = {'swish': Swish} # activation with learnable parameters
-LAYERS = {**CONNECTIONS, **ACTIVATIONS}
+PARAMETRIC_FUNCTIONS = {'swish': Swish}
+LAYERS = {**CONNECTIONS, **PARAMETRIC_FUNCTIONS}
 
 
 #==============================================================================
-
-
-
-
-
-

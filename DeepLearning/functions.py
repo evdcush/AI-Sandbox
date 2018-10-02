@@ -11,19 +11,45 @@ Module components
 Function : base class for functions
 
 atomic functions : elementary functions and factors
-    Log, Square, Exp, Power, Sqrt
+    Log, Square, Exp, (X Power), Sqrt
 
 connection functions : functions using learnable variables
     Bias, Matmul, Linear
 
-ReductionFunction : functions that reduce dimensionality
-    Sum, Mean, Prod, Max, Min
+X ReductionFunction : functions that reduce dimensionality
+X     Sum, Mean, Prod, Max, Min
 
 activation functions : nonlinearities
-    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax, Swish
+    (X ReLU, ELU, SeLU), Sigmoid, Tanh, Softmax, Swish
 
 loss functions : objectives for gradient descent
     LogisticCrossEntropy, SoftmaxCrossEntropy
+
+
+UNTESTED, BUT FINISHED:
+- Dropout
+
+STILL PENDING REWORK FROM v1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[ ] Power
+[ ] ReLU
+[ ] ELU
+[ ] SeLU
+[ ] ReductionFunction
+    [ ] Sum
+    [ ] Mean
+    [ ] Prod
+    [ ] Max/Min
+
+IN PIPELINE:
+LSTM : stub and fully-atomic gradient reference (eg, by hand)
+    just walk it back now and consolidate ops; probably only need to cache
+    3~4 things on forward
+      - *even still* this likely won't work as a Function in the same manner
+         as the other connection func Linear does. Having to keep cell-state
+         and previous output, in addition to normal caching, makes it make
+         more sense as a layer
+
 
 """
 import code
@@ -122,10 +148,14 @@ class Function:
         retrieval during backpropagation (eg, inputs/outputs or
         reduction axes)
         WARNING: cache is automatically cleared after access
+    test : bool
+        whether function is being called in testing; prevents
+        caching mostly
     """
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.__name__
         self._cache = None
+        self.test = False
         for attribute, value in kwargs.items():
             setattr(self, attribute, value)
 
@@ -144,13 +174,15 @@ class Function:
         """ NOTE: 'clears' cache upon access
         (since it is always reset in backprop)
         """
-        cache_objs = self._cache
-        self._cache = None
-        return cache_objs
+        if self._cache is not None:
+            cache_objs = self._cache
+            self._cache = None
+            return cache_objs
 
     @cache.setter
     def cache(self, *fvars):
-        self._cache = fvars if len(fvars) > 1 else fvars[0]
+        if not self.test:
+            self._cache = fvars if len(fvars) > 1 else fvars[0]
 
     def forward(self, X, *args):
         """ Forward serves as an interface to a staticmethod for most Functions
@@ -167,6 +199,7 @@ class Function:
         For example, the following Functions have staticmethods:
             Tanh : tanh, tanh_prime
             Sqrt : sqrt, sqrt_prime
+
             MatMul : matmul, matmul_prime
 
         However, many Functions have forward or backward processes
@@ -195,7 +228,8 @@ class Function:
         else:
             raise NotImplementedError
 
-    def __call__(self, *args, backprop=False):
+    def __call__(self, *args, backprop=False, test=False):
+        self.test = test
         func = self.backward if backprop else self.forward
         return func(*args)
 
@@ -485,7 +519,6 @@ class Softmax(Function): #
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
 class Swish(Function): #
     """ Self-gated activation function
     Can be viewed as a smooth function where the nonlinearity
@@ -730,17 +763,17 @@ class Dropout(Function):
     The idea is that network connections, instead of learning features by the
     detection and context of others, the connections are instead encouraged
     to learn more robust detection of features.
-
     """
     def __init__(self, drop_ratio=0.5):
         """ 50% drop-rate is suggested default """
         self.drop_ratio = drop_ratio
+        super().__init__()
 
     def get_mask(self, X):
         rands = np.random.rand(*X.shape)
         drop  = self.drop_ratio
         scale = 1 / (1 - drop)
-        mask = (rands >= drop) * scale
+        mask  = (rands >= drop) * scale
         return mask.astype(np.float32)
 
     @staticmethod
@@ -752,6 +785,7 @@ class Dropout(Function):
         return y * mask
 
     def forward(self, X):
+        if self.test: return X # don't drop test elements
         mask = self.get_mask(X)
         self.cache = mask
         Y = self.dropout(np.copy(X), mask)

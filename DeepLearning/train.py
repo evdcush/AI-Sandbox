@@ -32,7 +32,7 @@ X = None
 # Model config
 #------------------
 channels = config.channels
-activation = config.layer_activation
+activation = config.activation
 layer_types = [config.layer_connection, config.layer_activation] # ['dense', 'sigmoid']
 learning_rate = config.learn_rate # 0.01
 
@@ -48,7 +48,7 @@ batch_size = config.batch_size
 # Instantiate model
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
-model = nn.NeuralNetwork(channels, activation_tag=activation)
+model = nn.NeuralNetwork(channels, activation=activation)
 opt = get_optimizer(config.optimizer)()
 objective = SoftmaxCrossEntropy()
 #objective = LogisticCrossEntropy()
