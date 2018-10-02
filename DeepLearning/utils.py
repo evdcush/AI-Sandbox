@@ -423,6 +423,7 @@ class Parser:
 
     def __init__(self):
         adg = self.P.add_argument
+        chans = [4, 64, len(IRIS['classes'])]
         # ==== Data variables
         adg('--data_path',  '-d', type=str, default=DATA_PATH_ROOT,)
         adg('--seed',       '-s', type=int, default=RNG_SEED_PARAMS,)
@@ -430,9 +431,10 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        adg('--layer_connection', '-o', type=str, default='dense')
+        adg('--layer_connection', '-c', type=str, default='dense')
         adg('--layer_activation', '-a', type=str, default='sigmoid')
-        adg('--channels',   '-c', type=int, default=[4, 32, 3], nargs='+')
+        adg('--optimizer',  '-o', type=str, default='SGD')
+        adg('--channels',   '-k', type=int, default=chans, nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
@@ -453,6 +455,7 @@ class Parser:
         margin = len(max(self.args, key=len)) + 1
         for k,v in self.args.items():
             print('{:>{margin}}: {}'.format(k,v, margin=margin))
+        print('\n')
 
 
 
@@ -504,7 +507,7 @@ class SessionStatus:
                 arch += body_line_act.format(i, aname)
         self.network_arch = arch
 
-    def print_results(self, train=True):
+    def print_results(self, train=True, t=None):
         d2 = self.div2
         num_tr = self.num_iters
         num_test = self.num_test
@@ -527,7 +530,7 @@ class SessionStatus:
         print('            Error  |  Accuracy')
         print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
         print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
-        print('\n{}'.format(d2))
+        print(d2)
 
 
     def summarize_model(self, train_results=False, test_results=False):
@@ -537,7 +540,7 @@ class SessionStatus:
         d1 = self.div1
         d2 = self.div2
         print(d1)
-        print('\n# Model Summary: \n')
+        print('# Model Summary: \n')
         print(arch)
         print('- OPTIMIZER : {}'.format(opt))
         print('- OBJECTIVE : {}'.format(obj))
@@ -558,18 +561,12 @@ class SessionStatus:
         status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
         print(status)
 
-    def __call__(self, step, err, acc, train=True, pstatus=True):
+    def __call__(self, step, err, acc,
+                 train=True, pstatus=True, pfreq=100):
         loss_hist = self.train_history if train else self.test_history
         loss_hist[step] = err, acc
-        if pstatus:
+        if pstatus and ((step+1) % pfreq == 0):
             self.print_status(step, err, acc)
-
-
-def print_status(step, err, acc):
-    status = '{:>5}: {:.5f}  |  {:.4f}'.format(step+1, float(err), float(acc))
-    print(status)
-
-
 
 
 # Classification eval

@@ -112,24 +112,7 @@ class SGD(Optimizer):
 #------------------------------------------------------------------------------
 
 
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-
-
-#=============================================================================#
-#         ___   ___   _  _   ___    ___   _  _    ___                         #
-#        | _ \ | __| | \| | |   \  |_ _| | \| |  / __|                        #
-#        |  _/ | _|  | .` | | |) |  | |  | .` | | (_ |                        #
-#        |_|   |___| |_|\_| |___/  |___| |_|\_|  \___|                        #
-#                 ___   ___ __      __  ___    ___   _  __                    #
-#                | _ \ | __|\ \    / / / _ \  | _ \ | |/ /                    #
-#                |   / | _|  \ \/\/ / | (_) | |   / | ' <                     #
-#                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
-#=============================================================================#
-'''
-class Adam(AdaptiveOptimizer):
+class Adam(Optimizer):
     """ Adaptive optimization algorithm for gradient descent
 
     Adam uses adaptive estimates of lower-order moments,
@@ -175,11 +158,10 @@ class Adam(AdaptiveOptimizer):
         if moments_init is not None:
             self.moments = moments_init
 
-
     def init_moments(self, P, P_key):
         """ initialize Adam moment estimates m, v for param P"""
-        m = np.zeros_like(P)
-        v = np.zeros_like(P)
+        m = np.zeros_like(P).astype(np.float32)
+        v = np.zeros_like(P).astype(np.float32)
         self.update_moments(P_key, m, v)
         return self.moments[P_key]
 
@@ -197,7 +179,6 @@ class Adam(AdaptiveOptimizer):
         else:
             moments = self.moments[P_key]
         return moments
-
 
     @property
     def step(self):
@@ -226,8 +207,8 @@ class Adam(AdaptiveOptimizer):
         return step
 
 
-    def update(self, P, gP, P_key):
-        """ Update parameter P with gradient gP """
+    def update(self, P, P_grad, P_key):
+        """ Update parameter P with gradient P_grad """
 
         # update timestep
         self.t += 1
@@ -247,12 +228,32 @@ class Adam(AdaptiveOptimizer):
 
         # Update moments
         #---------------
-        m = beta1 * m + (1 - beta1) * gP
-        v = beta2 * v + (1 - beta2) * np.square(gP)
+        m = beta1 * m + (1 - beta1) * P_grad
+        v = beta2 * v + (1 - beta2) * np.square(P_grad)
         self.update_moments(P_key, m, v)
 
         # Update param P
         #---------------
         P_update = P - step * m / (np.sqrt(v) + eps)
         return P_update
-'''
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+OPTIMIZERS = {'sgd': SGD, 'adam': Adam}
+def get_optimizer(name):
+    if name not in OPTIMIZERS:
+        raise ValueError('there is no optimizer for {}'.format(name))
+    else:
+        return OPTIMIZERS[name]
+
+
+#=============================================================================#
+#         ___   ___   _  _   ___    ___   _  _    ___                         #
+#        | _ \ | __| | \| | |   \  |_ _| | \| |  / __|                        #
+#        |  _/ | _|  | .` | | |) |  | |  | .` | | (_ |                        #
+#        |_|   |___| |_|\_| |___/  |___| |_|\_|  \___|                        #
+#                 ___   ___ __      __  ___    ___   _  __                    #
+#                | _ \ | __|\ \    / / / _ \  | _ \ | |/ /                    #
+#                |   / | _|  \ \/\/ / | (_) | |   / | ' <                     #
+#                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
+#=============================================================================#
