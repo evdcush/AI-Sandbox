@@ -431,6 +431,7 @@ class Linear(Function): #
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+'''   # UNTESTED, DO NOT USE
 class LSTM(Function):
     """ Stateless Long short-term memory function
 
@@ -529,7 +530,7 @@ class LSTM(Function):
         gX, gH = np.split(dZ, [-C.shape[-1]], axis=1)
         return gX, gW, gH, gC
 
-
+'''
 
 
 

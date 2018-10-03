@@ -416,6 +416,15 @@ class Parser:
     In addition to parsing STDIN args, Parser is a significant
     part of setup and configuration for training, as it specifies the
     majority of settings to use (through `default`)
+
+    NB: If you would like to use these values the same as in train.py,
+    but in a different environment, such as a notebook or perhaps IDE,
+    you can still get the values from by simply calling the parse_args()
+    method with a Parser instance.
+    eg:
+    echo_parser = utils.Parser()
+    config = echo_parser.parse_args()
+
     """
     P = argparse.ArgumentParser()
     # argparse does not like type=bool; this is a workaround

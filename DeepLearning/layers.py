@@ -32,8 +32,6 @@ import initializers
 HeNormal = initializers.HeNormal
 Zeros    = initializers.Zeros
 Ones     = initializers.Ones
-#==== utils
-TODO = utils.TODO
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -113,7 +111,6 @@ class ParametricLayer:
 
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    @TODO
     def update(self, opt):
         """ Update weights and bias with gradients from backprop
         Params
@@ -121,7 +118,8 @@ class ParametricLayer:
         opt : Optimizer instance
             Optimizing algorithm, updates through __call__
         """
-        pass
+        # WIP
+        raise NotImplementedError
         '''
         # Make sure grads exist
         assert self.W_grad is not None and self.B_grad is not None

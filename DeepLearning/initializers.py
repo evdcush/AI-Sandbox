@@ -2,8 +2,6 @@ import numpy as np
 import utils
 #from functools import wraps
 
-TODO = utils.TODO
-NOTIMPLEMENTED = utils.NOTIMPLEMENTED
 
 
 #==============================================================================
@@ -32,12 +30,11 @@ class Initializer:
     def get_class_name(cls):
         return cls.__name__
 
-    @NOTIMPLEMENTED
     def __call__(self, kdims):
         """ initialize an array with values drawn from
         a distribution
         """
-        pass
+        raise NotImplementedError
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -204,7 +201,7 @@ class Ones(Constant):
 #------------------------------------------------------------------------------
 #==============================================================================
 
-@TODO
+''' # TODO
 class Pretrained:
     """ Restores a pretrained variable """
     def __init__(self, trained_params):
@@ -213,3 +210,4 @@ class Pretrained:
 
     def __call__(self, kdims):
         pass
+'''
