@@ -11,7 +11,7 @@ Module components
 Function : base class for functions
 
 atomic functions : elementary functions and factors
-    Log, Square, Exp, (X Power), Sqrt
+    Log, Square, Exp, Power, Sqrt
 
 connection functions : functions using learnable variables
     Bias, Matmul, Linear
@@ -20,21 +20,15 @@ X ReductionFunction : functions that reduce dimensionality
 X     Sum, Mean, Prod, Max, Min
 
 activation functions : nonlinearities
-    (X ReLU, ELU, SeLU), Sigmoid, Tanh, Softmax, Swish
+    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax, Swish
 
 loss functions : objectives for gradient descent
     LogisticCrossEntropy, SoftmaxCrossEntropy
 
 
-UNTESTED, BUT FINISHED:
-- Dropout
 
 STILL PENDING REWORK FROM v1
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[ ] Power
-[ ] ReLU
-[ ] ELU
-[ ] SeLU
 [ ] ReductionFunction
     [ ] Sum
     [ ] Mean
@@ -505,7 +499,7 @@ class LSTM(Function):
 
         # Gate each unit
         #---------------
-        ai = Sigmoid.sigmoid(i)
+        ai = Sigmoid.sigmoid(i)  # ai --> "[a]ctivated [i]nput" ;]
         aa = Tanh.tanh(a)
         af = Sigmoid.sigmoid(1 + f)
         ao = Sigmoid.sigmoid(o)
@@ -1011,12 +1005,16 @@ MATH = {}
 ACTIVATIONS = {'sigmoid' : Sigmoid,
                 'tanh'   : Tanh,
                 'softmax': Softmax,
+                'relu'   : ReLU,
+                'elu'    : ELU,
+                'selu'   : SeLU,
                 'swish'  : Swish,
                 }
 
 CONNECTIONS = {'bias'  : Bias,
                'matmul': MatMul,
                'linear': Linear,
+               #'lstm' : LSTM,
                }
 
 OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,

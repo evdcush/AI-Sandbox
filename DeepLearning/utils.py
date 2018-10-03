@@ -552,17 +552,23 @@ class SessionStatus:
         # Traverse layers
         #-----------------
         for unit in model.layers:
-            name = str(unit)
-            if unit.__module__ == 'layers':
-                # only Layer instances have kdims attribute
+            unit_name   = str(unit)
+            unit_class  = unit.__class__
+            unit_module = unit.__module__
+
+            #==== Parametric unit
+            if unit_module == 'layers':
                 kdims = unit.kdims
-                #==== Layer name format: '$Layer-$ID', eg 'Dense-3'
-                s.__class__ in layers.PARAMETRIC_FUNCTIONS.values()
-                #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-                layer_name, layer_num = name.split('-')
+                layer_name, layer_num = unit_name.split('-')
+                #==== Function case
+                if unit_class in layers.PARAMETRIC_FUNCTIONS.values():
+                    # non-connection functions are not considered discrete
+                    # layers within the network like Dense
+                    layer_num = ' '
                 arch += line_layer.format(layer_num, layer_name, kdims)
+            #==== function.Function
             else:
-                arch += line_function.format(name)
+                arch += line_function.format(unit_name)
         self.network_arch = arch
 
     def print_results(self, train=True, t=None):
@@ -614,14 +620,16 @@ class SessionStatus:
         return self.train_history, self.test_history
 
     @staticmethod
-    def print_status_poo(step, err, acc):
+    def print_status(step, err, acc):
         i = step + 1
         e, a = float(err), float(acc)
         status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
         print(status)
 
     @staticmethod
-    def print_status(step, err, acc):
+    def print_status_inline(step, err, acc):
+        """ WIP """
+        return
         i = step + 1
         e, a = float(err), float(acc)
         sys.stdout.write('\r')

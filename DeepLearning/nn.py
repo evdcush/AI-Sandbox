@@ -103,24 +103,6 @@ class NeuralNetwork:
                     dropout = F.Dropout()
                     self.layers.append(dropout)
 
-    def __str__(self):
-        name  = self.__class__.__name__
-        return name
-
-    def __repr__(self):
-        # eval-style repr
-        rep = ("{}('{}, activation={}, use_dropout={}')")
-        name  = self.__class__.__name__
-
-        #==== Get instance vars
-        chans = self.channels
-        act   = self.activation
-        drop  = self.use_dropout
-
-        #==== format repr and return
-        rep = rep.format(name, chans, act, drop)
-        return rep
-
     # Network ops
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def forward(self, X, test=False):
@@ -146,3 +128,23 @@ class NeuralNetwork:
         for unit in self.layers:
             if unit.__module__ == 'layers':
                 unit.update(opt)
+
+    # Naming formats
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def __str__(self):
+        name  = self.__class__.__name__
+        return name
+
+    def __repr__(self):
+        # eval-style repr
+        rep = ("{}('{}, activation={}, use_dropout={}')")
+        name  = self.__class__.__name__
+
+        #==== Get instance vars
+        chans = self.channels
+        act   = self.activation
+        drop  = self.use_dropout
+
+        #==== format repr and return
+        rep = rep.format(name, chans, act, drop)
+        return rep
