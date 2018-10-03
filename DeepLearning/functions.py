@@ -429,6 +429,110 @@ class Linear(Function): #
         gX, gW, gB = self.linear_prime(gY, X, W, B)
         return gX, gW, gB
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class LSTM(Function):
+    """ Stateless Long short-term memory function
+
+    A LSTM is a type of recurrent network unit defined as block of
+    gated operations on external and internal representations.
+
+    It takes in some external input X, which is typically a sample within
+    a sequence, along with weights W, and performs a series of gated
+    operations on these inputs combined with it's own stateful variable
+    (cell-state) C, and "memory" the previous ouput in the sequence H.
+
+    Params
+    ------
+    X : ndarray, (N, D)
+        external input to unit
+
+    W : ndarray, (D+K, 4*K)
+        the weight variables for each of the four gated operations (hence
+        the 4*K output channel)
+        These 4 gates are as follows:
+        i : input gate
+        a : activation gate
+        f : forget gate
+        o : output gate
+
+    H : ndarray, (N, K)
+        previous function output
+
+    C : ndarray, (N, K)
+        cell state
+
+    While the gated operations are typically computed in combination with
+    constituent weight variable, the individual weights are instead
+    concatenated, and matmul against the concatenated X, H
+    """
+    @staticmethod
+    def lstm(x, h, c, w):
+        pass
+
+    def forward(self, X, W, H, C):
+        cache = []
+        # Concat input and previous output
+        Z = np.concatenate([X, H], axis=1) # (N, D+K)
+        cache.append(Z)
+
+        # Transform and split into units
+        #-------------------------------
+        iafo = np.matmul(Z, W) # (N, D+K).(D+K, 4*K)
+        i, a, f, o = np.split(iafo, 4, axis=1) # (N, K)
+
+        # Gate each unit
+        #---------------
+        ai = Sigmoid.sigmoid(i)
+        aa = Tanh.tanh(a)
+        af = Sigmoid.sigmoid(1 + f)
+        ao = Sigmoid.sigmoid(o)
+
+        # Cache for backprop
+        cache.extend([ai, aa, af, ao, C])
+
+        # Update cell-state
+        #------------------
+        C_t = ai * aa + af * C
+        aC_t = Tanh.tanh(np.copy(C_t))
+
+        # Cache for backprop
+        cache.append(aC_t)
+        self.cache = cache
+
+        # Calculate output
+        H_t = ao * aC_t
+        return H_t, C_t
+
+    def backward(self, gH, W):
+        # Retrieve intermediate vars from cache
+        Z, ai, aa, af, ao, C, aC_t = self.cache
+
+        # Backprop through gated ops
+        #---------------------------
+        #==== H_t
+        do = gH * aC_t * Sigmoid.sigmoid_prime(ao)
+        dC = gH * ao * Tanh.tanh_prime(aC_t)
+        #==== C_t
+        di = dC * aa * Sigmoid.sigmoid_prime(ai)
+        da = dC * ai * Tanh.tanh_prime(aa)
+        df = dC * C  * Sigmoid.sigmoid_prime(af)
+        gC = dC + af
+
+        # Backprop through transformation
+        #--------------------------------
+        diafo = np.concatenate([di, da, df, do], axis=1) # (N, 4*K)
+        dZ = np.matmul(diafo, W.T) # (N, 4*K).(4*K, D+K)
+        gW = np.matmul(Z.T, diago) # (D*K, N).(N, 4*K)
+
+        # Split inputs
+        gX, gH = np.split(dZ, [-C.shape[-1]], axis=1)
+        return gX, gW, gH, gC
+
+
+
+
+
 #==============================================================================
 #                          Activation Functions
 #==============================================================================
