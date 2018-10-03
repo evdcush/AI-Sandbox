@@ -7,14 +7,15 @@ import numpy as np
 
 import nn
 import utils
+from utils import SessionStatus, classification_accuracy
 import layers
 import initializers
 from optimizers import Adam, SGD, get_optimizer
-from functions import SoftmaxCrossEntropy, LogisticCrossEntropy
-
+import functions
 
 # args parser
 #------------------
+# config contains all model and session setup options
 arg_parser = utils.Parser()
 config = arg_parser.parse_args()
 arg_parser.print_args()
@@ -25,16 +26,16 @@ X = utils.load_iris()
 X_train, X_test = utils.split_dataset(X)
 X = None
 
-
+#==============================================================================
 # Model, session config
 #==============================================================================
-
 # Model config
 #------------------
 channels   = config.channels
 activation = config.activation
-dropout    = config.dropout
 optimizer  = config.optimizer
+objective  = config.objective
+dropout    = config.dropout
 learning_rate = config.learn_rate # 0.01, omitted, opt defaults well configured
 
 # Session config
@@ -50,15 +51,15 @@ batch_size = config.batch_size
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
 model = nn.NeuralNetwork(channels, activation=activation, use_dropout=dropout)
+objective = objective()
 opt = optimizer()
-#objective = SoftmaxCrossEntropy()
-objective = LogisticCrossEntropy()
 
 # Model status reporter
 #------------------
-sess_status = utils.SessionStatus(model, opt, objective, num_iters, X_test.shape[0])
+sess_status = SessionStatus(model, opt, objective, num_iters, X_test.shape[0])
 
 
+#==============================================================================
 # Train
 #==============================================================================
 t_start = time.time()
@@ -73,7 +74,7 @@ for step in range(num_iters):
     #------------------
     y_hat = model.forward(x)
     error, class_scores = objective(y_hat, y)
-    accuracy = utils.classification_accuracy(class_scores, np.squeeze(y))
+    accuracy = classification_accuracy(class_scores, y)
     sess_status(step, error, accuracy)
 
     # backprop and update
@@ -88,13 +89,9 @@ for step in range(num_iters):
 # Summary info
 t_finish = time.time()
 elapsed_time = (t_finish - t_start)
-
-# Print training summary
-#print('# Finished training\n#{}'.format('-'*78))
-#print(' * Elapsed time: {}s'.format(elapsed_time))
 sess_status.print_results(t=elapsed_time)
 
-
+#==============================================================================
 # Validation
 #==============================================================================
 

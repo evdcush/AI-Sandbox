@@ -31,6 +31,7 @@ Module components
 
 import os
 import sys
+import time
 import code
 import shutil
 import argparse
@@ -417,7 +418,9 @@ class Parser:
     part of setup and configuration for training, as it specifies the
     majority of settings to use (through `default`)
 
-    NB: If you would like to use these values the same as in train.py,
+    # NB:
+    #----------
+    If you would like to use these values the same as in train.py,
     but in a different environment, such as a notebook or perhaps IDE,
     you can still get the values from by simply calling the parse_args()
     method with a Parser instance.
@@ -440,11 +443,12 @@ class Parser:
         adg('--name_suffix','-n', type=str, default='')
 
         # ==== Model parameter variables
-        #adg('--connection', '-c', type=str, default='dense') # only is dense..
+        #adg('--connection', '-k', type=str, default='dense') # only is dense..
         adg('--activation', '-a', type=str, default='sigmoid')
         adg('--dropout',    '-d', **self.p_bool, default=1)
         adg('--optimizer',  '-o', type=str, default='adam')
-        adg('--channels',   '-k', type=int, default=chans, nargs='+')
+        adg('--objective',  '-j', type=str, default='logistic_cross_entropy')
+        adg('--channels',   '-c', type=int, default=chans, nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
 
         # ==== Training variables
@@ -461,11 +465,11 @@ class Parser:
         return parsed
 
     def interpret_args(self, parsed):
-        # Check if use dropout True
+        # Dropout
         #-----------------------------
         parsed.dropout = parsed.dropout == 1
 
-        # Evaluate activation arg
+        # Activation
         #----------------------------
         pact = parsed.activation
         #==== Check if parameterized activation (Swish)
@@ -475,16 +479,23 @@ class Parser:
             activation = functions.ACTIVATIONS.get(pact, None)
             if activation is None:
                 # if None again, parsed activation arg is undefined in domain
-                raise NotImplementedError('{} is undefined'.format())
-        # Assign proper activation class
+                raise NotImplementedError('{} is undefined'.format(pact))
+        # assign proper activation class
         parsed.activation = activation
 
-        # Evaluate optimizer arg
+        # Optimizer
         #----------------------------
         popt = parsed.optimizer
         opt = optimizers.get_optimizer(popt) # raises ValueError if not defined
         parsed.optimizer = opt
 
+        # Objective
+        #----------------------------
+        pobj = parsed.objective
+        objective = functions.OBJECTIVES.get(pobj, None)
+        if objective is None: # then objective not in functions
+            raise NotImplementedError('{} is undefined'.format(pobj))
+        parsed.objective = objective
         return parsed
 
     def print_args(self):
@@ -546,6 +557,8 @@ class SessionStatus:
                 # only Layer instances have kdims attribute
                 kdims = unit.kdims
                 #==== Layer name format: '$Layer-$ID', eg 'Dense-3'
+                s.__class__ in layers.PARAMETRIC_FUNCTIONS.values()
+                #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
                 layer_name, layer_num = name.split('-')
                 arch += line_layer.format(layer_num, layer_name, kdims)
             else:
@@ -600,11 +613,20 @@ class SessionStatus:
         print('Returning: train_history, test_history')
         return self.train_history, self.test_history
 
-    def print_status(self, step, err, acc):
+    @staticmethod
+    def print_status_poo(step, err, acc):
         i = step + 1
         e, a = float(err), float(acc)
         status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
         print(status)
+
+    @staticmethod
+    def print_status(step, err, acc):
+        i = step + 1
+        e, a = float(err), float(acc)
+        sys.stdout.write('\r')
+        sys.stdout.write('{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a))
+        sys.stdout.flush()
 
     def __call__(self, step, err, acc,
                  train=True, pstatus=True, pfreq=100):
