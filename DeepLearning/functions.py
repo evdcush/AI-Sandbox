@@ -313,6 +313,27 @@ class Sqrt(Function): #
         gX = gY * self.sqrt_prime(Y)
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Power(Function): #
+    """ pow function """
+    @staticmethod
+    def power(x, p):
+        return np.power(x, p)
+
+    @staticmethod
+    def power_prime(x, p):
+        return p * np.power(x, (p-1))
+
+    def forward(self, X, p):
+        self.cache = X, p
+        Y = self.power(X, p)
+        return Y
+
+    def backward(self, gY):
+        X, p = self.cache
+        gX = gY * self.power_prime(X, p)
+        return gX
 
 #------------------------------------------------------------------------------
 # Connection functions :
@@ -696,7 +717,6 @@ class SeLU(ELU): #
         X = self.cache
         gX = gY * self.selu_prime(X, self.alpha, self.scale)
         return gX
-
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1167,25 +1187,6 @@ class LSTM(Function):
 
 
 
-#==============================================================================
-#------------------------------------------------------------------------------
-#                            ATOMIC MATH FUNCTIONS
-#------------------------------------------------------------------------------
-#==============================================================================
-
-# JUST UPDATE TO NEW FORMAT
-@TODO
-class Power(Function):
-    """ """
-    def forward(self, X, p):
-        self.fn_vars = X, p
-        Y = np.power(X, p)
-        return Y
-
-    def backward(self, gY):
-        X, p = self.get_fn_vars()
-        gX = gY * p * np.power(X, p - 1.0)
-        return gX
 
 #==============================================================================
 #------------------------------------------------------------------------------
