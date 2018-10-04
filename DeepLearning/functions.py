@@ -584,7 +584,7 @@ class Tanh(Function): #
 
     @staticmethod
     def tanh_prime(x):
-
+        return -(np.square(np.tanh(X))) + 1
 
     # Not v2 compliant
     #def tanh_prime(y): return 1.0 - np.square(y)  # not v2 compliant
