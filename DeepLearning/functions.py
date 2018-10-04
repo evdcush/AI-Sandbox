@@ -576,15 +576,15 @@ class LSTM(Function):
 #==============================================================================
 #                          Activation Functions
 #==============================================================================
-#????????????????????????????????????????????????????????????????????????????????????
-class Sigmoid(Function): #
+
+class Sigmoid(Function): # #
     """ Logistic sigmoid activation """
     @staticmethod
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
 
     @staticmethod
-    def sigmoid_prime(y):
+    def sigmoid_prime(x):
         y = Sigmoid.sigmoid(x)
         return y * (1 - y)
 
@@ -599,8 +599,8 @@ class Sigmoid(Function): #
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#????????????????????????????????????????????????????????????????????????????????????
-class Tanh(Function): #
+
+class Tanh(Function): # #
     """ Hyperbolic tangent activation """
     @staticmethod
     def tanh(x):
@@ -608,24 +608,21 @@ class Tanh(Function): #
 
     @staticmethod
     def tanh_prime(x):
-        return -(np.square(np.tanh(X))) + 1
-
-    # Not v2 compliant
-    #def tanh_prime(y): return 1.0 - np.square(y)  # not v2 compliant
+        return -(np.square(np.tanh(x))) + 1
 
     def forward(self, X):
+        self.cache = X
         Y = self.tanh(X)
-        self.cache = Y
         return Y
 
     def backward(self, gY):
-        Y = self.cache
-        gX = gY * self.tanh_prime(Y)
+        X = self.cache
+        gX = gY * self.tanh_prime(X)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#????????????????????????????????????????????????????????????????????????????????????
-class Softmax(Function): #
+
+class Softmax(Function): # not v2 compliant
     """ Softmax activation """
     @staticmethod
     def softmax(x):
@@ -634,7 +631,7 @@ class Softmax(Function): #
         return exp_x / np.sum(exp_x, **kw)
 
     @staticmethod
-    def softmax_prime(y):
+    def softmax_prime(y): # not v2 compliant
         kw = {'axis':1, 'keepdims':True}
         sqr_sum_y = np.square(y).sum(**kw)
         return y - sqr_sum_y
@@ -740,8 +737,8 @@ class SeLU(ELU): #
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#????????????????????????????????????????????????????????????????????????????????????
-class Swish(Function): #
+
+class Swish(Function): # #
     """ Self-gated activation function
     Can be viewed as a smooth function where the nonlinearity
     interpolates between the linear function (x/2), and the
@@ -770,11 +767,13 @@ class Swish(Function): #
 
     @staticmethod
     def swish_prime(x, b):
+        #==== forward vars
         sig_xb = Sigmoid.sigmoid(x*b)
         y = x * sig_xb
-        gb = y * (x - y)
-        gx = sig_xb + b * (y * (1 - sig_xb))
-        return gx, gb
+        #==== diffs
+        dx = sig_xb + b * y * (1 - sig_xb)
+        db = y * (x - y)
+        return dx, db
 
     def forward(self, X, b):
         self.cache = np.copy(X)
@@ -783,10 +782,10 @@ class Swish(Function): #
 
     def backward(self, gY, B):
         X = self.cache
-        gx, gb = self.swish_prime(X, B)
-        gX = gY * gx
-        gB = np.sum(gY * gb, axis=0)
-        return gX, gB
+        dX, dB = self.swish_prime(X, B)
+        gX = gY * dX
+        gB = gY * dB
+        return gX, gB.sum(axis=0)
 
 
 
