@@ -286,25 +286,25 @@ class Square(Function): #
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#????????????????????????????????????????????????????????????????????????????????????
-class Sqrt(Function): #
+
+class Sqrt(Function): # #
     """ Square root """
     @staticmethod
     def sqrt(x):
         return np.sqrt(x)
 
     @staticmethod
-    def sqrt_prime(y):
-        return 1.0 / (2 * y)
+    def sqrt_prime(x):
+        return 1.0 / (2 * np.sqrt(x))
 
     def forward(self, X):
+        self.cache = X
         Y = self.sqrt(X)
-        self.cache = Y
         return Y
 
     def backward(self, gY):
-        Y = self.cache
-        gX = gY * self.sqrt_prime(Y)
+        X = self.cache
+        gX = gY * self.sqrt_prime(X)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -333,8 +333,8 @@ class Power(Function): #
 # Connection functions :
 #     Functions using learnable variables
 #------------------------------------------------------------------------------
-#????????????????????????????????????????????????????????????????????????????????????
-class Bias(Function): #
+
+class Bias(Function): # #
     """ Adds to matrix X a bias vector B
 
     Params
@@ -349,62 +349,69 @@ class Bias(Function): #
         return x + b
 
     @staticmethod
-    def bias_prime(y, b):
-        gx = np.copy(y)
-        gb = y.sum(0)
-        return gx, gb
+    def bias_prime(x, b):
+        """ derivative of bias is one """
+        dx = np.ones_like(x, 'f')
+        db = np.ones_like(b, 'f')
+        return dx, db
 
     def forward(self, X, B):
+        #self.cache = X
         Y = self.bias(X, B)
         return Y
 
     def backward(self, gY, B):
-        gX, gB = self.bias_prime(gY, B)
-        return gX, gB
+        #X = self.cache
+        #dX, dB = self.bias_prime(X, B)
+        #gX = gY * dX
+        #gB = (gY * dB).sum(axis=0)
+        return gY, gY.sum(0)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#????????????????????????????????????????????????????????????????????????????????????
-class MatMul(Function): #
+
+class MatMul(Function): # #
     """ Matrix multiplication function defined on 2D matrices
 
-    Assumes: matrices A, B are properly ordered as input args
-        In other words, A.shape[-1] == B.shape[0]
+    Assumes: matrices X, Y are properly ordered as input args
+        In other words, X.shape[-1] == Y.shape[0]
 
     Params
     ------
-    A : ndarray
+    X : ndarray
         2D matrix with shape (N, K), N an arbitrary int
-    B : ndarray
+    Y : ndarray
         2D matrix with shape (K, P), P an arbitrary int
 
     Returns
     -------
-    Y : ndarray
-        2D matrix product of AB, with shape (N, P)
+    Z : ndarray
+        2D matrix product of XY, with shape (N, P)
     """
     @staticmethod
-    def matmul(a, b):
-        return np.matmul(a, b)
+    def matmul(x, y):
+        return np.matmul(x, y)
 
     @staticmethod
-    def matmul_prime(y, a, b):
-        da = np.matmul(y, b.T)
-        db = np.matmul(a.T, y)
-        return da, db
+    def matmul_prime(x, y):
+        dx = y.T
+        dy = x.T
+        return dx, dy
 
-    def forward(self, A, B):
-        self.cache = np.copy(A)
-        Y = self.matmul(A, B)
-        return Y
+    def forward(self, X, Y):
+        self.cache = np.copy(X)
+        Z = self.matmul(X, Y)
+        return Z
 
-    def backward(self, gY, B):
-        A = self.cache
-        gA, gB = self.matmul_prime(gY, A, B)
-        return gA, gB
+    def backward(self, gZ, Y):
+        X = self.cache
+        dX, dY = self.matmul_prime(X, Y)
+        gX = self.matmul(gZ, dX) # (N, K).(K, D)
+        gY = self.matmul(dY, gZ) # (D, N).(N, K)
+        return gX, gY
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#????????????????????????????????????????????????????????????????????????????????????
-class Linear(Function): #
+
+class Linear(Function): ##
     """ Affine transformation function, Y = X.W + B
 
     See also: MatMul and Bias, which Linear composes
@@ -426,22 +433,35 @@ class Linear(Function): #
     @staticmethod
     def linear(x, w, b):
         y = MatMul.matmul(x, w)
-        return Bias.bias(y, b)
+        z = Bias.bias(y, b)
+        return z
 
+    ''' # NOT V2 COMPLIANT
     @staticmethod
     def linear_prime(y, x, w, b):
         dx, dw = MatMul.matmul_prime(np.copy(y), x, w)
         _, db = Bias.bias_prime(y, b) # bias just identity func on gradient
         return dx, dw, db
+    '''
+    @staticmethod
+    def linear_prime(x, w, b):
+        dX, dW = MatMul.matmul_prime(x, w)
+        _,  dB = Bias.bias_prime(x, b)
+        return dX, dW, dB
 
     def forward(self, X, W, B):
         self.cache = np.copy(X)
-        Y = self.linear(X, W, B)
-        return Y
+        Z = self.linear(X, W, B)
+        return Z
 
-    def backward(self, gY, W, B):
+    def backward(self, gZ, W, B):
         X = self.cache
-        gX, gW, gB = self.linear_prime(gY, X, W, B)
+        #gX, gW, gB = self.linear_prime(gY, X, W, B)
+        #return gX, gW, gB
+        dX, dW, dB = self.linear_prime(X, W, B)
+        gX = MatMul.matmul(gZ, dX) # (N, K).(K, D)
+        gW = MatMul.matmul(dW, gZ) # (D, N).(N, K)
+        gB = np.sum(gZ * dB, axis=0)
         return gX, gW, gB
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -545,6 +565,10 @@ class LSTM(Function):
         gX, gH = np.split(dZ, [-C.shape[-1]], axis=1)
         return gX, gW, gH, gC
 
+     def __call__(self, *args, **kwargs):
+        print('LSTM WIP, PENDING TESTING, DO NOT CALL')
+        assert False
+
 '''
 
 
@@ -561,17 +585,17 @@ class Sigmoid(Function): #
 
     @staticmethod
     def sigmoid_prime(y):
-        """ ASSUMES y == sigmoidx(x) """
+        y = Sigmoid.sigmoid(x)
         return y * (1 - y)
 
     def forward(self, X):
+        self.cache = X
         Y = self.sigmoid(X)
-        self.cache = Y
         return Y
 
     def backward(self, gY):
-        Y = self.cache
-        gX = gY * self.sigmoid_prime(Y)
+        X = self.cache
+        gX = gY * self.sigmoid_prime(X)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
