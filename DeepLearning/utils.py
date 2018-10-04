@@ -530,6 +530,7 @@ class SessionStatus:
         self.num_test = num_test
         self.init_loss_history()
         self._get_network_arch(model)
+        self.status_call_count = 0
 
     def init_loss_history(self):
         """ Initialize loss history containers for training and testing """
@@ -619,12 +620,20 @@ class SessionStatus:
         print('Returning: train_history, test_history')
         return self.train_history, self.test_history
 
-    @staticmethod
-    def print_status(step, err, acc):
+    def print_status(self, step, err, acc):
+        title = '{:<5}:  {:^7}   |  {:^7}'.format('STEP', 'ERROR', 'ACCURACY')
+        body  = '{:>5}:  {:.5f}   |   {:.4f}'
         i = step + 1
         e, a = float(err), float(acc)
-        status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
+        status = body.format(i, e, a)
+        if self.status_call_count == 0:
+            #d = '-' * len(title)
+            #print('\n\n{}\n{}'.format(title, d))
+            print('\n\n{}'.format(title))
+            #print('{:<5}: {:^7}  |  {:^7}'.format('Step', 'Error', 'Accuracy'))
+        #status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
         print(status)
+        self.status_call_count += 1
 
     @staticmethod
     def print_status_inline(step, err, acc):
@@ -641,6 +650,8 @@ class SessionStatus:
         loss_hist = self.train_history if train else self.test_history
         loss_hist[step] = err, acc
         if not train or (pstatus and ((step+1) % pfreq == 0)):
+            if not train and step == 0:
+                self.status_call_count = 0
             self.print_status(step, err, acc)
 
 

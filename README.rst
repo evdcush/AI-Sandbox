@@ -2,34 +2,54 @@ AI Sandbox
 ##########
 Simple and clean NumPy implementations of various methods and models within AI.
 
-Well, that's the goal.
+Well, that's the goal. But, as the project name implies, this is a space for me to **build** and **explore** the core structures and algorithms involved in AI. Things could get *messy*.
 
-But, as the project name implies, this is a space for me to explore and evaluate the core structures and algorithms involved in AI. Things could get *messy*.
 
-Current project content, which features deep learning work on a basic feed-foward network is fairly clean and, while it has some unfinished work, the codebase is well-structured and I hope others find it easy to use and easy to understand.
 
+Project Contents
+----------------
+Deep learning
+=============
+The current project content features deep learning work on a basic feed-foward network and, while it has some unfinished work, the implementations are fairly clean and I hope others find it easy to use and easy to understand.
+
+Learning tasks
+..............
+The deep learning project is defined on the `Iris dataset`_, which is available as a serialized numpy array within the deep learning `data directory`_. There are assumptions made in the implementations of the deep learning code base, especially with respect to the dimensionality of data, but the code is generalized enough to work on other tasks.
+
+Structure
+=========
+The project codebase for the neural network is split neatly into different modules.
+
+:functions: Contains all functions related to the computation of the network. Activations, transformations, loss functions, regularizers--they are all located in `functions.py`_.
+:layers: A broadly used term, layers are the essential component or architectural feature of neural networks. Layers, or "hidden layers," in this project refer specifically to the units or modules that **perform transformations on the data with a learnable or optimizable set of weights**. These are also referred to as "connections" in docstrings and comments within the code. 
+
+  NB: Some functions, such as the ``Swish`` activation, have optimizable parameters, and corresponding ``ParametricLayer`` wrappers in `layers.py`_, but are not considered "layers"). All layers are are located in `layers.py`_.
+
+:network: The core component of our Iris classifier model, all neural networks are implemented in the `network.py`_ module. Currently, the only available network implementation is a fully-connected feed-forward network with ``Dense`` layers.
+:optimizer: The optimization routines for the neural network are implemented in this module. Available optimizers are ``SGD``--vanilla Stochastic Gradient Descent, and ``Adam``, a popular and powerful adaptive optimization algorithm based on moment estimation. Both implementations, and all those to come, are located in `optimizers.py`_.
+:train: The training routine is essentially an interface to all the modules of the project. It instantiates the network, and its layers by extension, the optimizer, and objective function, and loads the dataset through ``utils``. That being said, the majority of heavy lifting, such parameter initialization, file R/W, network ops, session information, etc. have been extracted to their constituent modules. Training especially relies on the utilities found in `utils.py`_.
+    Note that testing, or evalation *also* takes place within the `train.py`_ script.
+:initializers: All learnable network parameters are initialized by the various initialization functions located in `initializers.py`_. Glorot normal, He normal, uniform, and constant initializations are available to choose from.
+:utils: `utils.py`_ contains all functions not strictly related to network ops or computation. Something of a do-all script, utils loads datasets (and performs all related operations on them, such as train/test splits, batching, shuffuling, etc.), specifies the default network configuration (and updates it based on parsed command line args), maintains all information and statistics about training/testing error and accuracy, and provides various specialied preprocessing operations on data, such as one-hot encodings and the accuracy function.
 
 
 Setup
-=====
-
+-----
 
 Requirements
-------------
+============
 - Python 3.2+
+- NumPy 1.15 (Earlier versions not tested)
 
-  + NumPy 1.15 (Earlier versions not tested)
-  + Jupyter (optional)
+NumPy can be installed via pip: ``pip install numpy``
 
-
-Both packages can be installed via pip:
-    ``pip install numpy jupyter``
-
+Environment
+...........
 All project code has been developed on Linux *(Ubuntu 16.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_
 
 
 Running the model
-^^^^^^^^^^^^^^^^^
+-----------------
 First, clone this repo:
     ``git clone --depth=1 https://github.com/evdcush/AI-Sandbox.git``
 Navigate to the DeepLearning folder:
@@ -38,6 +58,34 @@ Run the model via ``train.py``:
     ``python train.py``
 
 You should have seen the training results for the Iris classifier model, trained for 2000 iterations.
+
+Something like::
+
+    # Model Summary: 
+    NeuralNetwork
+      Layers: 
+         1 : Dense (4, 64)
+              : Sigmoid
+         2 : Dense (64, 3)
+    
+    - OPTIMIZER : SGD
+    - OBJECTIVE : LogisticCrossEntropy
+    
+    # Training results, 2000 iterations
+    #------------------------------
+                Error  |  Accuracy
+    * Average: 0.60531 | 0.72833
+    *  Median: 0.60607 | 0.75000
+    #------------------------------
+    
+    # Test results, 30 samples
+    #------------------------------
+                Error  |  Accuracy
+    * Average: 0.59610 | 0.76667
+    *  Median: 0.59487 | 1.00000
+    #------------------------------
+
+
 
 The default train settings are configured as follows:
 
@@ -57,30 +105,58 @@ The model, as defined on this dataset, can be configured for other settings that
 
 Will train the model for 500 iterations, using hyperbolic-tangent activations, the Adam optimizer, and channels [4, 32, 16, 3].
 
-There are many different settings that can be specified through the CLI, and you can review them all in ``utils.Parser``. Here is a quick reference:
+There are many different settings that can be specified through the CLI, and you can review them all in ``utils.Parser``. 
 
--i, --num_iters, default=2000  
-    Number of training iterations
---batch_size, -b, default=6    
-    Training mini-batch size. This defines how many samples are passed to the model in one training iteration
---activation, -a, default=sigmoid, choices=[relu, elu, selu, sigmoid, tanh, swish, softmax]    
-    Available activation functions.
+Training options quick-reference
+================================
 
+-i int, --num_iters  Number of training iterations
+-b int, --batch_size  Training mini-batch sizes. 
+
+              This defines how many samples are passed to the model in one training iteration.
+
+-a ACTIVATION, --activation
+              Activation function used in the network.
+              
+              Available activations: ``relu, elu, selu, sigmoid, tanh, swish, softmax``
+
+-o OPTIMIZER, --optimizer  Model optimizer.
+    
+    Available optimizers: ``sgd, adam``
+
+
+Known issues
+------------
+None...yet
+
+The model performs as expected on the Iris dataset, but there are some intra-module inconsistencies, missing features, and cleanup required. 
+
+The most notable lacking feature currently is the inability to serialize or save the model parameters. A lot of that plumbing is in place, such as how parameters are stored and accessed in layers, and the model pathing and constants in utils, but it has not been implemented yet.
+
+Please let me know if you have any issues with the code. 
 
 
 License
 -------
-Except where noted otherwise, the content of this project is licensed under the `clear BSD-3`_.
-
-.. _clear BSD-3: LICENSE
-
-
-
-
-
+Except where noted otherwise, this project is licensed under the `BSD-3-Clause-Clear`_.
 
 
 .. Substitutions:
 
+.. PROJECT FILES: 
+.. _functions.py: DeepLearning/functions.py
+.. _layers.py: DeepLearning/layers.py
+.. _network.py: DeepLearning/network.py
+.. _initializers.py: DeepLearning/initializers.py
+.. _optimizers.py: DeepLearning/optimizers.py
+.. _utils.py: DeepLearning/utils.py
+
+.. LOCAL FILES: 
+.. _BSD-3-Clause-Clear: LICENSE
+.. _Iris dataset: https://en.wikipedia.org/wiki/Iris_flower_data_set
+.. _|Iris dataset| replace :: `Iris dataset` 
+.. _data directory: DeepLearning/data/Iris
+
+.. OTHER:
 .. _pyenv: https://github.com/pyenv/pyenv
 .. |pyenv| replace :: pyenv

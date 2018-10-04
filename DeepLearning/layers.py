@@ -21,13 +21,10 @@ Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
 
 
 """
-import code
-import numpy as np
+#import code
 import functions
-import utils
 import initializers
 
-# Circular import workaround
 #==== Initializers
 HeNormal = initializers.HeNormal
 Zeros    = initializers.Zeros
