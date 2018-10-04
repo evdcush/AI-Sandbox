@@ -5,13 +5,9 @@ import sys
 import code
 import numpy as np
 
-import nn
 import utils
 from utils import SessionStatus, classification_accuracy
-import layers
-import initializers
-from optimizers import Adam, SGD, get_optimizer
-import functions
+from network import NeuralNetwork
 
 # args parser
 #------------------
@@ -50,7 +46,7 @@ batch_size = config.batch_size
 # Instantiate model
 #------------------
 np.random.seed(utils.RNG_SEED_PARAMS)
-model = nn.NeuralNetwork(channels, activation=activation, use_dropout=dropout)
+model = NeuralNetwork(channels, activation=activation, use_dropout=dropout)
 objective = objective()
 opt = optimizer()
 
@@ -118,7 +114,6 @@ for i in range(num_test_samples):
 
 # Print training summary
 print('\n# Finished Testing\n#{}'.format('-'*78))
-#sess_status.print_results(train=False)
 sess_status.summarize_model(True, True)
 
 #trl, tel = sess_status.get_loss_history()

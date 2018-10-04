@@ -445,8 +445,8 @@ class Parser:
         # ==== Model parameter variables
         #adg('--connection', '-k', type=str, default='dense') # only is dense..
         adg('--activation', '-a', type=str, default='sigmoid')
-        adg('--dropout',    '-d', **self.p_bool, default=1)
-        adg('--optimizer',  '-o', type=str, default='adam')
+        adg('--dropout',    '-d', **self.p_bool, default=0)
+        adg('--optimizer',  '-o', type=str, default='sgd')
         adg('--objective',  '-j', type=str, default='logistic_cross_entropy')
         adg('--channels',   '-c', type=int, default=chans, nargs='+')
         adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
@@ -688,12 +688,17 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
         the averaged percentage of matching predictions between
         Y_hat and Y_truth
     """
-    # Reduce Y_hat to highest scores
-    Y_pred = get_predictions(Y_hat)
+    if not strict:
+        # Reduce Y_hat to highest scores
+        Y_pred = get_predictions(Y_hat)
 
-    # Take average match
-    accuracy = np.mean(Y_pred == Y_truth)
+        # Take average match
+        accuracy = np.mean(Y_pred == Y_truth)
+
+    else:
+        # Show raw class score
+        Y = to_one_hot(Y_truth)
+        scores = np.amax(Y * Y_hat, axis=1)
+        accuracy = np.mean(scores)
+
     return accuracy
-
-
-
