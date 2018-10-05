@@ -60,7 +60,7 @@ import numpy as np
 import layers as L
 import functions as F
 
-
+'''
 class NeuralNetwork:
     """ Base network class: establishes fundamental structure of a network
     """
@@ -110,10 +110,11 @@ class NeuralNetwork:
         #==== format repr and return
         rep = rep.format(name, chans, act, drop)
         return rep
+'''
 
 
-
-class FullyConnected(NeuralNetwork):
+#class FullyConnected(NeuralNetwork):
+class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
     connection = L.Dense # all NeuralNetwork instances have dense connections
 
