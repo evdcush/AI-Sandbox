@@ -10,7 +10,7 @@ Project Contents
 ----------------
 Deep learning
 =============
-The current project content features deep learning work on a basic feed-foward network and, while it has some unfinished work, the implementations are fairly clean and I hope others find it easy to use and easy to understand.
+The current project content features deep learning work on a basic feed-foward network and, while it has some unfinished work, the implementations are fairly clean and I hope it is easy to use and easy to understand.
 
 Learning tasks
 ..............
@@ -21,7 +21,7 @@ Structure
 The project codebase for the neural network is split neatly into different modules.
 
 :functions: Contains all functions related to the computation of the network. Activations, transformations, loss functions, regularizers--they are all located in `functions.py`_.
-:layers: A broadly used term, layers are the essential component or architectural feature of neural networks. Layers, or "hidden layers," in this project refer specifically to the units or modules that **perform transformations on the data with a learnable or optimizable set of weights**. These are also referred to as "connections" in docstrings and comments within the code. 
+:layers: A broadly used term, layers are the essential component or architectural feature of neural networks. Layers, or "hidden layers," in this project refer specifically to the units or modules that **perform transformations on the data with a learnable or optimizable set of weights**. These are also referred to as "connections" in docstrings and comments within the code.
 
   NB: Some functions, such as the ``Swish`` activation, have optimizable parameters, and corresponding ``ParametricLayer`` wrappers in `layers.py`_, but are not considered "layers"). All layers are are located in `layers.py`_.
 
@@ -61,23 +61,23 @@ You should have seen the training results for the Iris classifier model, trained
 
 Something like::
 
-    # Model Summary: 
+    # Model Summary:
     NeuralNetwork
-      Layers: 
+      Layers:
          1 : Dense (4, 64)
               : Sigmoid
          2 : Dense (64, 3)
-    
+
     - OPTIMIZER : SGD
     - OBJECTIVE : LogisticCrossEntropy
-    
+
     # Training results, 2000 iterations
     #------------------------------
                 Error  |  Accuracy
     * Average: 0.60531 | 0.72833
     *  Median: 0.60607 | 0.75000
     #------------------------------
-    
+
     # Test results, 30 samples
     #------------------------------
                 Error  |  Accuracy
@@ -105,23 +105,25 @@ The model, as defined on this dataset, can be configured for other settings that
 
 Will train the model for 500 iterations, using hyperbolic-tangent activations, the Adam optimizer, and channels [4, 32, 16, 3].
 
-There are many different settings that can be specified through the CLI, and you can review them all in ``utils.Parser``. 
+|
+
+There are many different settings that can be specified through the CLI, and you can review them all in ``utils.Parser``.
 
 Training options quick-reference
 ================================
 
 -i int, --num_iters  Number of training iterations
--b int, --batch_size  Training mini-batch sizes. 
+-b int, --batch_size  Training mini-batch sizes.
 
               This defines how many samples are passed to the model in one training iteration.
 
 -a ACTIVATION, --activation
               Activation function used in the network.
-              
+
               Available activations: ``relu, elu, selu, sigmoid, tanh, swish, softmax``
 
 -o OPTIMIZER, --optimizer  Model optimizer.
-    
+
     Available optimizers: ``sgd, adam``
 
 
@@ -129,11 +131,11 @@ Known issues
 ------------
 None...yet
 
-The model performs as expected on the Iris dataset, but there are some intra-module inconsistencies, missing features, and cleanup required. 
+The model performs as expected on the Iris dataset, but there are some intra-module inconsistencies, missing features, and cleanup required.
 
 The most notable lacking feature currently is the inability to serialize or save the model parameters. A lot of that plumbing is in place, such as how parameters are stored and accessed in layers, and the model pathing and constants in utils, but it has not been implemented yet.
 
-Please let me know if you have any issues with the code. 
+Please let me know if you have any issues with the code!
 
 
 License
@@ -143,18 +145,19 @@ Except where noted otherwise, this project is licensed under the `BSD-3-Clause-C
 
 .. Substitutions:
 
-.. PROJECT FILES: 
+.. PROJECT FILES:
 .. _functions.py: DeepLearning/functions.py
 .. _layers.py: DeepLearning/layers.py
 .. _network.py: DeepLearning/network.py
 .. _initializers.py: DeepLearning/initializers.py
 .. _optimizers.py: DeepLearning/optimizers.py
 .. _utils.py: DeepLearning/utils.py
+.. _train.py: DeepLearning/train.py
 
-.. LOCAL FILES: 
+.. LOCAL FILES:
 .. _BSD-3-Clause-Clear: LICENSE
 .. _Iris dataset: https://en.wikipedia.org/wiki/Iris_flower_data_set
-.. _|Iris dataset| replace :: `Iris dataset` 
+.. _|Iris dataset| replace :: `Iris dataset`
 .. _data directory: DeepLearning/data/Iris
 
 .. OTHER:
