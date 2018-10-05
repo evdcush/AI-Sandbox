@@ -631,6 +631,34 @@ class Softmax(Function): # not v2 compliant
         return exp_x / np.sum(exp_x, **kw)
 
     @staticmethod
+    def softmax_prime(x): # not v2 compliant
+        kw = {'axis':1, 'keepdims':True}
+        exp_x = np.exp(x - x.max(**kw))
+        sum_exp = np.sum(exp_x, **kw)
+        sum_div = 1 / sum_exp
+        y = exp_x * sum_div
+        #----- bprop begin
+
+    def forward(self, X):
+        Y = self.softmax(X)
+        self.cache = Y
+        return Y
+
+    def backward(self, gY):
+        Y = self.cache
+        gX = gY * self.softmax_prime(Y)
+        return gX
+
+'''
+class Softmax(Function): # not v2 compliant
+    """ Softmax activation """
+    @staticmethod
+    def softmax(x):
+        kw = {'axis':1, 'keepdims':True}
+        exp_x = np.exp(x - x.max(**kw))
+        return exp_x / np.sum(exp_x, **kw)
+
+    @staticmethod
     def softmax_prime(y): # not v2 compliant
         kw = {'axis':1, 'keepdims':True}
         sqr_sum_y = np.square(y).sum(**kw)
@@ -645,7 +673,7 @@ class Softmax(Function): # not v2 compliant
         Y = self.cache
         gX = gY * self.softmax_prime(Y)
         return gX
-
+'''
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class ReLU(Function): #
