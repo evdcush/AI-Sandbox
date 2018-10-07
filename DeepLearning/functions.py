@@ -1062,49 +1062,6 @@ OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
 #                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
 """===========================================================================#
 
-#-------#
-# NOTES #
-#-------#
-
-# TODO:
-- add more docstrings, even simple one-liners would do
-- add `test` kwarg to __call__ or something that
-  prevents caching vars for backprop (does't affect anything,
-  results-wise, just inefficient).
-- make clearer when derivative functions expect input to be
-  output of forward, or input of forward, or as is the case
-  with functions like sigmoid, are not true derivative funcs
-  but an expedient form with assumptions
-- the function "tags" or labels used outside functions modules
-  are often the slugified function class names, but
-  the class __str__ returns the actual (non-slug) class name
-    Options:
-    > pick one, or the other. __repr__ already has true class name
-    > interface or something that provides a perfect map
-      between slug/lower function class names and their
-      __str__/normal class names
-
-# Look into:
-- what is the benefit of using staticmethod instead of classmethod?
-- consider making base cross-entropy function class, they are nearly identical
-- been doing gradient checks by hand and with other software, which is
-  excrutiatingly tedious--maybe write up some mostly-automatic grad checking
-  funcs? and tests
-
-# Implementations:
-- still have a ton of funcs from V1 implementation that have not
-  been updated to v2, namely the reduction funcs
-- normalization/regularization funcs
-  - layernorm first, then batchnorm
-  - non-dropout regularizers
-- more connection functions:
-  - LSTM stub, with fully specified fwd/bwd computation,
-    ready for consolidation and implem.
-  - vanilla recurrent units
-  - various recurrent/non-recurrent gated stuff
-  - conv 2D
-  - graph conv
-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
 
 
@@ -1212,30 +1169,7 @@ class LSTM(Function):
 
 
 
-#==============================================================================
-#------------------------------------------------------------------------------
-#                            LOSS FUNCTIONS
-#------------------------------------------------------------------------------
-#==============================================================================
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-@TODO
-class MSE(Function):
-    """  """
-    @staticmethod
-    def mse(x, y):
-        pass
-
-    @staticmethod
-    def mse_prime(x, y):
-        pass
-
-    def forward(self, X, Y):
-        pass
-
-    def backward(self, gZ):
-        pass
 
 
 #==============================================================================

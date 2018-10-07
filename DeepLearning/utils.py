@@ -654,6 +654,9 @@ class SessionStatus:
                 self.status_call_count = 0
             self.print_status(step, err, acc)
 
+#==============================================================================
+# Classification functions
+#==============================================================================
 
 # Classification eval
 #------------------------------------------------------------------------------
@@ -713,3 +716,64 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
         accuracy = np.mean(scores)
 
     return accuracy
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                               Trainer
+#------------------------------------------------------------------------------
+#==============================================================================
+
+
+class Trainer:
+    """ manages the training for a model
+
+    Trainer accepts a model, along with an optimizer
+    and objective function, and trains it for the
+    specified number of steps.
+    """
+    def __init__(self, model, opt, obj,
+                 steps=1000, batch_size=6,
+                 eval_steps=30, verbose=False,
+                 rng_seed=RNG_SEED_DATA):
+        self.model = model
+        self.opt = opt
+        self.obj = obj
+        self.steps = steps
+        self.batch_size = batch_size
+        self.evaluation = evaluation
+        self.verbose = verbose
+        self.rng_seed = rng_seed
+
+    def init_sess_reporter(self):
+        """
+        NOTE: NEED TO HAVE MORE FLEXIBILITY WITH DATA
+              INPUT SHAPES
+
+        For CV: ask:
+          - do we want to use the same trainer object or
+            make new one each run?
+            - We could always make a CV-trainer,
+              which accepts a trainer instead of the normal
+              trainer args
+        """
+        pass
+
+    def evaluate(self, X_test):
+        pass
+
+    def train(self, X_train):
+        pass
+
+    def get_model(self):
+        return self.model
+
+    def get_opt(self):
+        return self.opt
+
+    def __call__(self):
+        pass
+
+
+
+
