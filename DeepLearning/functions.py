@@ -622,7 +622,7 @@ class Tanh(Function): # #
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Softmax(Function): # not v2 compliant
+class Softmax(Function): # #
     """ Softmax activation """
     @staticmethod
     def softmax(x):
@@ -631,19 +631,20 @@ class Softmax(Function): # not v2 compliant
         return exp_x / np.sum(exp_x, **kw)
 
     @staticmethod
-    def softmax_prime(y): # not v2 compliant
+    def softmax_prime(x):
         kw = {'axis':1, 'keepdims':True}
-        sqr_sum_y = np.square(y).sum(**kw)
-        return y - sqr_sum_y
+        expx = np.exp(x - x.max(**kw))
+        y = expx / np.sum(expx, **kw)
+        return y - np.sum(np.square(y), **kw)
 
     def forward(self, X):
+        self.cache = np.copy(X)
         Y = self.softmax(X)
-        self.cache = Y
         return Y
 
     def backward(self, gY):
-        Y = self.cache
-        gX = gY * self.softmax_prime(Y)
+        X = self.cache
+        gX = gY * self.softmax_prime(X)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
