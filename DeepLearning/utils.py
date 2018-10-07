@@ -39,6 +39,7 @@ import subprocess
 from functools import wraps
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 import layers
 import functions
@@ -775,5 +776,47 @@ class Trainer:
         pass
 
 
+#==============================================================================
+#------------------------------------------------------------------------------
+#                             Visualization
+#------------------------------------------------------------------------------
+#==============================================================================
+
+def plot_curve(y, step, c='b', accuracy=True, fsize=(12,6), title=None):
+    fig = plt.figure(figsize=fsize)
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('Iterations')
+    ylabel = 'Accuracy' if accuracy else 'Error'
+    ax.set_ylabel(ylabel)
+
+    cur = str(cur_iter)
+    plt.grid(True)
+    ax.plot(y,c=c)
+    if title is None:
+        title = 'Iteration: {}, loss: {.4f}'.format(step, y[-1])
+    ax.set_title(title)
+    return fig
 
 
+def save_loss_curves(save_path, lh, mname, val=False):
+    plt.close('all')
+    plt.figure(figsize=(16,8))
+    plt.grid()
+    if val:
+        pstart = 0
+        color = 'r'
+        title = '{}: {}'.format(mname, 'Validation Error')
+        label = 'median: {}'.format(np.median(lh))
+        spath = save_path + '_plot_validation'
+    else:
+        pstart = 200
+        color = 'b'
+        title = '{}: {}'.format(mname, 'Training Error')
+        label = 'median: {}'.format(np.median(lh[-150:]))
+        spath = save_path + '_plot_train'
+    plt.title(title)
+    plt.plot(lh[pstart:], c=color, label=label)
+    plt.legend()
+    plt.savefig(spath, bbox_inches='tight')
+    #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+    plt.close('all')
