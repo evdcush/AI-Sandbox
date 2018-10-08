@@ -1043,48 +1043,7 @@ class Dropout(Function):
         return gX
 
 
-#------------------------------------------------------------------------------
-# Normalization
-#------------------------------------------------------------------------------
 
-class LayerNormalization(Function):
-    """ Normalization routine defined on statistics from the summed
-        connections between a layer and a single input case
-    It is designed to overcome several drawbacks of batch normalization,
-    the most significant being the latter's dependence on batch-size
-
-    # see p.3 of orig article for func defs
-    #-----> https://arxiv.org/pdf/1607.06450.pdf
-
-    """
-
-    @staticmethod
-    def get_stats(x):
-        kw = {'axis':1, 'keepdims':True}
-        mu  = np.mean(x, **kw)
-        std = np.std(x, **kw) # (N, 1)
-        return mu, std
-
-    @staticmethod
-    def layer_norm(x, g, b):
-        mu, std = LayerNormalization.get_stats(np.copy(x))
-        lhs = g / std
-        rhs = (x - mu) + b
-        y = lhs * rhs
-        return y
-
-    @staticmethod
-    def layer_norm_prime(x, g, b):
-        pass
-
-
-    def forward(self, X, gain, bias):
-        self.cache = X, gain, bias
-        y = self.layer_norm(X, gain, bias)
-        return y
-
-    def backward(self, gY):
-        pass
 
 
 
@@ -1240,7 +1199,83 @@ class LSTM(Function):
 
 
 
+#------------------------------------------------------------------------------
+# Normalization
+#------------------------------------------------------------------------------
 
+class LayerNormalization(Function):
+    """ Normalization routine defined on statistics from the summed
+        connections between a layer and a single input case
+    It is designed to overcome several drawbacks of batch normalization,
+    the most significant being the latter's dependence on batch-size
+
+    # see p.3 of orig article for func defs
+    #-----> https://arxiv.org/pdf/1607.06450.pdf
+
+
+    # by hand
+    x : (N, D)
+    g : (D,)
+    b : (D,)
+    #---------
+
+    #===== Fwd
+    mu = np.mean(x, **kw) # (N, 1)
+    diff = x - mu
+    sqr_diff = diff**2
+    var = np.mean(sqr_diff, **kw) # (N, 1)
+    std = np.sqrt(var) # (N, 1)
+    #- - - - - - -
+    gds = g / std  # (N, D)
+    xmu = x - mu   # (N, D)
+    gdxm = gds * xmu
+    y = gdxm + b # (N, D)
+
+    #===== Bwd
+    #----> not sure about grads through stats, especially wrt x updates
+    dgdxm = gY
+    db = gY.sum(0)
+    dgds = dgdxm * xmu
+    dxmu = dgdxm * gds
+    dx  = dxmu
+    dmu = -dxmu # sum out here?
+    dg = dgds * -(1/np.square(std)) # or -1 / var
+    dstd = dgds * g
+
+    dvar = dstd * 1/(2*sqrt(var))
+    dsqr_diff = dvar * np.broadcast_to(sqr_diff, (x.shape)) / x.shape[1]
+    ddiff = dsqr_diff * 2*diff
+    dx += ddiff
+    dmu += -dxmu
+    dx += dmu * np.broadcast_to(mu, x.shape) / x.shape[1]
+
+
+    @staticmethod
+    def get_stats(x):
+        kw = {'axis':1, 'keepdims':True}
+        mu  = np.mean(x, **kw)
+        std = np.std(x, **kw) # (N, 1)
+        return mu, std
+
+    @staticmethod
+    def layer_norm(x, g, b):
+        mu, std = LayerNormalization.get_stats(np.copy(x))
+        y = (g / std) * (x - mu) + b
+        return y
+
+    @staticmethod
+    def layer_norm_prime(x, g, b):
+        pass
+
+
+    def forward(self, X, gain, bias):
+        self.cache = X, gain, bias
+        y = self.layer_norm(X, gain, bias)
+        return y
+
+    def backward(self, gY):
+        pass
+        """
 
 
 #==============================================================================
