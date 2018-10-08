@@ -287,16 +287,67 @@ class IrisDataset:
 
         # Seed, permute, and split
         np.random.seed(seed)
-        rand_idx = np.random.permutation(indices)
-        X_shuffled = X[rand_idx]
+        X_shuffled = np.random.permutation(np.copy(X))
         X_train, X_test = np.split(X_shuffled, split_idx)
-        if
+
         return X_train, X_test
 
+    @staticmethod
+    def get_batch(X, step, batch_size=1, test=False, split_idx=-1):
+        """ Batches samples from dataset X
+        ASSUMED: batch_size is a factor of the number of samples in X
+        #==== Training
+        - Batches are selected randomly *and without replacement* wrt
+          the previous batches. This is done based on current step:
+          - When current step has become a multiple of the number
+            of samples in X, the samples positions in X are
+            randomly shuffled.
+        #==== Testing
+        - Batches are selected in order, without any stochasticity.
+        - Batch size is flexible with testing, though the number
+          should still be a factor of the number of samples in X
+          Depending on your memory constraints:
+          - You can send the entire test set to your model
+            if you select a batch_size = number of samples
+          - Or you can simply feed the model one sample
+            (batch_size=1) at a time
+        Params
+        ------
+        X : ndarray, (N,...,K)
+            Full dataset (training or testing)
+        batch_size : int
+            number of samples in minibatch
+        step : int
+            current training iteration
+        split_idx : int
+            the index upon which X is split into features and labels
+        Returns
+        -------
+        x : ndarray, (batch_size, ...)
+            batch data features
+        y : ndarray.int32, (batch_size,)
+            batch ground truth labels (or class)
+        """
+        assert batch_size > 0 and isinstance(batch_size, int)
+        # Dims
+        N = X.shape[0]
+        b = batch_size if batch_size <= N else batch_size % N
+        # Subset indices
+        i = (b * step) % N  # start index [inclusive]
+        j = i + b           # end   index (exclusive)
+        # Check if we need to reshuffle (train only)
+        if i == 0 and not test:
+            np.random.shuffle(X)
+        # Batch and split data
+        batch = np.copy(X[i:j])
+        x, y = np.split(batch, [split_idx], axis=1)
+        y = y.astype(np.int32)
+        # Squeeze Y to 1D
+        y = np.squeeze(y) if b > 1 else y[:,0]
+        return x, y
 
-    def
 
-    def __init__(self, path=IRIS_DATA_PATH, )
+
 # Loading dataset from disk
 #------------------------------------------------------------------------------
 def load_dataset(path):
