@@ -24,9 +24,9 @@ arg_parser.print_args()
 
 # Load data
 #------------------
-X = utils.load_iris()
-X_train, X_test = utils.split_dataset(X)
-X = None
+iris_data = utils.IrisDataset()
+num_test_samples = iris_data.X_test.shape[0]
+
 
 #==============================================================================
 # Model, session config
@@ -58,7 +58,7 @@ opt = optimizer()
 
 # Model status reporter
 #------------------
-sess_status = SessionStatus(model, opt, objective, num_iters, X_test.shape[0])
+sess_status = SessionStatus(model, opt, objective, num_iters, num_test_samples)
 loss_tracker = np.zeros((num_iters, 2))
 
 
@@ -69,19 +69,18 @@ loss_tracker = np.zeros((num_iters, 2))
 t_start = time.time()
 np.random.seed(utils.RNG_SEED_DATA)
 
-
 for step in range(num_iters):
     plt.clf()
     # batch data
     #------------------
-    x, y = utils.get_batch(X_train, step, batch_size)
+    x, y = iris_data.get_batch(step, batch_size)
 
     # forward pass
     #------------------
     y_hat = model.forward(x)
     error, class_scores = objective(y_hat, y)
     accuracy = classification_accuracy(class_scores, y)
-    loss_tracker[step] = error, accuracy
+    #loss_tracker[step] = error, accuracy
     sess_status(step, error, accuracy, show=True)
 
     # backprop and update
@@ -98,27 +97,24 @@ t_finish = time.time()
 elapsed_time = (t_finish - t_start)
 sess_status.print_results(t=elapsed_time)
 
-code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
 #==============================================================================
 # Validation
 #==============================================================================
-'''
-# Instantiate model test results collections
-#------------------
-num_test_samples = X_test.shape[0]
 print('# Start testing\n#{}'.format('-'*78))
+
 # Test
 #------------------
 for i in range(num_test_samples):
-    x, y = utils.get_batch(X_test, i, test=True)
+    x, y = iris_data.get_batch(i, test=True)
 
     # forward pass
     #------------------
     y_hat = model.forward(x)
     error, class_scores = objective(y_hat, y)
     accuracy = utils.classification_accuracy(class_scores, y)
-    sess_status(i, error, accuracy, train=False)
+    sess_status(i, error, accuracy, test=True)
 
 
 # Finished test
@@ -131,4 +127,4 @@ sess_status.summarize_model(True, True)
 
 #trl, tel = sess_status.get_loss_history()
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-'''
+

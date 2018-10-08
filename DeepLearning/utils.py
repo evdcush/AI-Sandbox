@@ -215,7 +215,7 @@ IRIS = {'label' : 'iris',
         'path'  : DATA_PATH_ROOT.format('Iris/iris.npy'),
         'num_samples' : 150,
         'features_per_sample' : 4,
-        'feature_split_idx' : 3,
+        'feature_split_idx' : 4,
         'classes' : {0 : 'Iris-setosa',
                      1 : 'Iris-versicolor',
                      2 : 'Iris-virginica'},
@@ -234,34 +234,32 @@ class IrisDataset:
     path = IRIS_DATA_PATH
     num_samples = 150
     features_per_sample = 4
-    feature_split_idx = 3
+    feature_split_idx = 4
     classes = {0 : 'Iris-setosa', 1 : 'Iris-versicolor', 2 : 'Iris-virginica'}
-    def __init__(self, split_size=.8, seed=RNG_SEED_DATA, ):
-        pass
+    def __init__(self, split_size=.8, seed=RNG_SEED_DATA):
+        self._X = self.load_dataset()
+        self.X_train, self.X_test = self.split_dataset(split_size, seed)
 
-    @staticmethod
-    def load_dataset(path):
-        dataset = np.load(path)
+    @property
+    def X(self):
+        return np.copy(self._X)
+
+    @classmethod
+    def load_dataset(cls):
+        dataset = np.load(cls.path)
         return dataset
 
     # Split into Train/Test sets
     #-----------------------------
-    @staticmethod
-    def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
-        """ Splits a dataset (or array) into training and testing sets.
-        (this is only called if train and test sets have NOT been
-        serialized as separate files)
-
-        Indices are permuted rather than shuffling X. This guarantees
-        that we get consistent train/test splits in the case that
-        the test set has not been serialized.
-
+    def split_dataset(self, split_size=.8, seed=RNG_SEED_DATA):
+        """ Splits the dataset into training and testing sets.
+        Note: RNG_SEED_DATA was chosen because it evenly distributes
+              the number of Iris classes between train and test sets,
+              at split_size=.8
+              (eg, for both train and test, the number of samples for
+               num_setosa == num_versicolor == num_virginica)
         Params
         ------
-        X : ndarray
-            primary features dataset, split indices are instantiated
-            on the first axis of X.shape, which is assumed to be
-            the number of samples
         split_size : float
             split percentage where N * split_size total samples are used
             for training, and the remaining for testing.
@@ -279,23 +277,21 @@ class IrisDataset:
 
         """
         assert 0.0 < split_size < 1.0
-
-        # Get shape and indices
-        N = X.shape[0]
-        indices = np.arange(N)
-        split_idx = [int(N * split_size)]
+        # Split indices
+        split_idx = [int(self.num_samples * split_size)]
 
         # Seed, permute, and split
         np.random.seed(seed)
-        X_shuffled = np.random.permutation(np.copy(X))
+        X_shuffled = np.random.permutation(self.X)
         X_train, X_test = np.split(X_shuffled, split_idx)
-
         return X_train, X_test
 
-    @staticmethod
-    def get_batch(X, step, batch_size=1, test=False, split_idx=-1):
+    # Batching on dataset
+    #-----------------------------
+    def get_batch(self, step, batch_size=1, test=False):
         """ Batches samples from dataset X
         ASSUMED: batch_size is a factor of the number of samples in X
+
         #==== Training
         - Batches are selected randomly *and without replacement* wrt
           the previous batches. This is done based on current step:
@@ -303,24 +299,15 @@ class IrisDataset:
             of samples in X, the samples positions in X are
             randomly shuffled.
         #==== Testing
-        - Batches are selected in order, without any stochasticity.
-        - Batch size is flexible with testing, though the number
-          should still be a factor of the number of samples in X
-          Depending on your memory constraints:
-          - You can send the entire test set to your model
-            if you select a batch_size = number of samples
-          - Or you can simply feed the model one sample
-            (batch_size=1) at a time
+        - Batches are selected sequentially, with no randomness
+
         Params
         ------
-        X : ndarray, (N,...,K)
-            Full dataset (training or testing)
-        batch_size : int
-            number of samples in minibatch
         step : int
             current training iteration
-        split_idx : int
-            the index upon which X is split into features and labels
+        batch_size : int
+            number of samples in minibatch
+
         Returns
         -------
         x : ndarray, (batch_size, ...)
@@ -329,22 +316,29 @@ class IrisDataset:
             batch ground truth labels (or class)
         """
         assert batch_size > 0 and isinstance(batch_size, int)
-        # Dims
+
+        # Get corresponding set and dims
+        X = self.X_train if not test else self.X_test
         N = X.shape[0]
         b = batch_size if batch_size <= N else batch_size % N
-        # Subset indices
+        #==== Batching indices
         i = (b * step) % N  # start index [inclusive]
         j = i + b           # end   index (exclusive)
+
         # Check if we need to reshuffle (train only)
         if i == 0 and not test:
             np.random.shuffle(X)
+
         # Batch and split data
         batch = np.copy(X[i:j])
-        x, y = np.split(batch, [split_idx], axis=1)
+        x, y = np.split(batch, [self.feature_split_idx], axis=1)
         y = y.astype(np.int32)
-        # Squeeze Y to 1D
+        #==== Squeeze Y to 1D
         y = np.squeeze(y) if b > 1 else y[:,0]
         return x, y
+
+    def __call__(self,):
+        pass
 
 
 
@@ -363,7 +357,7 @@ def load_iris(path=IRIS_DATA_PATH):
 
 # Split into Train/Test sets
 #------------------------------------------------------------------------------
-def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
+def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
     """ Splits a dataset (or array) into training and testing sets.
     (this is only called if train and test sets have NOT been
     serialized as separate files)
@@ -378,10 +372,6 @@ def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
         primary features dataset, split indices are instantiated
         on the first axis of X.shape, which is assumed to be
         the number of samples
-    Y : ndarray, None
-        associated ground-truth vector or array containing the
-        classes for each feature in X. Assumed to be another
-        dimension to X unless specified
     split_size : float
         split percentage where N * split_size total samples are used
         for training, and the remaining for testing.
