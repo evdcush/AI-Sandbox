@@ -164,7 +164,7 @@ LOSS_TEST_FNAME  = RESULTS_BASE_NAME.format('test_error')
 # Parameters
 #------------------------------------------------------------------------------
 # Random seeds
-RNG_SEED_DATA   = 98765 # for shuffling data
+RNG_SEED_DATA   = 9959  # for shuffling data
 RNG_SEED_PARAMS = 12345 # seeding parameter inits
 
 # Hyperparameters
@@ -226,7 +226,77 @@ IRIS = {'label' : 'iris',
 # Dataset utils
 #==============================================================================
 
+class IrisDataset:
+    """ Maintains all info and utils related to the Iris dataset
+    Attributes are simply extracted from IRIS
+    """
+    label = 'iris'
+    path = IRIS_DATA_PATH
+    num_samples = 150
+    features_per_sample = 4
+    feature_split_idx = 3
+    classes = {0 : 'Iris-setosa', 1 : 'Iris-versicolor', 2 : 'Iris-virginica'}
+    def __init__(self, split_size=.8, seed=RNG_SEED_DATA, ):
+        pass
 
+    @staticmethod
+    def load_dataset(path):
+        dataset = np.load(path)
+        return dataset
+
+    # Split into Train/Test sets
+    #-----------------------------
+    @staticmethod
+    def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
+        """ Splits a dataset (or array) into training and testing sets.
+        (this is only called if train and test sets have NOT been
+        serialized as separate files)
+
+        Indices are permuted rather than shuffling X. This guarantees
+        that we get consistent train/test splits in the case that
+        the test set has not been serialized.
+
+        Params
+        ------
+        X : ndarray
+            primary features dataset, split indices are instantiated
+            on the first axis of X.shape, which is assumed to be
+            the number of samples
+        split_size : float
+            split percentage where N * split_size total samples are used
+            for training, and the remaining for testing.
+            NB: it's best to select a split size that evenly splits your
+                data.
+        seed : int
+            used for seeding numpy's random module for consistent splits
+            on X to produce training and testing sets
+
+        Returns
+        -------
+        X_train, X_test : ndarray,
+            train and test shapes, respectively are
+            (N * split_size, D), (N * (1 - split_size), D)
+
+        """
+        assert 0.0 < split_size < 1.0
+
+        # Get shape and indices
+        N = X.shape[0]
+        indices = np.arange(N)
+        split_idx = [int(N * split_size)]
+
+        # Seed, permute, and split
+        np.random.seed(seed)
+        rand_idx = np.random.permutation(indices)
+        X_shuffled = X[rand_idx]
+        X_train, X_test = np.split(X_shuffled, split_idx)
+        if
+        return X_train, X_test
+
+
+    def
+
+    def __init__(self, path=IRIS_DATA_PATH, )
 # Loading dataset from disk
 #------------------------------------------------------------------------------
 def load_dataset(path):
@@ -286,8 +356,7 @@ def split_dataset(X, Y=None, split_size=.8, seed=RNG_SEED_DATA):
 
     # Seed, permute, and split
     np.random.seed(seed)
-    rand_idx = np.random.permutation(indices)
-    X_shuffled = X[rand_idx]
+    X_shuffled = np.random.permutation(X)
     X_train, X_test = np.split(X_shuffled, split_idx)
     return X_train, X_test
 
