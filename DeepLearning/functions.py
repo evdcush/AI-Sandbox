@@ -1061,7 +1061,7 @@ ACTIVATIONS = {'sigmoid'  : Sigmoid,
                 'tanh'    : Tanh,
                 'softmax' : Softmax,
                 'relu'    : ReLU,
-                'softplus': SoftPlus
+                'softplus': SoftPlus,
                 'elu'     : ELU,
                 'selu'    : SeLU,
                 'swish'   : Swish,
