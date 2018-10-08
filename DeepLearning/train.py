@@ -20,7 +20,7 @@ from network import NeuralNetwork
 # config contains all model and session setup options
 arg_parser = utils.Parser()
 config = arg_parser.parse_args()
-arg_parser.print_args()
+#arg_parser.print_args()
 
 # Load data
 #------------------
@@ -44,6 +44,7 @@ learning_rate = config.learn_rate # 0.01, omitted, opt defaults well configured
 #------------------
 num_iters  = config.num_iters
 batch_size = config.batch_size
+verbose = config.verbose
 
 
 # Model initialization
@@ -80,8 +81,7 @@ for step in range(num_iters):
     y_hat = model.forward(x)
     error, class_scores = objective(y_hat, y)
     accuracy = classification_accuracy(class_scores, y)
-    #loss_tracker[step] = error, accuracy
-    sess_status(step, error, accuracy, show=True)
+    sess_status(step, error, accuracy, show=verbose)
 
     # backprop and update
     #------------------
@@ -95,14 +95,14 @@ for step in range(num_iters):
 # Summary info
 t_finish = time.time()
 elapsed_time = (t_finish - t_start)
-sess_status.print_results(t=elapsed_time)
+#sess_status.print_results(t=elapsed_time)
 
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
 #==============================================================================
 # Validation
 #==============================================================================
-print('# Start testing\n#{}'.format('-'*78))
+#print('# Start testing\n#{}'.format('-'*78))
 
 # Test
 #------------------
@@ -114,7 +114,7 @@ for i in range(num_test_samples):
     y_hat = model.forward(x)
     error, class_scores = objective(y_hat, y)
     accuracy = utils.classification_accuracy(class_scores, y)
-    sess_status(i, error, accuracy, test=True)
+    sess_status(i, error, accuracy, show=verbose, test=True)
 
 
 # Finished test
@@ -122,7 +122,7 @@ for i in range(num_test_samples):
 # Summary info
 
 # Print training summary
-print('\n# Finished Testing\n#{}'.format('-'*78))
+#print('\n# Finished Testing\n#{}'.format('-'*78))
 sess_status.summarize_model(True, True)
 
 #trl, tel = sess_status.get_loss_history()

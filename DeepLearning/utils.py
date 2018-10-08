@@ -566,6 +566,7 @@ class Parser:
         adg('--num_iters',  '-i', type=int, default=2000)
         adg('--batch_size', '-b', type=int, default=6)
         adg('--verbose',    '-v', **self.p_bool, default=1) # print error
+        #adg('--strict',     '-k', **self.p_bool, default=0) # affects accuracy function
         #adg('--restore',    '-r', **self.p_bool) # later
         #adg('--checkpoint', '-p', type=int, default=100) # later
         self.parse_args()
@@ -579,8 +580,8 @@ class Parser:
     def interpret_args(self, parsed):
         # Bool args
         #-----------------------------
-        parsed.dropout = parsed.dropout == 1
-        parsed.verbose = parsed.verbose == 1
+        parsed.dropout = bool(parsed.dropout)
+        parsed.verbose = bool(parsed.verbose)
 
         # Activation
         #----------------------------
@@ -798,7 +799,7 @@ class SessionStatus:
     def __call__(self, step, err, acc, show=True, freq=100, test=False):
         loss_hist = self.test_history if test else self.train_history
         loss_hist[step] = err, acc
-        if test or (show and ((step+1) % freq == 0)):
+        if show and (test or ((step+1) % freq == 0)):
             if test and step == 0:
                 self.status_call_count = 0
             self.print_status(step, err, acc)

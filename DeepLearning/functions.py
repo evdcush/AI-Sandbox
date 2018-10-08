@@ -673,8 +673,9 @@ class ReLU(Function): #
 
 class ELU(Function): #
     """ Exponential Linear Unit """
-    def __init__(self, alpha=1.0):
+    def __init__(self, *args, alpha=1.0, **kwargs):
         self.alpha = alpha
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def elu(x, alpha):
