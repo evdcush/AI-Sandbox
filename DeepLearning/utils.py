@@ -455,6 +455,7 @@ class Parser:
         # ==== Training variables
         adg('--num_iters',  '-i', type=int, default=2000)
         adg('--batch_size', '-b', type=int, default=6)
+        adg('--verbose',    '-v', **self.p_bool, default=1) # print error
         #adg('--restore',    '-r', **self.p_bool) # later
         #adg('--checkpoint', '-p', type=int, default=100) # later
         self.parse_args()
@@ -466,9 +467,10 @@ class Parser:
         return parsed
 
     def interpret_args(self, parsed):
-        # Dropout
+        # Bool args
         #-----------------------------
         parsed.dropout = parsed.dropout == 1
+        parsed.verbose = parsed.verbose == 1
 
         # Activation
         #----------------------------
@@ -627,33 +629,70 @@ class SessionStatus:
         i = step + 1
         e, a = float(err), float(acc)
         status = body.format(i, e, a)
+        #==== Only print title on first call
         if self.status_call_count == 0:
-            #d = '-' * len(title)
-            #print('\n\n{}\n{}'.format(title, d))
             print('\n\n{}'.format(title))
-            #print('{:<5}: {:^7}  |  {:^7}'.format('Step', 'Error', 'Accuracy'))
-        #status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
         print(status)
         self.status_call_count += 1
 
-    @staticmethod
-    def print_status_inline(step, err, acc):
-        """ WIP """
-        return
-        i = step + 1
-        e, a = float(err), float(acc)
-        sys.stdout.write('\r')
-        sys.stdout.write('{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a))
-        sys.stdout.flush()
+    def plot_results(self, train=True, test=False):
+        # Get plot info and subplots
+        #------------------------------
+        nplots = train + test # either 1 or 2
+        assert nplots in [1,2]
+        fig, axes = plt.subplots(nplots, 2)
 
-    def __call__(self, step, err, acc,
-                 train=True, pstatus=True, pfreq=100):
-        loss_hist = self.train_history if train else self.test_history
+
+        # Train and Test
+        if nplots == 2:
+            x = self.train_history
+            y = self.test_history
+            #==== Training plot
+            axes[0, 0].plot(x[:,0], label=self.obj_name + ' Error')
+            axes[0, 1].plot(x[:,1], label='Accuracy')
+            #==== Test histogram
+            axes[1, 0].hist(y[:,0], label=self.obj_name + ' Error')
+            axes[1, 1].hist(y[:,1], label='Accuracy')
+
+        # Train or Test
+        else:
+            if train:
+                x = self.train_history
+                num_samp = x.shape[0]
+
+                # Curve smoothing
+                #------------------------
+                err_min, acc_min = x.min(axis=0)
+                err_max, acc_max = x.max(axis=0)
+                lsp_err = np.linspace(err_min, err_max, num_samp)
+                lsp_acc = np.linspace(acc_min, acc_max, num_samp)
+                #==== fit polynomial
+                poly = np.poly1d(np.polyfit(np.arange(num_samp), x, 3))
+
+
+
+                #====
+
+
+            #y = self.test_history
+            #fig, (train_ax, test_ax) = plt.subplots(2, 2)
+            fig, (eax, aax) = plt.subplots(1,2)
+            #==== Training plot
+            eax.plot(x[:,0], label=self.obj_name + ' Error')
+            aax.plot(x[:,1], label=self.obj_name + ' Accuracy')
+            ##==== Test histogram
+            #test_ax[1, 0].hist(y[:,0], label=self.obj_name + ' Error')
+            #test_ax[1, 1].hist(y[:,1], label=self.obj_name + ' Accuracy')
+        plt.show()
+
+    def __call__(self, step, err, acc, show=True, freq=100, test=False):
+        loss_hist = self.test_history if test else self.train_history
         loss_hist[step] = err, acc
-        if not train or (pstatus and ((step+1) % pfreq == 0)):
-            if not train and step == 0:
+        if test or (show and ((step+1) % freq == 0)):
+            if test and step == 0:
                 self.status_call_count = 0
             self.print_status(step, err, acc)
+
 
 #==============================================================================
 # Classification functions
@@ -782,6 +821,68 @@ class Trainer:
 #------------------------------------------------------------------------------
 #==============================================================================
 
+class Printer:
+    def print_status(self, step, err, acc):
+        title = '{:<5}:  {:^7}   |  {:^7}'.format('STEP', 'ERROR', 'ACCURACY')
+        body  = '{:>5}:  {:.5f}   |   {:.4f}'
+        i = step + 1
+        e, a = float(err), float(acc)
+        status = body.format(i, e, a)
+        if self.status_call_count == 0:
+            #d = '-' * len(title)
+            #print('\n\n{}\n{}'.format(title, d))
+            print('\n\n{}'.format(title))
+            #print('{:<5}: {:^7}  |  {:^7}'.format('Step', 'Error', 'Accuracy'))
+        #status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
+        print(status)
+        self.status_call_count += 1
+
+    def print_results(self, train=True, t=None):
+        d2 = self.div2
+        num_tr = self.num_iters
+        num_test = self.num_test
+        header = '\n# {} results, {} {}\n' + d2
+        # Format header based on training or test
+        if train:
+            header = header.format('Training', num_tr, 'iterations')
+            f20 = int(num_tr * .8)
+            loss_hist = self.train_history[f20:]
+        else:
+            header = header.format('Test', num_test, 'samples')
+            loss_hist = self.test_history
+
+        # Get stats on loss hist
+        avg = np.mean(  np.copy(loss_hist), axis=0)
+        q50 = np.median(np.copy(loss_hist), axis=0)
+
+        # Print results
+        print(header)
+        if t is not None:
+            print('Elapsed time: {}'.format(t))
+        print('            Error  |  Accuracy')
+        print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
+        print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
+        print(d2)
+
+    def summarize_model(self, train_results=False, test_results=False):
+        arch = self.network_arch
+        opt = self.opt_name
+        obj = self.obj_name
+        d1  = self.div1 #=====
+        d2  = self.div2 #-----
+        print(d1)
+        print('# Model Summary: \n')
+        print(arch)
+        print('- OPTIMIZER : {}'.format(opt))
+        print('- OBJECTIVE : {}'.format(obj))
+        if train_results:
+            self.print_results(train=True)
+        if test_results:
+            self.print_results(train=False)
+        print(d1)
+
+
+
 def plot_curve(y, step, c='b', accuracy=True, fsize=(12,6), title=None):
     fig = plt.figure(figsize=fsize)
     ax = fig.add_subplot(111)
@@ -791,7 +892,7 @@ def plot_curve(y, step, c='b', accuracy=True, fsize=(12,6), title=None):
 
     cur = str(cur_iter)
     plt.grid(True)
-    ax.plot(y,c=c)
+    ax.plot(y, c=c)
     if title is None:
         title = 'Iteration: {}, loss: {.4f}'.format(step, y[-1])
     ax.set_title(title)

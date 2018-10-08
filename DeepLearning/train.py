@@ -4,6 +4,12 @@ import time
 import sys
 import code
 import numpy as np
+#from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+#import pylab as plt
+#plt.style.use('ggplot')
+#plt.style.use('bmh')
+#plt.ion()
 
 import utils
 from utils import SessionStatus, classification_accuracy
@@ -53,15 +59,19 @@ opt = optimizer()
 # Model status reporter
 #------------------
 sess_status = SessionStatus(model, opt, objective, num_iters, X_test.shape[0])
+loss_tracker = np.zeros((num_iters, 2))
 
 
+#plt.ion()
 #==============================================================================
 # Train
 #==============================================================================
 t_start = time.time()
 np.random.seed(utils.RNG_SEED_DATA)
 
+
 for step in range(num_iters):
+    plt.clf()
     # batch data
     #------------------
     x, y = utils.get_batch(X_train, step, batch_size)
@@ -71,7 +81,8 @@ for step in range(num_iters):
     y_hat = model.forward(x)
     error, class_scores = objective(y_hat, y)
     accuracy = classification_accuracy(class_scores, y)
-    sess_status(step, error, accuracy)
+    loss_tracker[step] = error, accuracy
+    sess_status(step, error, accuracy, show=True)
 
     # backprop and update
     #------------------
@@ -87,10 +98,12 @@ t_finish = time.time()
 elapsed_time = (t_finish - t_start)
 sess_status.print_results(t=elapsed_time)
 
+code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
 #==============================================================================
 # Validation
 #==============================================================================
-
+'''
 # Instantiate model test results collections
 #------------------
 num_test_samples = X_test.shape[0]
@@ -118,3 +131,4 @@ sess_status.summarize_model(True, True)
 
 #trl, tel = sess_status.get_loss_history()
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+'''
