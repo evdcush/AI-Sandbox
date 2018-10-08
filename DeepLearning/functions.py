@@ -671,6 +671,29 @@ class ReLU(Function): #
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class SoftPlus(Function): #
+    """ Softplus activation : smooth relu """
+    @staticmethod
+    def softplus(x):
+        return np.log(1 + np.exp(x))
+
+    @staticmethod
+    def softplus_prime(x):
+        exp_x = np.exp(x)
+        return exp_x / (1 + exp_x)
+
+    def forward(self, X):
+        self.cache = np.copy(X)
+        Y = self.softplus(X)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = gY * self.softplus_prime(X)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 class ELU(Function): #
     """ Exponential Linear Unit """
     def __init__(self, *args, alpha=1.0, **kwargs):
