@@ -42,8 +42,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import layers
+import network
 import functions
 import optimizers
+
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -207,7 +209,7 @@ DEFAULT_CONFIGURATION = [
 ('i', 'num_iters',  2000, 'number of training iterations'),
 ('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
 ('v', 'verbose',    False, 'print model error while actively training'),
-('_', 'dummy',   False, 'dummy var workaround for notebook error'),
+('_', 'dummy', False, 'dummy var workaround for notebook error'),
 ]
 
 
@@ -928,7 +930,7 @@ class Trainer:
     def init_network(self, act, use_dropout=False):
         """ seed and instantiate network """
         np.random.seed(self.rng_seed)
-        self.model = NeuralNetwork(self.channels, act, use_dropout)
+        self.model = network.NeuralNetwork(self.channels, act, use_dropout)
 
     def init_dataset(self):
         self.dataset = IrisDataset()
@@ -960,7 +962,7 @@ class Trainer:
             # forward pass
             #------------------
             y_hat = self.model.forward(x)
-            error, class_scores = objective(y_hat, y)
+            error, class_scores = self.obj(y_hat, y)
             accuracy = classification_accuracy(class_scores, y)
             self.session_status(step, error, accuracy, show=v)
 
@@ -968,7 +970,7 @@ class Trainer:
             #------------------
             grad_loss = self.obj(error, backprop=True)
             self.model.backward(grad_loss)
-            self.model.update(opt)
+            self.model.update(self.opt)
 
     def evaluate(self):
         num_steps = self.dataset.X_test.shape[0]
