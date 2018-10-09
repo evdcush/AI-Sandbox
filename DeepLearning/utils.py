@@ -522,113 +522,42 @@ def to_one_hot(Y, num_classes=len(IRIS['classes'])):
 #------------------------------------------------------------------------------
 #==============================================================================
 
-
-'''
-adg = self.P.add_argument
-chans = [4, 64, len(IRIS['classes'])]
-# ==== Data variables
-adg('data_path',  'p', type=str, default=DATA_PATH_ROOT,)
-adg('seed',       's', type=int, default=RNG_SEED_PARAMS,)
-adg('model_name', 'm', type=str, default=MODEL_NAME_BASE,)
-adg('name_suffix','n', type=str, default='')
 # ==== Model parameter variables
+
 #adg('--connection', '-k', type=str, default='dense') # only is dense..
-adg('activation', 'a', type=str, default='sigmoid')
-adg('dropout',    'd', **self.p_bool, default=0)
-adg('optimizer',  'o', type=str, default='sgd')
-adg('objective',  'j', type=str, default='logistic_cross_entropy')
-adg('channels',   'c', type=int, default=chans, nargs='+')
-adg('learn_rate', 'l', type=float, default=LEARNING_RATE)
-# ==== Training variables
-adg('num_iters',  '-i', type=int, default=2000)
-adg('batch_size', '-b', type=int, default=6)
-adg('verbose',    '-v', **self.p_bool, default=1) # print error
 #adg('--strict',     '-k', **self.p_bool, default=0) # affects accuracy function
 #adg('--restore',    '-r', **self.p_bool) # later
 #adg('--checkpoint', '-p', type=int, default=100) # later
-self.parse_args()
-'''
+# ==== Training variables
 
-class Config:
-    """ Wrapper for argparse parser
-    """
-    # argparse does not like type=bool; this is a workaround
-    p_bool = {'type':int, 'choices':[0,1]}
+chans = [4, 64, len(IRIS['classes'])]
 
-    def __init__(self):
-        adg = self.P.add_argument
-        chans = [4, 64, len(IRIS['classes'])]
-        # ==== Data variables
-        adg('--data_path',  '-p', type=str, default=DATA_PATH_ROOT,)
-        adg('--seed',       '-s', type=int, default=RNG_SEED_PARAMS,)
-        adg('--model_name', '-m', type=str, default=MODEL_NAME_BASE,)
-        adg('--name_suffix','-n', type=str, default='')
+# Configuration
+#--------------------------------
+# format: [short_key, key, default_value, help_text]
 
-        # ==== Model parameter variables
-        #adg('--connection', '-k', type=str, default='dense') # only is dense..
-        adg('--activation', '-a', type=str, default='sigmoid')
-        adg('--dropout',    '-d', **self.p_bool, default=0)
-        adg('--optimizer',  '-o', type=str, default='sgd')
-        adg('--objective',  '-j', type=str, default='logistic_cross_entropy')
-        adg('--channels',   '-c', type=int, default=chans, nargs='+')
-        adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
+configuration = [
+# ==== Data variables
+('p', 'data_path',  DATA_PATH_ROOT,  'relative path to dataset file'),
+('s', 'seed',       RNG_SEED_PARAMS, 'int used for seeding random state'),
+('m', 'model_name', MODEL_NAME_BASE, 'name to which model params saved'),
+('n', 'name_suff',  '', 'label or tag suffixing model name'),
+# ==== Model variables
+('a', 'activation', 'sigmoid', '(lower-cased) activation func name'),
+('d', 'dropout',    False, 'Whether to use dropout'),
+('o', 'optimizer',  'sgd', '(lower-cased) optimizer name'),
+('j', 'objective',  'softmax_cross_entropy', '(lower-cased) loss func name'),
+('c', 'channels',   chans, 'list(int) layer sizes; more channels-->deeper'),
+('l', 'learn_rate', LEARNING_RATE, 'optimizer learning rate'),
+# ==== Training/session variables
+('i', 'num_iters',  2000, 'number of training iterations'),
+('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
+('v', 'verbose',    False, 'print model error while actively training'),
+]
 
-        # ==== Training variables
-        adg('--num_iters',  '-i', type=int, default=2000)
-        adg('--batch_size', '-b', type=int, default=6)
-        adg('--verbose',    '-v', **self.p_bool, default=1) # print error
-        #adg('--strict',     '-k', **self.p_bool, default=0) # affects accuracy function
-        #adg('--restore',    '-r', **self.p_bool) # later
-        #adg('--checkpoint', '-p', type=int, default=100) # later
-        self.parse_args()
 
-    def parse_args(self):
-        parsed = AttrDict(vars(self.P.parse_args()))
-        #parsed.restore = bool(parsed.restore)
-        self.args = self.interpret_args(parsed)
-        return parsed
 
-    def interpret_args(self, parsed):
-        # Bool args
-        #-----------------------------
-        parsed.dropout = bool(parsed.dropout)
-        parsed.verbose = bool(parsed.verbose)
 
-        # Activation
-        #----------------------------
-        pact = parsed.activation
-        #==== Check if parameterized activation (Swish)
-        activation = layers.PARAMETRIC_FUNCTIONS.get(pact, None)
-        if activation is None:
-            #==== Check if valid activation Function
-            activation = functions.ACTIVATIONS.get(pact, None)
-            if activation is None:
-                # if None again, parsed activation arg is undefined in domain
-                raise NotImplementedError('{} is undefined'.format(pact))
-        # assign proper activation class
-        parsed.activation = activation
-
-        # Optimizer
-        #----------------------------
-        popt = parsed.optimizer
-        opt = optimizers.get_optimizer(popt) # raises ValueError if not defined
-        parsed.optimizer = opt
-
-        # Objective
-        #----------------------------
-        pobj = parsed.objective
-        objective = functions.OBJECTIVES.get(pobj, None)
-        if objective is None: # then objective not in functions
-            raise NotImplementedError('{} is undefined'.format(pobj))
-        parsed.objective = objective
-        return parsed
-
-    def print_args(self):
-        print('SESSION CONFIG\n{}'.format('='*79))
-        margin = len(max(self.args, key=len)) + 1
-        for k,v in self.args.items():
-            print('{:>{margin}}: {}'.format(k,v, margin=margin))
-        print('\n')
 
 
 class Parser:
