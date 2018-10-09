@@ -951,7 +951,6 @@ class Trainer:
         num_test = self.dataset.X_test.shape[0]
         self.session_status = SessionStatus(model, opt, obj, steps, num_test)
 
-
     def train(self):
         v = self.verbose
         for step in range(self.steps):
@@ -991,71 +990,109 @@ class Trainer:
         self.session_status.summarize_model(True, True)
 
 
+class CVTrainer(Trainer):
+    """ Trainer subclass specialized for parameter searches using simple
+    cross-validation routine
+    """
+    def __init__(self, channels, opt, obj, activation,
+                 steps=1000, batch_size=6, dropout=False,
+                 verbose=False, rng_seed=RNG_SEED_PARAMS):
+        self.channels = channels
+        self.opt = opt()
+        self.obj = obj()
+        self.activation = activation
+        self.steps = steps
+        self.batch_size = batch_size
+        self.verbose = verbose
+        self.rng_seed = rng_seed
+        self.init_network(activation, dropout)
+        #self.init_dataset()
+        #self.init_session_status()
+
+    def init_network(self, act, use_dropout=False):
+        """ seed and instantiate network """
+        np.random.seed(self.rng_seed)
+        self.model = network.NeuralNetwork(self.channels, act, use_dropout)
+
+    def init_dataset(self):
+        pass
+
+    def init_session_status(self):
+        pass
+
+    def train(self, dataset):
+        v = self.verbose
+        for step in range(self.steps):
+            # batch data
+            #------------------
+            x, y = get_batch(dataset, step, self.batch_size, test=False)
+
+            # forward pass
+            #------------------
+            y_hat = self.model.forward(x)
+            error, class_scores = self.obj(y_hat, y)
+            accuracy = classification_accuracy(class_scores, y)
+            self.train_history(step, error, accuracy)
+
+            # backprop and update
+            #------------------
+            grad_loss = self.obj(error, backprop=True)
+            self.model.backward(grad_loss)
+            self.model.update(self.opt)
+
+
+    def evaluate(self, test_set):
+        num_steps = test_set.shape[0]
+        for i in range(num_steps):
+            x, y = get_batch(test_set, i, test=True)
+
+            # forward pass
+            #------------------
+            y_hat = self.model.forward(x)
+            error, class_scores = self.obj(y_hat, y)
+            accuracy = classification_accuracy(class_scores, y)
+            self.test_history(i, error, accuracy)
+
+    def summarize_results(self):
+        seed = self.rng_seed
+        d2 = self.div2
+        num_tr = self.num_iters
+        num_test = self.num_test
+        header = '\n# {} results, seed: {}\n' + d2
+        header = header.format('Model', self.rng_seed)
+
+        # Get stats on train history
+        #  skip first 100 iters
+        avg = np.mean(  np.copy(self.train_history[100:]), axis=0)
+        q50 = np.median(np.copy(self.train_history[100:]), axis=0)
+
+        tavg = np.mean(np.copy(self.test_history), axis=0)
+        tq50 = np.median(np.copy(self.test_history), axis=0)
+
+        # Print results
+        print(header)
+        print('   TRAIN     Error  |  Accuracy')
+        print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
+        print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
+        print(d2)
+        print('    TEST     Error  |  Accuracy')
+        print('* Average: {:.5f} | {:.5f}'.format(tavg[0], tavg[1]))
+        print('*  Median: {:.5f} | {:.5f}'.format(tq50[0], tq50[1]))
+        print(d2)
+
+    def __call__(self, train_set, test_set):
+        num_test  = test_set.shape[0]
+        self.train_history = np.zeros((self.num_iters, 2)).astype(np.float32)
+        self.test_history  = np.zeros((num_test, 2)).astype(np.float32)
+        self.train(train_set)
+        self.evaluate(test_set)
+
+
 #==============================================================================
 #------------------------------------------------------------------------------
 #                             Visualization
 #------------------------------------------------------------------------------
 #==============================================================================
-
-class Printer:
-    def print_status(self, step, err, acc):
-        title = '{:<5}:  {:^7}   |  {:^7}'.format('STEP', 'ERROR', 'ACCURACY')
-        body  = '{:>5}:  {:.5f}   |   {:.4f}'
-        i = step + 1
-        e, a = float(err), float(acc)
-        status = body.format(i, e, a)
-        if self.status_call_count == 0:
-            #d = '-' * len(title)
-            #print('\n\n{}\n{}'.format(title, d))
-            print('\n\n{}'.format(title))
-            #print('{:<5}: {:^7}  |  {:^7}'.format('Step', 'Error', 'Accuracy'))
-        #status = '{:>5}: {:.5f}  |  {:.4f}'.format(i, e, a)
-        print(status)
-        self.status_call_count += 1
-
-    def print_results(self, train=True, t=None):
-        d2 = self.div2
-        num_tr = self.num_iters
-        num_test = self.num_test
-        header = '\n# {} results, {} {}\n' + d2
-        # Format header based on training or test
-        if train:
-            header = header.format('Training', num_tr, 'iterations')
-            f20 = int(num_tr * .8)
-            loss_hist = self.train_history[f20:]
-        else:
-            header = header.format('Test', num_test, 'samples')
-            loss_hist = self.test_history
-
-        # Get stats on loss hist
-        avg = np.mean(  np.copy(loss_hist), axis=0)
-        q50 = np.median(np.copy(loss_hist), axis=0)
-
-        # Print results
-        print(header)
-        if t is not None:
-            print('Elapsed time: {}'.format(t))
-        print('            Error  |  Accuracy')
-        print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
-        print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
-        print(d2)
-
-    def summarize_model(self, train_results=False, test_results=False):
-        arch = self.network_arch
-        opt = self.opt_name
-        obj = self.obj_name
-        d1  = self.div1 #=====
-        d2  = self.div2 #-----
-        print(d1)
-        print('# Model Summary: \n')
-        print(arch)
-        print('- OPTIMIZER : {}'.format(opt))
-        print('- OBJECTIVE : {}'.format(obj))
-        if train_results:
-            self.print_results(train=True)
-        if test_results:
-            self.print_results(train=False)
-        print(d1)
 
 
 
