@@ -908,25 +908,33 @@ class Trainer:
 
     Trainer accepts a model, along with an optimizer
     and objective function, and trains it for the
-    specified number of steps.
+    specified number of steps using a DataSet.
     """
-    def __init__(self, channels, opt, obj,
+    def __init__(self, channels, opt, obj, activation,
                  steps=1000, batch_size=6, dropout=False,
-                 verbose=False, rng_seed=RNG_SEED_DATA):
+                 verbose=False, rng_seed=RNG_SEED_PARAMS):
         self.channels = channels
         self.opt = opt()
         self.obj = obj()
+        self.activation = activation
         self.steps = steps
         self.batch_size = batch_size
         self.verbose = verbose
         self.rng_seed = rng_seed
-        self.model = NeuralNetwork(channels, activation, use_dropout=dropout)
+        self.init_network(activation, dropout)
+        self.init_dataset()
+        self.init_session_status()
 
-    def init_sess_reporter(self):
+    def init_network(self, act, use_dropout=False):
+        """ seed and instantiate network """
+        np.random.seed(self.rng_seed)
+        self.model = NeuralNetwork(self.channels, act, use_dropout)
+
+    def init_dataset(self):
+        self.dataset = IrisDataset()
+
+    def init_session_status(self):
         """
-        NOTE: NEED TO HAVE MORE FLEXIBILITY WITH DATA
-              INPUT SHAPES
-
         For CV: ask:
           - do we want to use the same trainer object or
             make new one each run?
@@ -934,22 +942,51 @@ class Trainer:
               which accepts a trainer instead of the normal
               trainer args
         """
-        pass
+        model = self.model
+        opt = self.opt
+        obj = self.obj
+        steps = self.steps
+        num_test = self.dataset.X_test.shape[0]
+        self.session_status = SessionStatus(model, opt, obj, steps, num_test)
 
-    def evaluate(self, X_test):
-        pass
 
-    def train(self, X_train):
-        pass
+    def train(self):
+        v = self.verbose
+        for step in range(self.steps):
+            # batch data
+            #------------------
+            x, y = self.dataset.get_batch(step, self.batch_size)
 
-    def get_model(self):
-        return self.model
+            # forward pass
+            #------------------
+            y_hat = self.model.forward(x)
+            error, class_scores = objective(y_hat, y)
+            accuracy = classification_accuracy(class_scores, y)
+            self.session_status(step, error, accuracy, show=v)
 
-    def get_opt(self):
-        return self.opt
+            # backprop and update
+            #------------------
+            grad_loss = self.obj(error, backprop=True)
+            self.model.backward(grad_loss)
+            self.model.update(opt)
+
+    def evaluate(self):
+        num_steps = self.dataset.X_test.shape[0]
+        v = self.verbose
+        for i in range(num_steps):
+            x, y = self.dataset.get_batch(i, test=True)
+
+            # forward pass
+            #------------------
+            y_hat = self.model.forward(x)
+            error, class_scores = self.obj(y_hat, y)
+            accuracy = classification_accuracy(class_scores, y)
+            self.session_status(i, error, accuracy, show=v, test=True)
 
     def __call__(self):
-        pass
+        self.train()
+        self.evaluate()
+        self.session_status.summarize_model(True, True)
 
 
 #==============================================================================
