@@ -636,6 +636,7 @@ class Parser:
         parsed.objective = objective
         return parsed
 
+
     def print_args(self):
         print('SESSION CONFIG\n{}'.format('='*79))
         margin = len(max(self.args, key=len)) + 1
@@ -718,7 +719,8 @@ class SessionStatus:
         # Format header based on training or test
         if train:
             header = header.format('Training', num_tr, 'iterations')
-            f20 = int(num_tr * .8)
+            #f20 = int(num_tr * .8)
+            f20 = int(num_tr * .4)
             loss_hist = self.train_history[f20:]
         else:
             header = header.format('Test', num_test, 'samples')
@@ -908,20 +910,17 @@ class Trainer:
     and objective function, and trains it for the
     specified number of steps.
     """
-    __slots__ = 'model', 'opt', 'obj', 'steps', 'batch_size', 'eval_steps',
-                'verbose', 'rng_seed'
-    def __init__(self, model, opt, obj,
-                 steps=1000, batch_size=6,
-                 eval_steps=30, verbose=False,
-                 rng_seed=RNG_SEED_DATA):
-        self.model = model
-        self.opt = opt
-        self.obj = obj
+    def __init__(self, channels, opt, obj,
+                 steps=1000, batch_size=6, dropout=False,
+                 verbose=False, rng_seed=RNG_SEED_DATA):
+        self.channels = channels
+        self.opt = opt()
+        self.obj = obj()
         self.steps = steps
         self.batch_size = batch_size
-        self.evaluation = evaluation
         self.verbose = verbose
         self.rng_seed = rng_seed
+        self.model = NeuralNetwork(channels, activation, use_dropout=dropout)
 
     def init_sess_reporter(self):
         """

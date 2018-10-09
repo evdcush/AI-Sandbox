@@ -20,7 +20,7 @@ from network import NeuralNetwork
 # config contains all model and session setup options
 arg_parser = utils.Parser()
 config = arg_parser.parse_args()
-#arg_parser.print_args()
+arg_parser.print_args()
 
 # Load data
 #------------------
