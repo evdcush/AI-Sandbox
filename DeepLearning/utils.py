@@ -62,6 +62,7 @@ class AttrDict(dict):
     """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 #------------------------------------------------------------------------------
@@ -134,7 +135,6 @@ def INSPECT(f):
 
 # Pathing
 #------------------------------------------------------------------------------
-
 # Data pathing
 # ========================================
 DATA_PATH_ROOT = './data/'
@@ -161,56 +161,10 @@ LOSS_TRAIN_FNAME = RESULTS_BASE_NAME.format('train_error')
 LOSS_TEST_FNAME  = RESULTS_BASE_NAME.format('test_error')
 
 
-# Parameters
+# Dataset features
 #------------------------------------------------------------------------------
-# Random seeds
-RNG_SEED_DATA   = 9959  # for shuffling data
-RNG_SEED_PARAMS = 12345 # seeding parameter inits
-
-# Hyperparameters
-LEARNING_RATE = 0.01
-
-#==============================================================================
-#------------------------------------------------------------------------------
-#                              Dataset
-#------------------------------------------------------------------------------
-#==============================================================================
-
-# Dataset features format
+# Iris dataset
 # ========================================
-"""
-MY_DATASET_LABEL = {'label' : str
-                        name of dataset (ideally short)
-
-                    'path'  : str
-                        path to your dataset file(s)
-
-                    'num_samples' : int
-                        the number of samples within the dataset
-                        (note, split train/test not yet supported)
-
-                    'features_per_sample' : int
-                        the number of features per sample
-                        If images, this would be H*W*color_channels
-
-                    'feature_split_idx' : int, None
-                        specifies the splitting idx between dataset
-                        features and class labels
-                        None, if data is structured differently,
-                        or no ordinality
-
-                    'classes' : dict
-                        however classes are represented or
-                        encoded for your task
-                    }
-"""
-
-# Datasets
-# ========================================
-""" NOTE:
-Per-dataset specs like this will likely be abstracted to their
-respective dataset file directories
-"""
 IRIS = {'label' : 'iris',
         'path'  : DATA_PATH_ROOT.format('Iris/iris.npy'),
         'num_samples' : 150,
@@ -221,6 +175,47 @@ IRIS = {'label' : 'iris',
                      2 : 'Iris-virginica'},
         }
 
+# Parameters
+#------------------------------------------------------------------------------
+# Random seeds
+RNG_SEED_DATA   = 9959  # for shuffling data into train/test evenly
+RNG_SEED_PARAMS = 12345 # seeding parameter inits
+
+# Hyperparameters
+LEARNING_RATE = 0.01 # unused, opt defaults are good
+CHANNELS = [IRIS['features_per_sample'], 64, len(IRIS['classes'])]
+
+
+
+# Model/session configuration
+#------------------------------------------------------------------------------
+
+DEFAULT_CONFIGURATION = [
+# ==== Data variables
+('p', 'data_path',  DATA_PATH_ROOT,  'relative path to dataset file'),
+('s', 'seed',       RNG_SEED_PARAMS, 'int used for seeding random state'),
+('m', 'model_name', MODEL_NAME_BASE, 'name to which model params saved'),
+('n', 'name_suff',  '', 'label or tag suffixing model name'),
+# ==== Model variables
+('a', 'activation', 'sigmoid', '(lower-cased) activation func name'),
+('d', 'dropout',    False, 'Whether to use dropout'),
+('o', 'optimizer',  'sgd', '(lower-cased) optimizer name'),
+('j', 'objective',  'softmax_cross_entropy', '(lower-cased) loss func name'),
+('c', 'channels',   CHANNELS, 'list(int) layer sizes; more channels-->deeper'),
+('l', 'learn_rate', LEARNING_RATE, 'optimizer learning rate'),
+# ==== Training/session variables
+('i', 'num_iters',  2000, 'number of training iterations'),
+('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
+('v', 'verbose',    False, 'print model error while actively training'),
+('_', 'dummy',   False, 'dummy var workaround for notebook error'),
+]
+
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                              Dataset
+#------------------------------------------------------------------------------
+#==============================================================================
 
 #==============================================================================
 # Dataset utils
@@ -257,7 +252,7 @@ class IrisDataset:
               the number of Iris classes between train and test sets,
               at split_size=.8
               (eg, for both train and test, the number of samples for
-               num_setosa == num_versicolor == num_virginica)
+               num_setosa ==  num_versicolor == num_virginica)
         Params
         ------
         split_size : float
@@ -348,11 +343,6 @@ def load_dataset(path):
     """ Loads dataset located at path """
     dataset = np.load(path)
     return dataset
-
-def load_iris(path=IRIS_DATA_PATH):
-    """ Load full Iris dataset """
-    iris_dataset = load_dataset(path)
-    return iris_dataset
 
 
 # Split into Train/Test sets
@@ -522,21 +512,9 @@ def to_one_hot(Y, num_classes=len(IRIS['classes'])):
 #------------------------------------------------------------------------------
 #==============================================================================
 
-# ==== Model parameter variables
 
-#adg('--connection', '-k', type=str, default='dense') # only is dense..
-#adg('--strict',     '-k', **self.p_bool, default=0) # affects accuracy function
-#adg('--restore',    '-r', **self.p_bool) # later
-#adg('--checkpoint', '-p', type=int, default=100) # later
-# ==== Training variables
-
-chans = [4, 64, len(IRIS['classes'])]
-
-# Configuration
-#--------------------------------
-# format: [short_key, key, default_value, help_text]
-
-configuration = [
+""" # Copied here for reference
+DEFAULT_CONFIGURATION = [
 # ==== Data variables
 ('p', 'data_path',  DATA_PATH_ROOT,  'relative path to dataset file'),
 ('s', 'seed',       RNG_SEED_PARAMS, 'int used for seeding random state'),
@@ -554,11 +532,7 @@ configuration = [
 ('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
 ('v', 'verbose',    False, 'print model error while actively training'),
 ]
-
-
-
-
-
+"""
 
 class Parser:
     """ Wrapper for argparse parser
@@ -566,60 +540,72 @@ class Parser:
     In addition to parsing STDIN args, Parser is a significant
     part of setup and configuration for training, as it specifies the
     majority of settings to use (through `default`)
-
-    # NB:
-    #----------
-    If you would like to use these values the same as in train.py,
-    but in a different environment, such as a notebook or perhaps IDE,
-    you can still get the values from by simply calling the parse_args()
-    method with a Parser instance.
-    eg:
-    echo_parser = utils.Parser()
-    config = echo_parser.parse_args()
-
     """
     P = argparse.ArgumentParser()
-    # argparse does not like type=bool; this is a workaround
-    p_bool = {'type':int, 'choices':[0,1]}
-
     def __init__(self):
-        adg = self.P.add_argument
-        chans = [4, 64, len(IRIS['classes'])]
-        # ==== Data variables
-        adg('--data_path',  '-p', type=str, default=DATA_PATH_ROOT,)
-        adg('--seed',       '-s', type=int, default=RNG_SEED_PARAMS,)
-        adg('--model_name', '-m', type=str, default=MODEL_NAME_BASE,)
-        adg('--name_suffix','-n', type=str, default='')
+        self.add_args(DEFAULT_CONFIGURATION)
 
-        # ==== Model parameter variables
-        #adg('--connection', '-k', type=str, default='dense') # only is dense..
-        adg('--activation', '-a', type=str, default='sigmoid')
-        adg('--dropout',    '-d', **self.p_bool, default=0)
-        adg('--optimizer',  '-o', type=str, default='sgd')
-        adg('--objective',  '-j', type=str, default='logistic_cross_entropy')
-        adg('--channels',   '-c', type=int, default=chans, nargs='+')
-        adg('--learn_rate', '-l', type=float, default=LEARNING_RATE)
+    def add_args(self, defaults_config):
+        """ formats default config to argparse readable form
+        Argparse has a well defined standard library that has a
+          lot of powerful utilities, but it is rather complex
+          and there are certain constraints on the
+          formatting of arguments added to the parser
+        Example
+        -------
+        IN:  ('o', 'optimizer',  'sgd', '(lower-cased) optimizer name')
 
-        # ==== Training variables
-        adg('--num_iters',  '-i', type=int, default=2000)
-        adg('--batch_size', '-b', type=int, default=6)
-        adg('--verbose',    '-v', **self.p_bool, default=1) # print error
-        #adg('--strict',     '-k', **self.p_bool, default=0) # affects accuracy function
-        #adg('--restore',    '-r', **self.p_bool) # later
-        #adg('--checkpoint', '-p', type=int, default=100) # later
-        self.parse_args()
+        OUT: ('-o', '--optimizer', type=str, default='sgd',
+                    help='(lower-cased) optimizer name')
 
-    def parse_args(self):
-        parsed = AttrDict(vars(self.P.parse_args()))
-        #parsed.restore = bool(parsed.restore)
+        The two current edge cases for parser args:
+          - bools : require action='store_true' flag
+          - lists : require nargs='+' flag
+        """
+        for k, name, d, h in defaults_config:
+            #==== args: name
+            args = ('-{}'.format(k), '--{}'.format(name))
+            #==== kwargs: type, default, help, **
+            if isinstance(d, bool):
+                kw = {'action': 'store_true'}
+            elif isinstance(d, list): # only have int lists
+                kw = {'type':int, 'default':d, 'nargs':'+'}
+            else:
+                dtype = type(d)
+                kw = {'type': dtype, 'default':d}
+            kwargs = {**kw, **{'help': h}}
+            #==== Add args to parser
+            self.P.add_argument(*args, **kwargs)
+
+    def parse_args_from_jupyter_notebook(self, inputs=None):
+        """ workaround for parse_args call in notebook, ipython fine though"""
+        inputs = '-_' if inputs is None else inputs
+        return self.parse_args(inputs)
+
+    def parse_args(self, inputs=None):
+        """ parse_args, by default, reads from STDIN
+        but can be directly called with the same format args
+            eg: parser.parse_args('-i 3000 -a swish -b 10'.split(' '))
+            or  parser.parse_args(['-i', '3000', '-a', 'swish, '-b', '10'])
+        """
+        if inputs is not None:
+            ipt = inputs.split(' ') if isinstance(inputs, str) else inputs
+            parsed = AttrDict(vars(self.P.parse_args(ipt)))
+        else:
+            parsed = AttrDict(vars(self.P.parse_args()))
         self.args = self.interpret_args(parsed)
         return parsed
 
     def interpret_args(self, parsed):
-        # Bool args
-        #-----------------------------
-        parsed.dropout = bool(parsed.dropout)
-        parsed.verbose = bool(parsed.verbose)
+        # Remove jupyter-hack dummy var
+        #----------------------------
+        del parsed.dummy
+
+        # Integrity input/output channels
+        #----------------------------
+        # input/output MUST adhere to dataset dims
+        parsed.channels[0]  = CHANNELS[0]
+        parsed.channels[-1] = CHANNELS[-1]
 
         # Activation
         #----------------------------
@@ -818,10 +804,11 @@ class SessionStatus:
                 #==== fit polynomial
                 poly = np.poly1d(np.polyfit(np.arange(num_samp), x, 3))
 
-
-
                 #====
-
+            #   _____     ___     ___      ___     #
+            #  |_   _|   / _ \   |   \    / _ \    #
+            #    | |    | (_) |  | |) |  | (_) |   #
+            #    |_|     \___/   |___/    \___/    #
 
             #y = self.test_history
             #fig, (train_ax, test_ax) = plt.subplots(2, 2)
@@ -921,6 +908,8 @@ class Trainer:
     and objective function, and trains it for the
     specified number of steps.
     """
+    __slots__ = 'model', 'opt', 'obj', 'steps', 'batch_size', 'eval_steps',
+                'verbose', 'rng_seed'
     def __init__(self, model, opt, obj,
                  steps=1000, batch_size=6,
                  eval_steps=30, verbose=False,
