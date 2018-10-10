@@ -1071,11 +1071,11 @@ class CVTrainer(Trainer):
 
         # Print results
         print(header)
-        print('   TRAIN     Error  |  Accuracy')
+        print('   TRAIN    Error  |  Accuracy')
         print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
         print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
         print(d2)
-        print('    TEST     Error  |  Accuracy')
+        print('    TEST    Error  |  Accuracy')
         print('* Average: {:.5f} | {:.5f}'.format(tavg[0], tavg[1]))
         print('*  Median: {:.5f} | {:.5f}'.format(tq50[0], tq50[1]))
         print(d2)
