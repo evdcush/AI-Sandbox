@@ -212,9 +212,60 @@ DEFAULT_CONFIGURATION = [
 
 #==============================================================================
 #------------------------------------------------------------------------------
-#                              Dataset
+#                                Data
 #------------------------------------------------------------------------------
 #==============================================================================
+
+# One-hot encoding
+#------------------------------------------------------------------------------
+def to_one_hot(Y, num_classes=len(IRIS['classes'])):
+    """ make one-hot encoding for truth labels
+
+    Encodes a 1D vector of integer class labels into
+    a sparse binary 2D array where every sample has
+    length num_classes, with a 1 at the index of its
+    constituent label and zeros elsewhere.
+
+    Example
+    -------
+    Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
+    Y.shape = (10,)
+    num_classes = 4
+    one_hot shape == (10, 4)
+
+    to_one_hot(Y) = [[0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 1
+                     [0, 1, 0, 0], # 1
+                     [1, 0, 0, 0], # 0
+                     [0, 0, 1, 0], # 2
+                     [0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [1, 0, 0, 0], # 1
+                    ]
+    """
+    # Dimensional integrity check on Y
+    #  handles both ndim = 0 and ndim > 1 cases
+    if Y.ndim != 1:
+        Y = np.squeeze(Y)
+        assert Y.ndim == 1
+
+    # dims for one-hot
+    n = Y.shape[0]
+    d = num_classes
+
+    # make one-hot
+    one_hot = np.zeros((n, d))
+    one_hot[np.arange(n), Y] = 1
+    return one_hot.astype(np.int32)
+
+# Loading dataset from disk
+#------------------------------------------------------------------------------
+def load_dataset(path):
+    """ Loads dataset located at path """
+    dataset = np.load(path)
+    return dataset
 
 #==============================================================================
 # Dataset utils
@@ -226,22 +277,13 @@ class IrisDataset:
     """
     label = 'iris'
     path = IRIS_DATASET_PATH
-    num_samples = 150
     features_per_sample = 4
     feature_split_idx = 4
     classes = {0 : 'Iris-setosa', 1 : 'Iris-versicolor', 2 : 'Iris-virginica'}
-    def __init__(self, split_size=.8, seed=RNG_SEED_DATA):
-        self._X = self.load_dataset()
-        self.X_train, self.X_test = self.split_dataset(self.X, split_size, seed)
+    def __init__(self, X=None, split_size=.8, seed=RNG_SEED_DATA):
+        X = X if X is not None else load_dataset(self.path)
+        self.X_train, self.X_test = self.split_dataset(X, split_size, seed)
 
-    @property
-    def X(self):
-        return np.copy(self._X)
-
-    @classmethod
-    def load_dataset(cls):
-        dataset = np.load(cls.path)
-        return dataset
 
     # Split into Train/Test sets
     #-----------------------------
@@ -278,20 +320,24 @@ class IrisDataset:
         assert 0.0 < split_size < 1.0
         # Spliting index
         #---------------------------
-        num_samples = X.shape[0]
-        split_idx = [int(num_samples * split_size)]
+        N = X.shape[0]
+        split_idx = [int(N * split_size)]
 
         # Seed, permute, split
         #--------------------------
+        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
         np.random.seed(seed)
         X_shuffled = np.random.permutation(X)
         X_train, X_test = np.split(X_shuffled, split_idx)
         return X_train, X_test
 
+
+
+
     # Batching on dataset
     #-----------------------------
-    @classmethod
-    def get_batch(cls, X, step, batch_size=1, test=False):
+    @staticmethod
+    def get_batch(X, step, batch_size=1, test=False, feature_split_idx=4):
         """ Batches samples from dataset X
         ASSUMED: batch_size is a factor of the number of samples in X
 
@@ -342,182 +388,11 @@ class IrisDataset:
         # Get batch and split
         #-------------------------------
         batch = np.copy(X[i:j])
-        x, y = np.split(batch, [cls.feature_split_idx], axis=1)
+        x, y = np.split(batch, [feature_split_idx], axis=1)
         y = y.astype(np.int32)
         #==== Squeeze Y to 1D
         y = np.squeeze(y) if b > 1 else y[:,0]
         return x, y
-
-    def __call__(self,):
-        pass
-
-
-
-# Loading dataset from disk
-#------------------------------------------------------------------------------
-def load_dataset(path):
-    """ Loads dataset located at path """
-    dataset = np.load(path)
-    return dataset
-
-
-# Split into Train/Test sets
-#------------------------------------------------------------------------------
-def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
-    """ Splits a dataset (or array) into training and testing sets.
-    (this is only called if train and test sets have NOT been
-    serialized as separate files)
-
-    Params
-    ------
-    X : ndarray
-        primary features dataset, split indices are instantiated
-        on the first axis of X.shape, which is assumed to be
-        the number of samples
-    split_size : float
-        split percentage where N * split_size total samples are used
-        for training, and the remaining for testing.
-        NB: it's best to select a split size that evenly splits your
-            data.
-    seed : int
-        used for seeding numpy's random module for consistent splits
-        on X to produce training and testing sets
-
-    Returns
-    -------
-    X_train, X_test : ndarray,
-        train and test shapes, respectively are
-        (N * split_size, D), (N * (1 - split_size), D)
-
-    """
-    assert 0.0 < split_size < 1.0
-
-    # Get shape and splitting index
-    #----------------------------------
-    N = X.shape[0]
-    split_idx = [int(N * split_size)]
-
-    # Seed, permute, and split
-    #----------------------------------
-    np.random.seed(seed)
-    X_shuffled = np.random.permutation(X)
-    X_train, X_test = np.split(X_shuffled, split_idx)
-    return X_train, X_test
-
-
-
-#==============================================================================
-# Training utils
-#==============================================================================
-
-
-# Batching
-#------------------------------------------------------------------------------
-def get_batch(X, step, batch_size=1, test=False, split_idx=-1):
-    """ Batches samples from dataset X
-
-    ASSUMED: batch_size is a factor of the number of samples in X
-
-    #==== Training
-    - Batches are selected randomly *and without replacement* wrt
-      the previous batches. This is done based on current step:
-      - When current step has become a multiple of the number
-        of samples in X, the samples positions in X are
-        randomly shuffled.
-
-    #==== Testing
-    - Batches are selected in order, without any stochasticity.
-    - Batch size is flexible with testing, though the number
-      should still be a factor of the number of samples in X
-      Depending on your memory constraints:
-      - You can send the entire test set to your model
-        if you select a batch_size = number of samples
-      - Or you can simply feed the model one sample
-        (batch_size=1) at a time
-
-    Params
-    ------
-    X : ndarray, (N,...,K)
-        Full dataset (training or testing)
-    batch_size : int
-        number of samples in minibatch
-    step : int
-        current training iteration
-    split_idx : int
-        the index upon which X is split into features and labels
-
-    Returns
-    -------
-    x : ndarray, (batch_size, ...)
-        batch data features
-    y : ndarray.int32, (batch_size,)
-        batch ground truth labels (or class)
-    """
-    assert batch_size > 0 and isinstance(batch_size, int)
-    # Dims
-    N = X.shape[0]
-    b = batch_size if batch_size <= N else batch_size % N
-
-    # Subset indices
-    i = (b * step) % N  # start index [inclusive]
-    j = i + b           # end   index (exclusive)
-
-    # Check if we need to reshuffle (train only)
-    if i == 0 and not test:
-        np.random.shuffle(X)
-
-    # Batch and split data
-    batch = np.copy(X[i:j])
-    x, y = np.split(batch, [split_idx], axis=1)
-    y = y.astype(np.int32)
-
-    # Squeeze Y to 1D
-    y = np.squeeze(y) if b > 1 else y[:,0]
-    return x, y
-
-
-def to_one_hot(Y, num_classes=len(IRIS['classes'])):
-    """ make one-hot encoding for truth labels
-
-    Encodes a 1D vector of integer class labels into
-    a sparse binary 2D array where every sample has
-    length num_classes, with a 1 at the index of its
-    constituent label and zeros elsewhere.
-
-    Example
-    -------
-    Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
-    Y.shape = (10,)
-    num_classes = 4
-    one_hot shape == (10, 4)
-
-    to_one_hot(Y) = [[0, 0, 0, 1], # 3
-                     [0, 1, 0, 0], # 1
-                     [0, 1, 0, 0], # 1
-                     [1, 0, 0, 0], # 0
-                     [0, 0, 1, 0], # 2
-                     [0, 0, 0, 1], # 3
-                     [0, 1, 0, 0], # 2
-                     [0, 1, 0, 0], # 2
-                     [0, 1, 0, 0], # 2
-                     [1, 0, 0, 0], # 1
-                    ]
-    """
-    # Dimensional integrity check on Y
-    #  handles both ndim = 0 and ndim > 1 cases
-    if Y.ndim != 1:
-        Y = np.squeeze(Y)
-        assert Y.ndim == 1
-
-    # dims for one-hot
-    n = Y.shape[0]
-    d = num_classes
-
-    # make one-hot
-    one_hot = np.zeros((n, d))
-    one_hot[np.arange(n), Y] = 1
-    return one_hot.astype(np.int32)
-
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -670,13 +545,9 @@ class SessionStatus:
 
     def _get_network_arch(self, model):
         """ Formatted string of network architecture """
-
-        # Header
+        # strings
         #-----------------
         arch = '{}\n  Layers: \n'.format(str(model)) # 'NeuralNetwork'
-
-        # Layer body
-        #-----------------
         line_layer    = '    {:>2} : {:<5} {}\n' # ParametricLayer, eg 'Dense'
         line_function = '          : {}\n'       # Function, eg 'Tanh'
 
@@ -701,6 +572,7 @@ class SessionStatus:
             else:
                 arch += line_function.format(unit_name)
         self.network_arch = arch
+
 
     def print_results(self, train=True, t=None):
         d2 = self.div2
@@ -832,11 +704,6 @@ class SessionStatus:
 def get_predictions(Y_hat):
     """ Select the highest valued class labels in prediction from
     network output distribution
-
-    Y_hat is assumed to of shape (N, D), where
-      N is the number of independent samples in the prediction, and
-      D is the number of classes
-
     We can approximate a single label prediction from a distribution
     of prediction values over the different classes by selecting
     the largest value (value the model is most confident in)
@@ -845,7 +712,6 @@ def get_predictions(Y_hat):
     ------
     Y_hat : ndarray.float32, (N, D)
         network output, "predictions" or scores on the D classes
-
     Returns
     -------
     Y_pred : ndarray.int32, (N,)
@@ -895,7 +761,7 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
 
 
 class Trainer:
-    """ manages the training for a model
+    """ Manages the training for a model
 
     Trainer accepts a model, along with an optimizer
     and objective function, and trains it for the
@@ -943,7 +809,7 @@ class Trainer:
     def batch(self, ):
         pass
 
-    def train(self, dataset=self.dataset):
+    def train(self, dataset):#=self.dataset):
         v = self.verbose
         for step in range(self.steps):
             # batch data
