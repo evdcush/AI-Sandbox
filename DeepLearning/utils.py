@@ -70,19 +70,6 @@ class AttrDict(dict):
 #------------------------------------------------------------------------------
 # Functions
 #------------------------------------------------------------------------------
-
-# Getters
-# ========================================
-def sub_wget_data(url, fname, out_dir):
-    """ Gets desired data from a url using wget """
-    if not os.path.exists(out_dir): os.makedirs(out_dir)
-    try:
-        subprocess.check_output(["wget", "-T", "120", url])
-        shutil.move(fname, out_dir)
-    except:
-        print('Error in retrieving dataset')
-
-
 # Decorators
 # ========================================
 def TODO(f):
@@ -139,11 +126,23 @@ def INSPECT(f):
 #------------------------------------------------------------------------------
 # Data pathing
 # ========================================
-DATA_PATH_ROOT = './data/'
-IRIS_DATA_PATH = DATA_PATH_ROOT + 'Iris/iris.npy'
+DATA_DIR = './data/'
+#==== Iris dataset
+IRIS_DIR = f'{DATA_DIR}Iris/'
+IRIS_DATASET_PATH = f'{IRIS_DIR}iris.npy'
+#---- Iris train/test files
+IRIS_TRAIN = f'{IRIS_DIR}iris_train.npy'
+IRIS_TEST  = f'{IRIS_DIR}iris_test.npy'
 
+
+
+
+####################### Not yet supported #####################################
+"""
 # Model pathing
 # ========================================
+#('m', 'model_name', MODEL_NAME_BASE, 'name to which model params saved'),
+#('n', 'name_suff',  '', 'label or tag suffixing model name'),
 # Model directory paths
 MODEL_NAME_BASE = '{}_{}' # {data_label}_{layer_type}
 MODEL_SAVE_PATH_ROOT = './Models/{}/' # Models/model_name/...
@@ -161,14 +160,14 @@ GROUNDTRUTH_FNAME = RESULTS_BASE_NAME.format('true')
 LOSS_PLOT_FNAME  = RESULTS_BASE_NAME.format('error') # visualization
 LOSS_TRAIN_FNAME = RESULTS_BASE_NAME.format('train_error')
 LOSS_TEST_FNAME  = RESULTS_BASE_NAME.format('test_error')
-
+"""
 
 # Dataset features
 #------------------------------------------------------------------------------
 # Iris dataset
 # ========================================
 IRIS = {'label' : 'iris',
-        'path'  : DATA_PATH_ROOT.format('Iris/iris.npy'),
+        'path'  : IRIS_DATASET_PATH,
         'num_samples' : 150,
         'features_per_sample' : 4,
         'feature_split_idx' : 4,
@@ -194,10 +193,8 @@ CHANNELS = [IRIS['features_per_sample'], 64, len(IRIS['classes'])]
 
 DEFAULT_CONFIGURATION = [
 # ==== Data variables
-('p', 'data_path',  DATA_PATH_ROOT,  'relative path to dataset file'),
+('p', 'data_path',  DATA_DIR,  'relative path to dataset file'),
 ('s', 'seed',       RNG_SEED_PARAMS, 'int used for seeding random state'),
-('m', 'model_name', MODEL_NAME_BASE, 'name to which model params saved'),
-('n', 'name_suff',  '', 'label or tag suffixing model name'),
 # ==== Model variables
 ('a', 'activation', 'sigmoid', '(lower-cased) activation func name'),
 ('d', 'dropout',    False, 'Whether to use dropout'),
@@ -228,14 +225,14 @@ class IrisDataset:
     Attributes are simply extracted from IRIS
     """
     label = 'iris'
-    path = IRIS_DATA_PATH
+    path = IRIS_DATASET_PATH
     num_samples = 150
     features_per_sample = 4
     feature_split_idx = 4
     classes = {0 : 'Iris-setosa', 1 : 'Iris-versicolor', 2 : 'Iris-virginica'}
     def __init__(self, split_size=.8, seed=RNG_SEED_DATA):
         self._X = self.load_dataset()
-        self.X_train, self.X_test = self.split_dataset(split_size, seed)
+        self.X_train, self.X_test = self.split_dataset(self.X, split_size, seed)
 
     @property
     def X(self):
@@ -248,20 +245,24 @@ class IrisDataset:
 
     # Split into Train/Test sets
     #-----------------------------
-    def split_dataset(self, split_size=.8, seed=RNG_SEED_DATA):
-        """ Splits the dataset into training and testing sets.
-        Note: RNG_SEED_DATA was chosen because it evenly distributes
+    @staticmethod
+    def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
+        """ Splits a dataset X into training and testing sets.
+
+        Note: RNG_SEED_DATA value was chosen because it evenly distributes
               the number of Iris classes between train and test sets,
               at split_size=.8
               (eg, for both train and test, the number of samples for
-               num_setosa ==  num_versicolor == num_virginica)
+               num_setosa == num_versicolor == num_virginica)
         Params
         ------
+        X : ndarray
+            Primary dataset. split indices are instantiated
+            on the first axis of X.shape, which is assumed to be
+            the number of samples.
         split_size : float
             split percentage where N * split_size total samples are used
             for training, and the remaining for testing.
-            NB: it's best to select a split size that evenly splits your
-                data.
         seed : int
             used for seeding numpy's random module for consistent splits
             on X to produce training and testing sets
@@ -271,28 +272,34 @@ class IrisDataset:
         X_train, X_test : ndarray,
             train and test shapes, respectively are
             (N * split_size, D), (N * (1 - split_size), D)
-
+            eg, for .8 split on 150-sample set:
+                (120, D), (30, D)
         """
         assert 0.0 < split_size < 1.0
-        # Split indices
-        split_idx = [int(self.num_samples * split_size)]
+        # Spliting index
+        #---------------------------
+        num_samples = X.shape[0]
+        split_idx = [int(num_samples * split_size)]
 
-        # Seed, permute, and split
+        # Seed, permute, split
+        #--------------------------
         np.random.seed(seed)
-        X_shuffled = np.random.permutation(self.X)
+        X_shuffled = np.random.permutation(X)
         X_train, X_test = np.split(X_shuffled, split_idx)
         return X_train, X_test
 
     # Batching on dataset
     #-----------------------------
-    def get_batch(self, step, batch_size=1, test=False):
+    @classmethod
+    def get_batch(cls, X, step, batch_size=1, test=False):
         """ Batches samples from dataset X
         ASSUMED: batch_size is a factor of the number of samples in X
 
         #==== Training
         - Batches are selected randomly *and without replacement* wrt
-          the previous batches. This is done based on current step:
-          - When current step has become a multiple of the number
+          the previous batches.
+          This is done based on current step:
+            When current step has become a multiple of the number
             of samples in X, the samples positions in X are
             randomly shuffled.
         #==== Testing
@@ -300,10 +307,15 @@ class IrisDataset:
 
         Params
         ------
+        X : ndarray, (features & labels)
+            X is an array containing both the features (x) and the labels
+            or classes (y). split(X) ---> x, y
         step : int
             current training iteration
         batch_size : int
             number of samples in minibatch
+        test : bool
+            whether X is a test set. If test, no random ops.
 
         Returns
         -------
@@ -314,21 +326,23 @@ class IrisDataset:
         """
         assert batch_size > 0 and isinstance(batch_size, int)
 
-        # Get corresponding set and dims
-        X = self.X_train if not test else self.X_test
+        # Get dimensions and indices
+        #-------------------------------
         N = X.shape[0]
         b = batch_size if batch_size <= N else batch_size % N
         #==== Batching indices
         i = (b * step) % N  # start index [inclusive]
         j = i + b           # end   index (exclusive)
 
-        # Check if we need to reshuffle (train only)
-        if i == 0 and not test:
+        # Check if need for reshuffle
+        #-------------------------------
+        if i == 0 and not test: # test never shuffled
             np.random.shuffle(X)
 
-        # Batch and split data
+        # Get batch and split
+        #-------------------------------
         batch = np.copy(X[i:j])
-        x, y = np.split(batch, [self.feature_split_idx], axis=1)
+        x, y = np.split(batch, [cls.feature_split_idx], axis=1)
         y = y.astype(np.int32)
         #==== Squeeze Y to 1D
         y = np.squeeze(y) if b > 1 else y[:,0]
@@ -354,10 +368,6 @@ def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
     (this is only called if train and test sets have NOT been
     serialized as separate files)
 
-    Indices are permuted rather than shuffling X. This guarantees
-    that we get consistent train/test splits in the case that
-    the test set has not been serialized.
-
     Params
     ------
     X : ndarray
@@ -382,12 +392,13 @@ def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
     """
     assert 0.0 < split_size < 1.0
 
-    # Get shape and indices
+    # Get shape and splitting index
+    #----------------------------------
     N = X.shape[0]
-    indices = np.arange(N)
     split_idx = [int(N * split_size)]
 
     # Seed, permute, and split
+    #----------------------------------
     np.random.seed(seed)
     X_shuffled = np.random.permutation(X)
     X_train, X_test = np.split(X_shuffled, split_idx)
@@ -513,28 +524,6 @@ def to_one_hot(Y, num_classes=len(IRIS['classes'])):
 #                              Parser
 #------------------------------------------------------------------------------
 #==============================================================================
-
-
-""" # Copied here for reference
-DEFAULT_CONFIGURATION = [
-# ==== Data variables
-('p', 'data_path',  DATA_PATH_ROOT,  'relative path to dataset file'),
-('s', 'seed',       RNG_SEED_PARAMS, 'int used for seeding random state'),
-('m', 'model_name', MODEL_NAME_BASE, 'name to which model params saved'),
-('n', 'name_suff',  '', 'label or tag suffixing model name'),
-# ==== Model variables
-('a', 'activation', 'sigmoid', '(lower-cased) activation func name'),
-('d', 'dropout',    False, 'Whether to use dropout'),
-('o', 'optimizer',  'sgd', '(lower-cased) optimizer name'),
-('j', 'objective',  'softmax_cross_entropy', '(lower-cased) loss func name'),
-('c', 'channels',   chans, 'list(int) layer sizes; more channels-->deeper'),
-('l', 'learn_rate', LEARNING_RATE, 'optimizer learning rate'),
-# ==== Training/session variables
-('i', 'num_iters',  2000, 'number of training iterations'),
-('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
-('v', 'verbose',    False, 'print model error while actively training'),
-]
-"""
 
 class Parser:
     """ Wrapper for argparse parser
@@ -951,7 +940,10 @@ class Trainer:
         num_test = self.dataset.X_test.shape[0]
         self.session_status = SessionStatus(model, opt, obj, steps, num_test)
 
-    def train(self):
+    def batch(self, ):
+        pass
+
+    def train(self, dataset=self.dataset):
         v = self.verbose
         for step in range(self.steps):
             # batch data
@@ -989,6 +981,7 @@ class Trainer:
         self.evaluate()
         self.session_status.summarize_model(True, True)
 
+#------------------------------------------------------------------------------
 
 class CVTrainer(Trainer):
     """ Trainer subclass specialized for parameter searches using simple
@@ -1014,11 +1007,9 @@ class CVTrainer(Trainer):
         np.random.seed(self.rng_seed)
         self.model = network.NeuralNetwork(self.channels, act, use_dropout)
 
-    def init_dataset(self):
-        pass
+    def init_dataset(self): pass
 
-    def init_session_status(self):
-        pass
+    def init_session_status(self): pass
 
     def train(self, dataset):
         v = self.verbose
