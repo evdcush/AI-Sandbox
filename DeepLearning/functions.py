@@ -4,7 +4,7 @@ This module provides the foundation of functions and operations
 to build a network and optimize models.
 
 It contains only the units that would used within a model.
-Other functions, for training or data processing, can be found in `utils.py`
+Other functions, for training or data processing, can be found in `to_
 
 Module components
 =================
@@ -51,7 +51,7 @@ from functools import wraps
 from pprint import PrettyPrinter
 import numpy as np
 
-import utils
+#import utils
 
 pretty_printer = PrettyPrinter()
 pprint = lambda x: pretty_printer.pprint(x)
@@ -66,6 +66,48 @@ class AttrDict(dict):
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
 
+
+def to_one_hot(Y, num_classes=3):
+    """ make one-hot encoding for truth labels
+
+    Encodes a 1D vector of integer class labels into
+    a sparse binary 2D array where every sample has
+    length num_classes, with a 1 at the index of its
+    constituent label and zeros elsewhere.
+
+    Example
+    -------
+    Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
+    Y.shape = (10,)
+    num_classes = 4
+    one_hot shape == (10, 4)
+
+    to_one_hot(Y) = [[0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 1
+                     [0, 1, 0, 0], # 1
+                     [1, 0, 0, 0], # 0
+                     [0, 0, 1, 0], # 2
+                     [0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [1, 0, 0, 0], # 1
+                    ]
+    """
+    # Dimensional integrity check on Y
+    #  handles both ndim = 0 and ndim > 1 cases
+    if Y.ndim != 1:
+        Y = np.squeeze(Y)
+        assert Y.ndim == 1
+
+    # dims for one-hot
+    n = Y.shape[0]
+    d = num_classes
+
+    # make one-hot
+    one_hot = np.zeros((n, d))
+    one_hot[np.arange(n), Y] = 1
+    return one_hot.astype(np.int32)
 
 def restore_axis_shape(x, ax, d):
     """ Restores an axis ax that was reduced from x
@@ -866,7 +908,7 @@ class LogisticCrossEntropy(Function): #
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
         # Convert labels to 1-hot
-        t = utils.to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)
+        t = to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)
 
         # Sigmoid activation
         #----------------------
@@ -953,7 +995,7 @@ class SoftmaxCrossEntropy(Function): #
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
         # Convert labels to 1-hot
-        t = utils.to_one_hot(np.copy(t_vec)) # (N,D)
+        t = to_one_hot(np.copy(t_vec)) # (N,D)
 
         # Softmax activation
         #----------------------
@@ -1042,6 +1084,140 @@ class Dropout(Function):
         gX = self.dropout_prime(gY, mask)
         return gX
 
+
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            REDUCTION FUNCTIONS
+#------------------------------------------------------------------------------
+#==============================================================================
+
+# ReductionFunction
+# -----------------
+# inherits : Function
+# derives  : Sum, Mean, Prod, Max Min
+class ReductionFunction(Function):
+    """ Function class for op that reduce dimensionality
+
+    Due to some extra complexity in broadcasting algebra wrt
+    reduced or missing dimensions, reduction functions have an
+    extra instance attribute for the reduction kwargs (axis, keepdims).
+    This allows for easy dimensionality restoration during backprop.
+    """
+    def __init__(self, *args, **kwargs):
+        self.flags = None
+        super().__init__(*args, **kwargs)
+
+    def restore_dims(self, Y):
+        """ Restore any non-leading missing dims from Y
+
+        There are a few constraints to NumPy broadcasting,
+        which defines how operations are automatically
+        broadcasted. For automatic broadcasting, the
+        arrays involved must have the following
+
+        # Properties:
+        #=============
+        1 - exactly same shape
+          >>----->  X.shape == Y.shape
+
+        2 - same num of dims, and len of each dim is either
+            the same, or 1
+          >>-----> X.ndim == Y.ndim; (N, M, D) & (N, 1, D)
+
+        3 - array(s) with too few dims can have their
+            shapes **prepended** with a dim of len 1
+            to satisfy property 2
+          >>-----> (N, M, D) & (M, D); OKAY! Since (M, D) --> (1, M, D)
+                   (N, M, D) & (N, D); BAD! cannot prepend 1
+                   (N, M, D) & (D,);   OKAY! can do (1, 1, D)
+                   (N, M, D) & (N,);   BAD!
+                   (N, M, D) & (M,);   BAD!
+                   (N, M, D) & (); OKAY! can do (1,1,1), (and Y is scalar...)
+
+        # restore_dims function
+        #========================
+        We can assume the gradients have been properly chained
+        up until the reduction function, and that Y will always be
+        a "valid" input, in that it's shape can be restored
+        to the input shape.
+
+        ASSUME: property 1 is not a consideration here, given
+                this func only called during backprop, on
+                arrays that have been reduced
+
+        We return Y if 2 is satisfied (the most common case, since
+        `keepdims` generally True), or we insert dimensions of length 1 to
+        any non-leading missing dimensions until property 2 is satisfied.
+
+        """
+        # Get reduction flags
+        #--------------------
+        y_shape = Y.shape
+        axes, keep = self.flags
+
+        # Check property 2 and
+        # property 3 scalar case
+        #-----------------------------
+        if keep or len(y_shape) == 0:
+            return Y
+
+        # Satisfy property 2
+        #-------------------
+        for ax in sorted(axes): # sort, to avoid deprecation warnings
+            Y = np.expand_dims(Y, ax)
+        return Y
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Sum(ReductionFunction):
+    """ Compute sum along axis or axes """
+
+    @staticmethod
+    def sum(x, axis=1, keepdims=True):
+        return x.sum(axis=axis, keepdims=keepdims)
+
+    @staticmethod
+    def sum_prime(x, **kwargs):
+        return np.ones(x.shape).astype(x.dtype)
+
+    def forward(self, X, axis=1, keepdims=True):
+        self.cache = X
+        self.flags = [axis, keepdims]
+        Y = self.sum(X, axis, keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = self.restore_shape(gY) * self.sum_prime(X)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Mean(ReductionFunction):
+    """ Compute mean along axis or axes """
+    @staticmethod
+    def mean(x, axis=1, keepdims=True):
+        return x.mean(axis=axis, keepdims=keepdims)
+
+    @staticmethod
+    def mean_prime(x, axis=1):
+        if axis is None: # then mean taken over entire sample
+            num_avgd = np.prod(x.shape)
+        else:
+            num_avgd = axis if isinstance(axis, int) else np.prod(axis)
+        return np.ones(x.shape).astype(x.dtype) / float(num_avgd)
+
+    def forward(self, X, axis=1, keepdims=True):
+        self.cache = X
+        self.flags = axis, keepdims
+        Y = self.mean(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keep = self.flags
+        gX = self.restore_shape(gY) * self.mean_prime(X, axes)
+        return gX
 
 
 
@@ -1283,6 +1459,68 @@ class LayerNormalization(Function):
 #                            REDUCTION FUNCTIONS
 #------------------------------------------------------------------------------
 #==============================================================================
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Prod(ReductionFunction):
+    """ Compute product along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = np.prod(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def backward(self, gY):
+        X = self.X
+        Y = self.Y
+        gX = self.restore_shape(gY*Y) / X
+        self.reset_fn_vars()
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class MaxMin(ReductionFunction):
+    """ Base class for max, min funcs """
+    MM_func  = None
+    cmp_func = None
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = self.MM_func(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def backward(self, gY):
+        X  = self.X
+        Y  = self.restore_shape(self.Y)
+        gY = self.restore_shape(gY)
+        gX = np.where(self.cmp_func(X, Y), gY, 0)
+        self.reset_fn_vars()
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Max(MaxMin):
+    """ Computes max along axis """
+    MM_func  = np.max
+    cmp_func = lambda x, y: x >= y
+
+class Min(MaxMin):
+    """ Computes min along axis """
+    MM_func  = np.min
+    cmp_func = lambda x, y: x < y
+
 #------------------------------------------------------------------------------
 # Reduction functions :
 #  Sum, Mean, Prod, Max, Min
