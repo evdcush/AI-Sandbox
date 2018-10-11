@@ -333,8 +333,7 @@ class IrisDataset:
 
     # Batching on dataset
     #-----------------------------
-    @staticmethod
-    def get_batch(X, step, batch_size=1, test=False, feature_split_idx=4):
+    def get_batch(self, step, batch_size=1, test=False, feature_split_idx=4):
         """ Batches samples from dataset X
         ASSUMED: batch_size is a factor of the number of samples in X
 
@@ -371,6 +370,7 @@ class IrisDataset:
 
         # Get dimensions and indices
         #-------------------------------
+        X = self.X_train if not test else self.X_test
         N = X.shape[0]
         b = batch_size if batch_size <= N else batch_size % N
         #==== Batching indices
@@ -805,31 +805,13 @@ class Trainer:
         steps = self.steps
         num_test = self.dataset.X_test.shape[0]
         self.session_status = SessionStatus(model, opt, obj, steps, num_test)
-#  ______   _   _   _____    ______   _____     _    _   ______   _____    ______   #
-# |  ____| | \ | | |  __ \  |  ____| |  __ \   | |  | | |  ____| |  __ \  |  ____|  #
-# | |__    |  \| | | |  | | | |__    | |  | |  | |__| | | |__    | |__) | | |__     #
-# |  __|   | . ` | | |  | | |  __|   | |  | |  |  __  | |  __|   |  _  /  |  __|    #
-# | |____  | |\  | | |__| | | |____  | |__| |  | |  | | | |____  | | \ \  | |____   #
-# |______| |_| \_| |_____/  |______| |_____/   |_|  |_| |______| |_|  \_\ |______|  #
-"""
-Seeing why I need the CV trainer, and why the normal trainer cannot be adapted
-for both CV and training. It's the same thing.
 
-A new trainer will be instantiated on every loop of the CV algorithm, so
-it doesn't matter that Trainer is CV-agnostic. Just give it the limited
-Ddata instead of automatically downloading the full-set.
-
-
-- Essentially: make sure there are little to no 'self.' whatever calls to
-     dataset or status things.
-"""
-
-    def train(self, dataset):#=self.dataset):
+    def train(self):
         v = self.verbose
         for step in range(self.steps):
             # batch data
             #------------------
-            x, y = dataset.get_batch(step, self.batch_size)
+            x, y = self.dataset.get_batch(step, self.batch_size)
 
             # forward pass
             #------------------
