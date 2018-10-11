@@ -249,10 +249,10 @@ class Function:
         else:
             raise NotImplementedError
 
-    def __call__(self, *args, backprop=False, test=False):
+    def __call__(self, *args, backprop=False, test=False, **kwargs):
         self.test = test
         func = self.backward if backprop else self.forward
-        return func(*args)
+        return func(*args, **kwargs)
 
 
 #==============================================================================
@@ -1107,6 +1107,13 @@ class ReductionFunction(Function):
         self.flags = None
         super().__init__(*args, **kwargs)
 
+
+    def format_axes(self, axes):
+        if axes is None: return None
+        if isinstance(axes, int):
+            return [axes]
+        return list(axes)
+
     def restore_dims(self, Y):
         """ Restore any non-leading missing dims from Y
 
@@ -1173,22 +1180,22 @@ class Sum(ReductionFunction):
     """ Compute sum along axis or axes """
 
     @staticmethod
-    def sum(x, axis=1, keepdims=True):
+    def sum(x, axis=None, keepdims=False):
         return x.sum(axis=axis, keepdims=keepdims)
 
     @staticmethod
     def sum_prime(x, **kwargs):
         return np.ones(x.shape).astype(x.dtype)
 
-    def forward(self, X, axis=1, keepdims=True):
+    def forward(self, X, axis=None, keepdims=False):
         self.cache = X
-        self.flags = [axis, keepdims]
+        self.flags = self.format_axes(axis), keepdims
         Y = self.sum(X, axis, keepdims)
         return Y
 
     def backward(self, gY):
         X = self.cache
-        gX = self.restore_shape(gY) * self.sum_prime(X)
+        gX = self.restore_dims(gY) * self.sum_prime(X)
         return gX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1196,27 +1203,27 @@ class Sum(ReductionFunction):
 class Mean(ReductionFunction):
     """ Compute mean along axis or axes """
     @staticmethod
-    def mean(x, axis=1, keepdims=True):
+    def mean(x, axis=None, keepdims=False):
         return x.mean(axis=axis, keepdims=keepdims)
 
     @staticmethod
-    def mean_prime(x, axis=1):
-        if axis is None: # then mean taken over entire sample
-            num_avgd = np.prod(x.shape)
-        else:
-            num_avgd = axis if isinstance(axis, int) else np.prod(axis)
-        return np.ones(x.shape).astype(x.dtype) / float(num_avgd)
+    def mean_prime(x, axis=None):
+        # div by number of elems averaged out in forward
+        dims = x.shape
+        ax_elems = dims if axis is None else [dims[i] for i in axis]
+        num_avgd = np.prod(ax_elems)
+        return np.ones(x.shape, x.dtype) / float(num_avgd)
 
-    def forward(self, X, axis=1, keepdims=True):
+    def forward(self, X, axis=None, keepdims=False):
         self.cache = X
-        self.flags = axis, keepdims
+        self.flags = self.format_axes(axis), keepdims
         Y = self.mean(X, axis=axis, keepdims=keepdims)
         return Y
 
     def backward(self, gY):
         X = self.cache
         axes, keep = self.flags
-        gX = self.restore_shape(gY) * self.mean_prime(X, axes)
+        gX = self.restore_dims(gY) * self.mean_prime(X, axes)
         return gX
 
 
