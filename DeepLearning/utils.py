@@ -789,21 +789,23 @@ class Trainer:
             self.dataset = dataset
         else:
             self.dataset = IrisDataset()
+        self.num_test = self.dataset.X_test.shape[0]
 
     def init_session_status(self):
         model = self.model
         opt = self.opt
         obj = self.obj
         steps = self.steps
-        num_test = self.dataset.X_test.shape[0]
+        #num_test = self.dataset.X_test.shape[0]
+        num_test = self.num_test
         self.session_status = SessionStatus(model, opt, obj, steps, num_test)
 
     def summarize_results(self):
         seed = self.rng_seed
-        d2 = self.div2
+        d2 = '-'*60
         num_tr = self.steps
         num_test = self.num_test
-        header = '\n# Model: {}\n#   Seed: {}\n' + d2
+        header = '\n# Model: {}\n#  Seed: {}\n' + d2
         header = header.format(self.channels, self.rng_seed)
 
         # Get stats on train history
