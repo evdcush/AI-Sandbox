@@ -16,8 +16,8 @@ atomic functions : elementary functions and factors
 connection functions : functions using learnable variables
     Bias, Matmul, Linear
 
-X ReductionFunction : functions that reduce dimensionality
-X     Sum, Mean, Prod, Max, Min
+ReductionFunction : functions that reduce dimensionality
+     Sum, Mean, XProd, XMax, XMin
 
 activation functions : nonlinearities
     ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax, Swish
@@ -29,9 +29,9 @@ loss functions : objectives for gradient descent
 
 STILL PENDING REWORK FROM v1
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[ ] ReductionFunction
-    [ ] Sum
-    [ ] Mean
+[X] ReductionFunction
+    [X] Sum
+    [X] Mean
     [ ] Prod
     [ ] Max/Min
 
@@ -1095,102 +1095,101 @@ class Dropout(Function):
 # -----------------
 # inherits : Function
 # derives  : Sum, Mean, Prod, Max Min
-class ReductionFunction(Function):
+class ReductionFunction(Function): # #
     """ Function class for op that reduce dimensionality
 
     Due to some extra complexity in broadcasting algebra wrt
     reduced or missing dimensions, reduction functions have an
     extra instance attribute for the reduction kwargs (axis, keepdims).
-    This allows for easy dimensionality restoration during backprop.
+        This allows for easy dimensionality restoration during
+        backprop
     """
     def __init__(self, *args, **kwargs):
         self.flags = None
         super().__init__(*args, **kwargs)
 
+    @staticmethod
+    def tupleify(x):
+        return (x,) if isinstance(x, int) else tuple(x)
 
-    def format_axes(self, axes):
-        if axes is None: return None
-        if isinstance(axes, int):
-            return [axes]
-        return list(axes)
+    def format_axes(self, axes, shape):
+        if axes is None: #==== same as applying along all axes
+            axes = range(len(shape))
+        return self.tupleify(axes)
 
     def restore_dims(self, Y):
         """ Restore any non-leading missing dims from Y
-
         There are a few constraints to NumPy broadcasting,
-        which defines how operations are automatically
-        broadcasted. For automatic broadcasting, the
-        arrays involved must have the following
+        which defines how operations involving arrays with
+        different dimensions can still be applied.
 
-        # Properties:
-        #=============
+        For automatic broadcasting, the arrays
+        involved must satisfy one of the following
+        3 properties:
+
+        Properties
+        ==========
         1 - exactly same shape
-          >>----->  X.shape == Y.shape
+        >>----->  X.shape == Y.shape
 
-        2 - same num of dims, and len of each dim is either
+        2 - Same num of dims, and len of each dim is either
             the same, or 1
-          >>-----> X.ndim == Y.ndim; (N, M, D) & (N, 1, D)
+        >>-----> X.ndim == Y.ndim; (N, M, D) & (N, 1, D)
 
         3 - array(s) with too few dims can have their
             shapes **prepended** with a dim of len 1
             to satisfy property 2
-          >>-----> (N, M, D) & (M, D); OKAY! Since (M, D) --> (1, M, D)
-                   (N, M, D) & (N, D); BAD! cannot prepend 1
-                   (N, M, D) & (D,);   OKAY! can do (1, 1, D)
-                   (N, M, D) & (N,);   BAD!
-                   (N, M, D) & (M,);   BAD!
-                   (N, M, D) & (); OKAY! can do (1,1,1), (and Y is scalar...)
+            A few examples:
+        >>-----> (N, M, D) & (M, D); OKAY! ===> (M, D) --> (1, M, D)
+                 (N, M, D) & (N, D);  BAD! ####  restore to (N,1,D)
+                 (N, M, D) & (D,);   OKAY! ===> (1, 1, D)
+                 (N, M, D) & (N,);    BAD! #### restore to (N,1,1)
+                 (N, M, D) & (M,);    BAD! #### restore to (1,M,1)
+                 (N, M, D) & ();     OKAY! ===> (1,1,1)
+                                          (and scalars always broadcastable)
+        Restoration func
+        ================
+        ASSUME: Property 1 is not a consideration here, given
+                this func only called during backprop. Valid inputs
+                will necessarily have reduced dimensions.
 
-        # restore_dims function
-        #========================
-        We can assume the gradients have been properly chained
-        up until the reduction function, and that Y will always be
-        a "valid" input, in that it's shape can be restored
-        to the input shape.
-
-        ASSUME: property 1 is not a consideration here, given
-                this func only called during backprop, on
-                arrays that have been reduced
-
-        We return Y if 2 is satisfied (the most common case, since
-        `keepdims` generally True), or we insert dimensions of length 1 to
-        any non-leading missing dimensions until property 2 is satisfied.
+        RETURN: Y (the input), if property 2 is satisfied or
+                Y with length 1 dims inserted until property 2 is satisfied
+                * NB: Y rarely needs inserted dims, since most functions
+                      preserve dimensions (keepdims=True)
 
         """
         # Get reduction flags
-        #--------------------
-        y_shape = Y.shape
         axes, keep = self.flags
 
-        # Check property 2 and
-        # property 3 scalar case
-        #-----------------------------
-        if keep or len(y_shape) == 0:
+        # Check Property 2, or if Y scalar
+        if keep or Y.ndim == 0:
             return Y
 
-        # Satisfy property 2
-        #-------------------
+        # Insert dims until property 2 satisfied
         for ax in sorted(axes): # sort, to avoid deprecation warnings
             Y = np.expand_dims(Y, ax)
         return Y
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Sum(ReductionFunction):
+class Sum(ReductionFunction): # #
     """ Compute sum along axis or axes """
-
     @staticmethod
-    def sum(x, axis=None, keepdims=False):
-        return x.sum(axis=axis, keepdims=keepdims)
+    #def sum(x, axis=None, keepdims=False):
+    def sum(x, **kwargs):
+        return x.sum(**kwargs)
 
     @staticmethod
     def sum_prime(x, **kwargs):
-        return np.ones(x.shape).astype(x.dtype)
+        return np.ones(x.shape, x.dtype)
 
     def forward(self, X, axis=None, keepdims=False):
+        #==== Cache inputs
         self.cache = X
-        self.flags = self.format_axes(axis), keepdims
-        Y = self.sum(X, axis, keepdims)
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== sum X
+        Y = self.sum(X, axis=axis, keepdims=keepdims)
         return Y
 
     def backward(self, gY):
@@ -1200,23 +1199,24 @@ class Sum(ReductionFunction):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class Mean(ReductionFunction):
+class Mean(ReductionFunction): # #
     """ Compute mean along axis or axes """
     @staticmethod
-    def mean(x, axis=None, keepdims=False):
-        return x.mean(axis=axis, keepdims=keepdims)
+    def mean(x, **kwargs):
+        return x.mean(**kwargs)
 
     @staticmethod
     def mean_prime(x, axis=None):
         # div by number of elems averaged out in forward
         dims = x.shape
-        ax_elems = dims if axis is None else [dims[i] for i in axis]
-        num_avgd = np.prod(ax_elems)
+        num_avgd = np.prod([dims[i] for i in axis])
         return np.ones(x.shape, x.dtype) / float(num_avgd)
 
     def forward(self, X, axis=None, keepdims=False):
+        #==== cache inputs
         self.cache = X
-        self.flags = self.format_axes(axis), keepdims
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== average X
         Y = self.mean(X, axis=axis, keepdims=keepdims)
         return Y
 
@@ -1226,7 +1226,33 @@ class Mean(ReductionFunction):
         gX = self.restore_dims(gY) * self.mean_prime(X, axes)
         return gX
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class Prod(ReductionFunction): # #
+    """ Compute product along axis or axes """
+    @staticmethod
+    def prod(x, **kwargs):
+        return x.prod(**kwargs)
+
+    @staticmethod
+    def prod_prime(x, axis=None):
+        # Multiply where elems prod'd out in forward
+        prod_elems = Prod.prod(x, axis=axis, keepdims=True) / x
+        return np.ones(x.shape, x.dtype) * prod_elems
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== prod X
+        Y = self.prod(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keep = self.flags
+        gX = self.restore_dims(gY) * self.prod_prime(X, axes)
+        return gX
 
 
 
@@ -1385,6 +1411,24 @@ class LSTM(Function):
 #------------------------------------------------------------------------------
 # Normalization
 #------------------------------------------------------------------------------
+class LayerNormalization(Function):
+    def __init__(self, *args, **kwargs):
+        self.mean = Mean()
+        self.sqrt = Sqrt()
+        self.square = Square()
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def layer_normalization(x, g, b, std, mu):
+        y = (g / std) * (x - mu) + b
+        return y
+
+    @staticmethod
+    def layer_normalization_prime(x, g, b, dstd, dmu):
+        pass
+
+
+
 
 class LayerNormalization(Function):
     """ Normalization routine defined on statistics from the summed
