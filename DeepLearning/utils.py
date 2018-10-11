@@ -331,9 +331,6 @@ class IrisDataset:
         X_train, X_test = np.split(X_shuffled, split_idx)
         return X_train, X_test
 
-
-
-
     # Batching on dataset
     #-----------------------------
     @staticmethod
@@ -765,10 +762,10 @@ class Trainer:
 
     Trainer accepts a model, along with an optimizer
     and objective function, and trains it for the
-    specified number of steps using a DataSet.
+    specified number of steps using a DataSet. # X=None, split_size=.8, seed=RNG_SEED_DATA
     """
     def __init__(self, channels, opt, obj, activation,
-                 steps=1000, batch_size=6, dropout=False,
+                 dataset=None, steps=1000, batch_size=6, dropout=False,
                  verbose=False, rng_seed=RNG_SEED_PARAMS):
         self.channels = channels
         self.opt = opt()
@@ -779,7 +776,7 @@ class Trainer:
         self.verbose = verbose
         self.rng_seed = rng_seed
         self.init_network(activation, dropout)
-        self.init_dataset()
+        self.init_dataset(dataset)
         self.init_session_status()
 
     def init_network(self, act, use_dropout=False):
@@ -787,8 +784,11 @@ class Trainer:
         np.random.seed(self.rng_seed)
         self.model = network.NeuralNetwork(self.channels, act, use_dropout)
 
-    def init_dataset(self):
-        self.dataset = IrisDataset()
+    def init_dataset(self, dataset):
+        if dataset is not None:
+            self.dataset = dataset
+        else:
+            self.dataset = IrisDataset()
 
     def init_session_status(self):
         """
@@ -805,16 +805,31 @@ class Trainer:
         steps = self.steps
         num_test = self.dataset.X_test.shape[0]
         self.session_status = SessionStatus(model, opt, obj, steps, num_test)
+#  ______   _   _   _____    ______   _____     _    _   ______   _____    ______   #
+# |  ____| | \ | | |  __ \  |  ____| |  __ \   | |  | | |  ____| |  __ \  |  ____|  #
+# | |__    |  \| | | |  | | | |__    | |  | |  | |__| | | |__    | |__) | | |__     #
+# |  __|   | . ` | | |  | | |  __|   | |  | |  |  __  | |  __|   |  _  /  |  __|    #
+# | |____  | |\  | | |__| | | |____  | |__| |  | |  | | | |____  | | \ \  | |____   #
+# |______| |_| \_| |_____/  |______| |_____/   |_|  |_| |______| |_|  \_\ |______|  #
+"""
+Seeing why I need the CV trainer, and why the normal trainer cannot be adapted
+for both CV and training. It's the same thing.
 
-    def batch(self, ):
-        pass
+A new trainer will be instantiated on every loop of the CV algorithm, so
+it doesn't matter that Trainer is CV-agnostic. Just give it the limited
+Ddata instead of automatically downloading the full-set.
+
+
+- Essentially: make sure there are little to no 'self.' whatever calls to
+     dataset or status things.
+"""
 
     def train(self, dataset):#=self.dataset):
         v = self.verbose
         for step in range(self.steps):
             # batch data
             #------------------
-            x, y = self.dataset.get_batch(step, self.batch_size)
+            x, y = dataset.get_batch(step, self.batch_size)
 
             # forward pass
             #------------------

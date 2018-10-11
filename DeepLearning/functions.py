@@ -17,10 +17,10 @@ connection functions : functions using learnable variables
     Bias, Matmul, Linear
 
 ReductionFunction : functions that reduce dimensionality
-     Sum, Mean, XProd, XMax, XMin
+     Sum, Mean, Prod, XMax, XMin
 
 activation functions : nonlinearities
-    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax, Swish
+    ReLU, ELU, SeLU, Softplus, Sigmoid, Tanh, Softmax, Swish
 
 loss functions : objectives for gradient descent
     LogisticCrossEntropy, SoftmaxCrossEntropy
@@ -32,7 +32,7 @@ STILL PENDING REWORK FROM v1
 [X] ReductionFunction
     [X] Sum
     [X] Mean
-    [ ] Prod
+    [X] Prod
     [ ] Max/Min
 
 IN PIPELINE:
@@ -98,7 +98,7 @@ def to_one_hot(Y, num_classes=3):
     #  handles both ndim = 0 and ndim > 1 cases
     if Y.ndim != 1:
         Y = np.squeeze(Y)
-        assert Y.ndim == 1
+    assert Y.ndim == 1
 
     # dims for one-hot
     n = Y.shape[0]
@@ -108,24 +108,6 @@ def to_one_hot(Y, num_classes=3):
     one_hot = np.zeros((n, d))
     one_hot[np.arange(n), Y] = 1
     return one_hot.astype(np.int32)
-
-def restore_axis_shape(x, ax, d):
-    """ Restores an axis ax that was reduced from x
-    to it's original shape d
-    Just a wrapper for the tedious
-    broadcast_to(expand_dims(...)...) op
-
-    Assumes
-    -------
-        x.ndim >= 1
-        ax : int  (only one dim being restored through ax)
-    """
-    assert x.ndim >= 1 and isinstance(ax, int)
-
-    # Restore shape
-    bcast_shape = x.shape[:ax] + (d,) + x.shape[ax:]
-    return np.broadcast_to(np.expand_dims(x, ax), bcast_shape)
-
 
 
 #==============================================================================
@@ -188,7 +170,8 @@ class Function:
     def __repr__(self):
         # repr : functions.$classname
         #    eg "functions.MatMul"
-        return "functions.{}".format(self.name)
+        rep = '"functions.{}()"'.format(self.__class__.__name__)
+        return rep
 
     @property
     def cache(self):
@@ -206,9 +189,14 @@ class Function:
             self._cache = fvars if len(fvars) > 1 else fvars[0]
 
     def forward(self, X, *args):
-        """ Forward serves as an interface to a staticmethod for most Functions
+        """ forward serves as an interface to a staticmethod
+        for most Functions (ALL functions, currently).
+
         These methods are purely functional, and perform the function
         represented by the class.
+
+        for the majority of functions, 'forward' simply caches
+        the input, and calls it's class' staticmethod.
 
         Function, as the base class, provides a simple implementation
         of this behavior.
@@ -217,26 +205,30 @@ class Function:
         the methods are generally the lower-case version of the class name,
         and the derivative functions have '_prime' concatenated.
 
-        For example, the following Functions have staticmethods:
+        For example:
             Tanh : tanh, tanh_prime
             Sqrt : sqrt, sqrt_prime
-
             MatMul : matmul, matmul_prime
 
-        However, many Functions have forward or backward processes
+        Some Functions, however, have forward or backward processes
         that have more significant side-effects or other constraints
-        that would not be complete by the pure functions alone.
+        that would not be complete by the pure functions alone, the
+        most common being additional input arguments
           - LogisticCrossEntropy, for instance, cannot use its
             functions alone (and, incidentally, does not have
-            conforming function names)
+            conforming function names).
 
-        For any function where this is the case, they will override the
-        forward and backward methods to meet their constraints
+        While Function's base forward and backward functions cover
+        the majority of functions' needs, I keep the boilerplate
+        there anyway, because I think it makes things clearer,
+        especially to those unfamiliar with chaining.
+
         """
         # in this case, self.name = 'Function'
         fn_name = self.name.lower()
-        if hasattr(self, fn_name): # is there a 'self.function' ?
+        if hasattr(self, fn_name): # has a 'self.function' ?
             fn = getattr(self, fn_name)
+            self.cache = X
             return fn(X, *args)
         else:
             raise NotImplementedError
@@ -245,7 +237,9 @@ class Function:
         fn_name = self.name.lower() + '_prime'
         if hasattr(self, fn_name):
             fn = getattr(self, fn_name)
-            return fn(gY, *args)
+            X = self.cache
+            gX = gY * fn(X, *args)
+            return gX
         else:
             raise NotImplementedError
 
@@ -371,6 +365,8 @@ class Power(Function): #
         gX = gY * self.power_prime(X, p)
         return gX
 
+
+
 #------------------------------------------------------------------------------
 # Connection functions :
 #     Functions using learnable variables
@@ -455,7 +451,6 @@ class MatMul(Function): # #
 
 class Linear(Function): ##
     """ Affine transformation function, Y = X.W + B
-
     See also: MatMul and Bias, which Linear composes
 
     Params
@@ -478,13 +473,6 @@ class Linear(Function): ##
         z = Bias.bias(y, b)
         return z
 
-    ''' # NOT V2 COMPLIANT
-    @staticmethod
-    def linear_prime(y, x, w, b):
-        dx, dw = MatMul.matmul_prime(np.copy(y), x, w)
-        _, db = Bias.bias_prime(y, b) # bias just identity func on gradient
-        return dx, dw, db
-    '''
     @staticmethod
     def linear_prime(x, w, b):
         dX, dW = MatMul.matmul_prime(x, w)
@@ -498,8 +486,6 @@ class Linear(Function): ##
 
     def backward(self, gZ, W, B):
         X = self.cache
-        #gX, gW, gB = self.linear_prime(gY, X, W, B)
-        #return gX, gW, gB
         dX, dW, dB = self.linear_prime(X, W, B)
         gX = MatMul.matmul(gZ, dX) # (N, K).(K, D)
         gW = MatMul.matmul(dW, gZ) # (D, N).(N, K)
@@ -613,10 +599,183 @@ class LSTM(Function):
 
 '''
 
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            ReductionFunctions
+#------------------------------------------------------------------------------
+#==============================================================================
+
+# ReductionFunction
+# -----------------
+# inherits : Function
+# derives  : Sum, Mean, Prod, Max Min
+class ReductionFunction(Function): # #
+    """ Function class for op that reduce dimensionality
+
+    Due to some extra complexity in broadcasting algebra wrt
+    reduced or missing dimensions, reduction functions have an
+    extra instance attribute for the reduction kwargs (axis, keepdims).
+        This allows for easy dimensionality restoration during
+        backprop
+    """
+    def __init__(self, *args, **kwargs):
+        self.flags = None
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def tupleify(x):
+        return (x,) if isinstance(x, int) else tuple(x)
+
+    def format_axes(self, axes, shape):
+        if axes is None: #==== same as applying along all axes
+            axes = range(len(shape))
+        return self.tupleify(axes)
+
+    def restore_dims(self, Y):
+        """ Restore any non-leading missing dims from Y
+        There are a few constraints to NumPy broadcasting,
+        which defines how operations involving arrays with
+        different dimensions can still be applied.
+
+        For automatic broadcasting, the arrays
+        involved must satisfy one of the following
+        3 properties:
+
+        Properties
+        ==========
+        1 - exactly same shape
+        >>----->  X.shape == Y.shape
+
+        2 - Same num of dims, and len of each dim is either
+            the same, or 1
+        >>-----> X.ndim == Y.ndim; (N, M, D) & (N, 1, D)
+
+        3 - array(s) with too few dims can have their
+            shapes **prepended** with a dim of len 1
+            to satisfy property 2
+            A few examples:
+        >>-----> (N, M, D) & (M, D); OKAY! ===> (M, D) --> (1, M, D)
+                 (N, M, D) & (N, D);  BAD! ####  restore to (N,1,D)
+                 (N, M, D) & (D,);   OKAY! ===> (1, 1, D)
+                 (N, M, D) & (N,);    BAD! #### restore to (N,1,1)
+                 (N, M, D) & (M,);    BAD! #### restore to (1,M,1)
+                 (N, M, D) & ();     OKAY! ===> (1,1,1)
+                                          (and scalars always broadcastable)
+        Restoration func
+        ================
+        ASSUME: Property 1 is not a consideration here, given
+                this func only called during backprop. Valid inputs
+                will necessarily have reduced dimensions.
+
+        RETURN: Y (the input), if property 2 is satisfied or
+                Y with length 1 dims inserted until property 2 is satisfied
+                * NB: Y rarely needs inserted dims, since most functions
+                      preserve dimensions (keepdims=True)
+
+        """
+        # Get reduction flags
+        axes, keep = self.flags
+
+        # Check Property 2, or if Y scalar
+        if keep or Y.ndim == 0:
+            return Y
+
+        # Insert dims until property 2 satisfied
+        for ax in sorted(axes): # sort, to avoid deprecation warnings
+            Y = np.expand_dims(Y, ax)
+        return Y
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Sum(ReductionFunction): # #
+    """ Compute sum along axis or axes """
+    @staticmethod
+    #def sum(x, axis=None, keepdims=False):
+    def sum(x, **kwargs):
+        return x.sum(**kwargs)
+
+    @staticmethod
+    def sum_prime(x, **kwargs):
+        return np.ones(x.shape, x.dtype)
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== Cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== sum X
+        Y = self.sum(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = self.restore_dims(gY) * self.sum_prime(X)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Mean(ReductionFunction): # #
+    """ Compute mean along axis or axes """
+    @staticmethod
+    def mean(x, **kwargs):
+        return x.mean(**kwargs)
+
+    @staticmethod
+    def mean_prime(x, axis=None):
+        # div by number of elems averaged out in forward
+        dims = x.shape
+        num_avgd = np.prod([dims[i] for i in axis])
+        return np.ones(x.shape, x.dtype) / float(num_avgd)
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== average X
+        Y = self.mean(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keep = self.flags
+        gX = self.restore_dims(gY) * self.mean_prime(X, axes)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Prod(ReductionFunction): # #
+    """ Compute product along axis or axes """
+    @staticmethod
+    def prod(x, **kwargs):
+        return x.prod(**kwargs)
+
+    @staticmethod
+    def prod_prime(x, axis=None):
+        # Multiply where elems prod'd out in forward
+        prod_elems = Prod.prod(x, axis=axis, keepdims=True) / x
+        return np.ones(x.shape, x.dtype) * prod_elems
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== prod X
+        Y = self.prod(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keep = self.flags
+        gX = self.restore_dims(gY) * self.prod_prime(X, axes)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 
 
 #==============================================================================
+#------------------------------------------------------------------------------
 #                          Activation Functions
+#------------------------------------------------------------------------------
 #==============================================================================
 
 class Sigmoid(Function): # #
@@ -857,7 +1016,9 @@ class Swish(Function): # #
 
 
 #==============================================================================
-#                          Loss Functions
+#------------------------------------------------------------------------------
+#                             Loss Functions
+#------------------------------------------------------------------------------
 #==============================================================================
 
 
@@ -1085,174 +1246,7 @@ class Dropout(Function):
         return gX
 
 
-#==============================================================================
-#------------------------------------------------------------------------------
-#                            REDUCTION FUNCTIONS
-#------------------------------------------------------------------------------
-#==============================================================================
 
-# ReductionFunction
-# -----------------
-# inherits : Function
-# derives  : Sum, Mean, Prod, Max Min
-class ReductionFunction(Function): # #
-    """ Function class for op that reduce dimensionality
-
-    Due to some extra complexity in broadcasting algebra wrt
-    reduced or missing dimensions, reduction functions have an
-    extra instance attribute for the reduction kwargs (axis, keepdims).
-        This allows for easy dimensionality restoration during
-        backprop
-    """
-    def __init__(self, *args, **kwargs):
-        self.flags = None
-        super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def tupleify(x):
-        return (x,) if isinstance(x, int) else tuple(x)
-
-    def format_axes(self, axes, shape):
-        if axes is None: #==== same as applying along all axes
-            axes = range(len(shape))
-        return self.tupleify(axes)
-
-    def restore_dims(self, Y):
-        """ Restore any non-leading missing dims from Y
-        There are a few constraints to NumPy broadcasting,
-        which defines how operations involving arrays with
-        different dimensions can still be applied.
-
-        For automatic broadcasting, the arrays
-        involved must satisfy one of the following
-        3 properties:
-
-        Properties
-        ==========
-        1 - exactly same shape
-        >>----->  X.shape == Y.shape
-
-        2 - Same num of dims, and len of each dim is either
-            the same, or 1
-        >>-----> X.ndim == Y.ndim; (N, M, D) & (N, 1, D)
-
-        3 - array(s) with too few dims can have their
-            shapes **prepended** with a dim of len 1
-            to satisfy property 2
-            A few examples:
-        >>-----> (N, M, D) & (M, D); OKAY! ===> (M, D) --> (1, M, D)
-                 (N, M, D) & (N, D);  BAD! ####  restore to (N,1,D)
-                 (N, M, D) & (D,);   OKAY! ===> (1, 1, D)
-                 (N, M, D) & (N,);    BAD! #### restore to (N,1,1)
-                 (N, M, D) & (M,);    BAD! #### restore to (1,M,1)
-                 (N, M, D) & ();     OKAY! ===> (1,1,1)
-                                          (and scalars always broadcastable)
-        Restoration func
-        ================
-        ASSUME: Property 1 is not a consideration here, given
-                this func only called during backprop. Valid inputs
-                will necessarily have reduced dimensions.
-
-        RETURN: Y (the input), if property 2 is satisfied or
-                Y with length 1 dims inserted until property 2 is satisfied
-                * NB: Y rarely needs inserted dims, since most functions
-                      preserve dimensions (keepdims=True)
-
-        """
-        # Get reduction flags
-        axes, keep = self.flags
-
-        # Check Property 2, or if Y scalar
-        if keep or Y.ndim == 0:
-            return Y
-
-        # Insert dims until property 2 satisfied
-        for ax in sorted(axes): # sort, to avoid deprecation warnings
-            Y = np.expand_dims(Y, ax)
-        return Y
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-class Sum(ReductionFunction): # #
-    """ Compute sum along axis or axes """
-    @staticmethod
-    #def sum(x, axis=None, keepdims=False):
-    def sum(x, **kwargs):
-        return x.sum(**kwargs)
-
-    @staticmethod
-    def sum_prime(x, **kwargs):
-        return np.ones(x.shape, x.dtype)
-
-    def forward(self, X, axis=None, keepdims=False):
-        #==== Cache inputs
-        self.cache = X
-        self.flags = self.format_axes(axis, X.shape), keepdims
-        #==== sum X
-        Y = self.sum(X, axis=axis, keepdims=keepdims)
-        return Y
-
-    def backward(self, gY):
-        X = self.cache
-        gX = self.restore_dims(gY) * self.sum_prime(X)
-        return gX
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-class Mean(ReductionFunction): # #
-    """ Compute mean along axis or axes """
-    @staticmethod
-    def mean(x, **kwargs):
-        return x.mean(**kwargs)
-
-    @staticmethod
-    def mean_prime(x, axis=None):
-        # div by number of elems averaged out in forward
-        dims = x.shape
-        num_avgd = np.prod([dims[i] for i in axis])
-        return np.ones(x.shape, x.dtype) / float(num_avgd)
-
-    def forward(self, X, axis=None, keepdims=False):
-        #==== cache inputs
-        self.cache = X
-        self.flags = self.format_axes(axis, X.shape), keepdims
-        #==== average X
-        Y = self.mean(X, axis=axis, keepdims=keepdims)
-        return Y
-
-    def backward(self, gY):
-        X = self.cache
-        axes, keep = self.flags
-        gX = self.restore_dims(gY) * self.mean_prime(X, axes)
-        return gX
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-class Prod(ReductionFunction): # #
-    """ Compute product along axis or axes """
-    @staticmethod
-    def prod(x, **kwargs):
-        return x.prod(**kwargs)
-
-    @staticmethod
-    def prod_prime(x, axis=None):
-        # Multiply where elems prod'd out in forward
-        prod_elems = Prod.prod(x, axis=axis, keepdims=True) / x
-        return np.ones(x.shape, x.dtype) * prod_elems
-
-    def forward(self, X, axis=None, keepdims=False):
-        #==== cache inputs
-        self.cache = X
-        self.flags = self.format_axes(axis, X.shape), keepdims
-        #==== prod X
-        Y = self.prod(X, axis=axis, keepdims=keepdims)
-        return Y
-
-    def backward(self, gY):
-        X = self.cache
-        axes, keep = self.flags
-        gX = self.restore_dims(gY) * self.prod_prime(X, axes)
-        return gX
 
 
 
@@ -1459,13 +1453,12 @@ class LayerNormalization(Function):
     y = gdxm + b # (N, D)
 
     #===== Bwd
-    #----> not sure about grads through stats, especially wrt x updates
     dgdxm = gY
     db = gY.sum(0)
     dgds = dgdxm * xmu
     dxmu = dgdxm * gds
     dx  = dxmu
-    dmu = -dxmu # sum out here?
+    dmu = -dxmu
     dg = dgds * -(1/np.square(std)) # or -1 / var
     dstd = dgds * g
 
@@ -1710,6 +1703,57 @@ class Prod(ReductionFunction):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class Stdv(ReductionFunction):
+    """ Computes standard deviation """
+    @staticmethod
+    def stdv(x, **kwargs):
+        #==== stats
+        mu  = np.mean(x, **kwargs) # assuming 0th axis is batch
+        diff = x - mu
+        sqr_diff = np.square(diff)
+        var = np.mean(sqr_diff, **kwargs)
+        std = np.sqrt(var)
+        return std
+
+    @staticmethod
+    def stdv_prime(x, axis=None, keepdims=False):
+        kw = {'axis':axis, 'keepdims': keepdims}
+        mu = np.mean(x, **kw)
+        diff = x - mu
+        sqr_diff = np.square(diff)
+        var = np.mean(sqr_diff, **kw)
+        std = np.sqrt(var)
+        #====
+        print(f'var: {var}')
+        dvar = 1 / (2 * np.sqrt(var))
+        #dvar = 1 / (2 * np.sqrt(std))
+        print(f'dvar: {dvar}')
+        dsqr_diff = dvar * Mean.mean_prime(sqr_diff, axis=axis)
+        #dsqr_diff = sqr_diff * Mean.mean_prime(dvar, axis=axis)
+        print(f'dsqr_diff: {dsqr_diff}')
+        ddiff = dsqr_diff * 2 * diff
+        print(f'ddiff: {ddiff}')
+        #dx = ddiff
+        #print(f'dx1: {dx}')
+        dmu = -ddiff
+        #print(f'dmu: {dmu}')
+        dx = dmu * Mean.mean_prime(x, axis=axis) + ddiff
+        print(f'final dx: {dx}')
+        return dx
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        Y = self.stdv(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keepdims = self.flags
+        gX = self.restore_dims(gY) * self.stdv_prime(X, axes, keepdims)
+        return gX
+
+
 class MaxMin(ReductionFunction):
     """ Base class for max, min funcs """
     MM_func  = None
@@ -1746,3 +1790,6 @@ class Min(MaxMin):
     cmp_func = lambda x, y: x < y
 
 '''
+
+
+
