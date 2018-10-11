@@ -617,7 +617,7 @@ class SessionStatus:
         print(d1)
 
     def get_loss_history(self):
-        print('Returning: train_history, test_history')
+        #print('Returning: train_history, test_history')
         return self.train_history, self.test_history
 
     def print_status(self, step, err, acc):
@@ -791,20 +791,43 @@ class Trainer:
             self.dataset = IrisDataset()
 
     def init_session_status(self):
-        """
-        For CV: ask:
-          - do we want to use the same trainer object or
-            make new one each run?
-            - We could always make a CV-trainer,
-              which accepts a trainer instead of the normal
-              trainer args
-        """
         model = self.model
         opt = self.opt
         obj = self.obj
         steps = self.steps
         num_test = self.dataset.X_test.shape[0]
         self.session_status = SessionStatus(model, opt, obj, steps, num_test)
+
+    def summarize_results(self):
+        seed = self.rng_seed
+        d2 = self.div2
+        num_tr = self.steps
+        num_test = self.num_test
+        header = '\n# Model: {}\n#   Seed: {}\n' + d2
+        header = header.format(self.channels, self.rng_seed)
+
+        # Get stats on train history
+        #  skip first 100 iters
+        avg = np.mean(  np.copy(self.train_history[100:]), axis=0)
+        q50 = np.median(np.copy(self.train_history[100:]), axis=0)
+
+        tavg = np.mean(np.copy(self.test_history), axis=0)
+        tq50 = np.median(np.copy(self.test_history), axis=0)
+
+        # Print results
+        print(header)
+        print('   TRAIN    Error  |  Accuracy')
+        print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
+        print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
+        print(d2)
+        print('    TEST    Error  |  Accuracy')
+        print('* Average: {:.5f} | {:.5f}'.format(tavg[0], tavg[1]))
+        print('*  Median: {:.5f} | {:.5f}'.format(tq50[0], tq50[1]))
+        print(d2)
+        print('\n\n')
+
+    def get_loss_histories(self):
+        return self.train_history, self.test_history
 
     def train(self):
         v = self.verbose
@@ -842,7 +865,9 @@ class Trainer:
     def __call__(self):
         self.train()
         self.evaluate()
-        self.session_status.summarize_model(True, True)
+        #self.session_status.summarize_model(True, True)
+        self.train_history, self.test_history = self.session_status.get_loss_history()
+        self.summarize_results()
 
 #------------------------------------------------------------------------------
 

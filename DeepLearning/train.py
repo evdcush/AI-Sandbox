@@ -82,42 +82,7 @@ for step in range(num_iters):
     #else:
     #    assert not np.all(x == prev_x)
     #    prev_x = np.copy(x)
-#  ______   _   _   _____    ______   _____     _    _   ______   _____    ______   #
-# |  ____| | \ | | |  __ \  |  ____| |  __ \   | |  | | |  ____| |  __ \  |  ____|  #
-# | |__    |  \| | | |  | | | |__    | |  | |  | |__| | | |__    | |__) | | |__     #
-# |  __|   | . ` | | |  | | |  __|   | |  | |  |  __  | |  __|   |  _  /  |  __|    #
-# | |____  | |\  | | |__| | | |____  | |__| |  | |  | | | |____  | | \ \  | |____   #
-# |______| |_| \_| |_____/  |______| |_____/   |_|  |_| |______| |_|  \_\ |______|  #
-"""
-Been getting really good numbers ever since the Dataset class and
-session status class were made. There have been a lot of changes,
-all over the package code, and v2 is just that much more consistent I guess
- - At any rate, needed to do some sanity checks, checking
-   integrity of batching (making sure they are all different).
-   Also made a separate loss tracker to keep track of statistics
-   in case the wildly sprawling super-class SessionStatus (REALLY
-   NEED TO RELOCATE SOME OF ITS FUNCTIONALITIES INTO SEPARATE CLASSES),
-   but that was fine too.
 
-* Originally planned on doing the CV thing in the notebook, where
-  it's easiest to follow progress, eyeball current results and debug.
-  But it would probably be better just to either use the NORMAL
-  train script (this one), or a specialized CV script
-    The options
-    ===========
-      * Notebook, fat, complex, nested for-loops (about 4~5)
-      * Specialized script:
-         - nest for-loops like notebook
-         - basic setup for single-run
->>---> * Shell script or python script, with ALL permutations of
-        network configs for CV, that runs another script for each one
-        (instead of a bunch of for loops).
-          > Leaning towards this option. Also makes it easier to
-            serialize and organize the CV configurations to files,
-            or a file, as well as write out good, formatted, summary
-            statistics to a text file, or npy or dict or
-            whatever makes sense.
-"""
     # forward pass
     #------------------
     y_hat = model.forward(x)
