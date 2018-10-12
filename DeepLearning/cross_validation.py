@@ -42,14 +42,9 @@ optimizer   = [Opt.SGD]
 objective   = [F.SoftmaxCrossEntropy]
 activations = [F.Sigmoid, F.SeLU, layers.Swish]
 
-# Target variable: channels
-#--------------------------------------------------------------
-K_IN  = 4
-K_OUT = 3
-MAX_DEPTH = 8 # 9 layers total, including input-out
-MAX_SIZE = 650 # limit on sum kernels for any given channels sample
-
-CHANNELS = list(np.load('GEN_500_CHANNELS.npy'))
+# Training config
+#------------------
+NUM_ITERS = 2000
 
 # Dataset
 #-------------------
@@ -63,26 +58,44 @@ _X_train = np.load(utils.IRIS_TRAIN)
 split_size = .8 # already default in dataset
 batch_size = 6
 
+# Target variable: channels
+#--------------------------------------------------------------
+K_IN  = 4
+K_OUT = 3
+MAX_DEPTH = 8 # 9 layers total, including input-out
+MAX_SIZE = 650 # limit on sum kernels for any given channels sample
+CHANNELS = list(np.load('GEN_500_CHANNELS.npy'))
+
+
+# Helpers
+#--------------------------------------------------------------
 def generate_dataset():
     x_copy = np.copy(_X_train)
     split_seed = np.random.choice(15000)
     _dataset = utils.IrisDataset(x_copy, split_size, split_seed)
     return _dataset
 
-
-
 def init_trainer(chan, act, dset, seed):
     return utils.Trainer(chan, Opt.SGD, F.SoftmaxCrossEntropy,
-                         act, dataset=dset, steps=2000, batch_size=batch_size,
-                         rng_seed=seed)
+                         act, dataset=dset, steps=NUM_ITERS,
+                         batch_size=batch_size, rng_seed=seed)
 
 
-RESULTS = {s: [] for s in SEEDS}
-for seed in SEEDS:
+# Loss tracker
+#--------------------------------------------------------------
+cv_dims = (len(SEEDS), len(activations), len(CHANNELS), NUM_ITERS, 2)
+cv_test_dims = cv_dims[:-2] + (24, 2)
+#==== collections
+CV_TRAIN_LOSS = np.zeros(cv_dims,      np.float32)
+CV_TEST_LOSS  = np.zeros(cv_test_dims, np.float32)
+
+
+# Train
+#--------------------------------------------------------------
+for idx_seed, seed in enumerate(SEEDS):
     for idx_act, act in enumerate(activations):
-        act_entry = []
         dataset = generate_dataset()
-        for channels in CHANNELS:
+        for idx_chan, channels in enumerate(CHANNELS):
             # copy data for safety
             dataset.X_train = np.copy(dataset.X_train)
             dataset.X_test  = np.copy(dataset.X_test)
@@ -92,11 +105,10 @@ for seed in SEEDS:
             trainer()
 
             # save results
-            losses = trainer.get_loss_histories()
-            act_entry.append(losses)
+            lh_train, lh_test = trainer.get_loss_histories()
+            CV_TRAIN_LOSS[idx_seed, idx_act, idx_chan] = lh_train
+            CV_TEST_LOSS[ idx_seed, idx_act, idx_chan] = lh_test
 
-        RESULTS[seed].append(act_entry)
-
-
-np.save('CV_Results', RESULTS)
+np.save('CV_train_loss', CV_TRAIN_LOSS)
+np.save('CV_test_loss',  CV_TEST_LOSS)
 #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
