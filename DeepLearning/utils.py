@@ -333,7 +333,8 @@ class IrisDataset:
 
     # Batching on dataset
     #-----------------------------
-    def get_batch(self, step, batch_size=1, test=False, feature_split_idx=4):
+    @staticmethod
+    def get_batch(X, step, batch_size=1, test=False, feature_split_idx=4):
         """ Batches samples from dataset X
         ASSUMED: batch_size is a factor of the number of samples in X
 
@@ -370,7 +371,6 @@ class IrisDataset:
 
         # Get dimensions and indices
         #-------------------------------
-        X = self.X_train if not test else self.X_test
         N = X.shape[0]
         b = batch_size if batch_size <= N else batch_size % N
         #==== Batching indices
@@ -829,7 +829,9 @@ class Trainer:
         print('\n\n')
 
     def get_loss_histories(self):
-        return self.train_history, self.test_history
+        lhtr, lhte =  self.train_history, self.test_history
+        return lhtr, lhte
+
 
     def train(self):
         v = self.verbose

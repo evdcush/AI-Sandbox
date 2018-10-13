@@ -1,7 +1,7 @@
 """
 Cross validation for parameter search script
 """
-import gc
+import subprocess
 import numpy as np
 
 import utils
@@ -9,106 +9,115 @@ import layers
 import functions as F
 import optimizers as Opt
 
-#==================================================
-#                   CV Setup                      #
-#==================================================
-# Model config
-#------------------
-SEEDS = [3310, 99467, 27189, 77771]
-optimizer   = Opt.Adam
-objective   = [F.SoftmaxCrossEntropy]
-activations = [F.Sigmoid, F.SeLU, layers.Swish]
+import utils
+from network import NeuralNetwork
+import argparse
+
+class AttrDict(dict):
+    """ simply a dict accessed/mutated by attribute instead of index
+    Warning: cannot be pickled like normal dict/object
+    """
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+parser = argparse.ArgumentParser()
+adg = parser.add_argument
+adg('-s', type=int, required=True) # seed index
+adg('-c', type=int, required=True) # channels index
+adg('-a', type=int, required=True) # activation index
+sess_args = AttrDict(vars(parser.parse_args()))
+cidx = sess_args.c
+sidx = sess_args.s
+aidx = sess_args.a
+
+# Select args for this session
+channels = list(np.load('./TESTING/GEN_700_CHANNELS.npy'))[cidx]
+seed_params = [3310, 99467, 27189, 77771][sidx]
+activation = [F.Sigmoid, F.SeLU, layers.Swish][aidx]
+
+optimizer = Opt.Adam
+objective_fn = F.SoftmaxCrossEntropy
+
 
 # Training config
 #------------------
 NUM_ITERS = 1000
 batch_size = 6
 
-# Dataset
-#-------------------
-"""
-80/20 train/test split gives us an even 5-fold for cross val
-Per fold:
- * 24 test samples
- * 96 train samples
-"""
-_X_train = np.load(utils.IRIS_TRAIN)
-split_size = .8 # already default in dataset
-
-# Target variable: channels
-#--------------------------------------------------------------
-K_IN  = 4
-K_OUT = 3
-MAX_DEPTH = 3
-MAX_SIZE = 700 # limit on sum kernels for any given channels sample
-CHANNELS = list(np.load('./TESTING/GEN_700_CHANNELS.npy'))
-
-# Helpers
-#--------------------------------------------------------------
-def generate_dataset():
-    x_copy = np.copy(_X_train)
-    split_seed = np.random.choice(15000)
-    _dataset = utils.IrisDataset(x_copy, split_size, split_seed)
-    return _dataset
-
-def init_trainer(chan, act, dset, seed):
-    return utils.Trainer(chan, optimizer, F.SoftmaxCrossEntropy,
-                         act, dataset=dset, steps=NUM_ITERS,
-                         batch_size=batch_size, rng_seed=seed)
-
-# Loss tracker
-#--------------------------------------------------------------
-#cv_dims = (len(SEEDS), len(activations), len(CHANNELS), NUM_ITERS, 2)
-#cv_test_dims = cv_dims[:-2] + (24, 2)
-cv_dims = (len(CHANNELS), len(activations), len(SEEDS), NUM_ITERS, 2)
-cv_test_dims = cv_dims[:-2] + (24, 2)
-#==== collections
-CV_TRAIN_LOSS = np.zeros(cv_dims,      np.float32)
-CV_TEST_LOSS  = np.zeros(cv_test_dims, np.float32)
+# Split dataset
+seed_dataset = round(seed_params / 7)
+_X_train = np.copy(np.load(utils.IRIS_TRAIN))
+X_train, X_test = utils.IrisDataset.split_dataset(_X_train, split_size=0.8, seed=seed_dataset)
+num_test_samples = X_test.shape[0]
 
 
-#==================================================
-#                    CV Train                     #
-#==================================================
-#for idx_seed, seed in enumerate(SEEDS):
-#    for idx_act, act in enumerate(activations):
-#        dataset = generate_dataset()
-#        for idx_chan, channels in enumerate(CHANNELS):
+# Model initialization
+#==============================================================================
 
-for idx_chan, channels in enumerate(CHANNELS):
-    print(f'{channels}')
-    for idx_act, act in enumerate(activations):
-        for idx_seed, seed in enumerate(SEEDS):
-            dataset = generate_dataset()
-            # copy data for safety
-            dataset.X_train = np.copy(dataset.X_train)
-            dataset.X_test  = np.copy(dataset.X_test)
+# Instantiate model
+#------------------
+np.random.seed(seed_params)
+model = NeuralNetwork(channels, activation=activation)
+objective = objective_fn()
+opt = optimizer()
 
-            # make trainer and train
-            trainer = utils.Trainer(channels, optimizer, F.SoftmaxCrossEntropy,
-                         act, dataset=dataset, steps=NUM_ITERS,
-                         batch_size=batch_size, rng_seed=seed)
-            trainer()
 
-            # Store loss
-            trainer.opt = None
-            for layer in trainer.model.layers:
-                layer = None
-            trainer.model = None
-            trainer.dataset = None
-            trainer.activation = None
-            lh_train, lh_test = trainer.get_loss_histories()
-            trainer = None
-            gc.collect()
-            CV_TRAIN_LOSS[idx_chan, idx_act, idx_seed] = lh_train
-            CV_TEST_LOSS[ idx_chan, idx_act, idx_seed] = lh_test
-    print(f'\n\nCHANNELS[{idx_chan}]: {channels}, avgs per activation:')
-    avg_train = np.copy(CV_TRAIN_LOSS)[idx_chan].mean(axis=(1,2))
-    err, acc = avg_train[...,0], avg_train[...,1]
-    print('    ERR: {:.4f} | {:.4f} | {:.4f}'.format(err[0], err[1], err[2]))
-    print('    ACC: {:.4f} | {:.4f} | {:.4f}'.format(acc[0], acc[1], acc[2]))
+lh_train = np.zeros((NUM_ITERS, 2), np.float32)
+lh_test  = np.zeros((num_test_samples, 2), np.float32)
 
-# Save results
-#--------------------------------------------------------------
-np.save('CV_sgd2_train_loss', CV_TRAIN_LOSS) # WARNING: large file!
-np.save('CV_sgd2_test_loss',  CV_TEST_LOSS)
+#plt.ion()
+#==============================================================================
+# Train
+#==============================================================================
+
+for step in range(NUM_ITERS):
+    # batch data
+    #------------------
+    x, y = utils.IrisDataset.get_batch(X_train, step, batch_size)
+
+    # forward pass
+    #------------------
+    y_hat = model.forward(x)
+    error, class_scores = objective(y_hat, y)
+    accuracy = utils.classification_accuracy(class_scores, y)
+    lh_train[step] = [error, accuracy]
+
+    # backprop and update
+    #------------------
+    grad_loss = objective(error, backprop=True)
+    model.backward(grad_loss)
+    model.update(opt)
+
+
+# Finished training
+#------------------------------------------------------------------------------
+
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
+#==============================================================================
+# Validation
+#==============================================================================
+
+#------------------
+for i in range(num_test_samples):
+    x, y = utils.IrisDataset.get_batch(X_test, i, test=True)
+
+    # forward pass
+    #------------------
+    y_hat = model.forward(x)
+    error, class_scores = objective(y_hat, y)
+    accuracy = utils.classification_accuracy(class_scores, y)
+    lh_test[i] = [error, accuracy]
+
+
+# Finished test
+#------------------------------------------------------------------------------
+
+cv_lh_train = np.load('CV_lh_train.npy')
+cv_lh_train[cidx, aidx, sidx] = lh_train
+np.save('CV_lh_train.npy', cv_lh_train)
+
+cv_lh_test = np.load('CV_lh_test.npy')
+cv_lh_test[cidx, aidx, sidx] = lh_test
+np.save('CV_lh_test.npy', cv_lh_test)

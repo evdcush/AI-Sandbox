@@ -68,7 +68,7 @@ class NeuralNetwork:
 
     # Network initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __init__(self, channels, activation=F.Sigmoid, use_dropout=True, **kwargs):
+    def __init__(self, channels, activation=F.Sigmoid, use_dropout=False, **kwargs):
         """ Initializes an arbitrarily deep neural network
         Params
         ------
