@@ -25,7 +25,8 @@ arg_parser.print_args()
 # Load data
 #------------------
 iris_data = utils.IrisDataset()
-num_test_samples = iris_data.X_test.shape[0]
+X_train, X_test = iris_data.X_train, iris_data.X_test
+num_test_samples = X_test.shape[0]
 
 
 #==============================================================================
@@ -75,13 +76,7 @@ for step in range(num_iters):
     plt.clf()
     # batch data
     #------------------
-    x, y = iris_data.get_batch(step, batch_size)
-    # SANITY CHECK
-    #if step == 0:
-    #    prev_x = np.copy(x)
-    #else:
-    #    assert not np.all(x == prev_x)
-    #    prev_x = np.copy(x)
+    x, y = iris_data.get_batch(X_train, step, batch_size)
 
     # forward pass
     #------------------
@@ -89,7 +84,7 @@ for step in range(num_iters):
     error, class_scores = objective(y_hat, y)
     accuracy = classification_accuracy(class_scores, y)
     sess_status(step, error, accuracy, show=verbose)
-    loss_tracker[step] = [error, accuracy]
+    #loss_tracker[step] = [error, accuracy]
 
     # backprop and update
     #------------------
@@ -105,7 +100,6 @@ t_finish = time.time()
 elapsed_time = (t_finish - t_start)
 #sess_status.print_results(t=elapsed_time)
 
-#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 
 #==============================================================================
 # Validation
@@ -115,13 +109,7 @@ px = None
 # Test
 #------------------
 for i in range(num_test_samples):
-    x, y = iris_data.get_batch(i, test=True)
-    # SANITY CHECK
-    #if step == 0:
-    #    px = np.copy(x)
-    #else:
-    #    assert not np.all(x == px)
-    #    px = np.copy(x)
+    x, y = iris_data.get_batch(X_test, i, test=True)
 
     # forward pass
     #------------------
