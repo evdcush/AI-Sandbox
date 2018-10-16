@@ -32,27 +32,28 @@ mutate : (genome,) ---> genome | mutated_genome
     with probability MUTATION_PROB, a genome has
     one of it's 3 weight vectors re-initialized
 
-#==== Crossover
-crossover : (genome1, genome2) ---> (genomeA, genomeB)
+#==== Reproduction
+reproduce : (genome1, genome2) ---> (genomeA, genomeB)
     reproduction in this GA is defined as a random,
     multi-point crossover between the weights of
     two different genomes, followed by mutation on the
     offspring of the two. Nothing fancy, just the
     selection of weights with masking algebra
 
-# Evolving the genetic pool
-#--------------------------
+# Population evolution
+#---------------------
 The process of evolution for this GA is as follows:
 
 - Population of genomes is initialized
 
 - Population is "evolved" through a fixed number of epochs,
-  following the standard GA process:
-  * Selection
-    * Fitness
-  * Crossover
-    * Mutation
-  * Population <--- Offspring of fittest genomes
+  or generations following the standard GA process:
+
+  * Selection(Population)  # Random selection of some percentage pop
+  * Fitness(select)        # Evaluate fitness of selected genomes
+  * Reproduction(fittest)  # Fittest genomes mate, have offspring
+  * Mutation(offspring)    # Offspring have random chance of mutation
+  * Population   <---------- Offspring of fittest to new population
 
 - Using the (hopefully) fit or adapted population,
   predictions on the test dataset are made by
@@ -82,15 +83,32 @@ MUTATION_RATE = 0.05
 
 
 
-def init_genome(size=(3,4)): # glorot normal
+def init_genome(size=(3,4)):
+    """ Genomes are:
+         - (3,4) ndarray
+         - sampled from Glorot random normal distribution
+         - with low FP precision (to keep representation simple)
+     # NOTE: not sure this is the sensical distibution to sample from
+     nor even whether the genomes should be sampled, but that's a
+     CV session for another day.
+    """
     scale = np.sqrt(2 / sum(size))
     return np.random.normal(scale=scale, size=size).astype(np.float16)
 
-def init_pop():
+def init_population():
+    # initially diverse, the population should become
+    #  highly specialized over generations
     population = [init_genome() for _ in range(POPULATION_SIZE)]
     return population
 
 def fitness(x, y, g):
+    """ Essentially accuracy objective function.
+    How well adapted is the genome to its env?
+
+    NB: The last step is non-differentiable, which is
+        not a constraint on a GA as it would be with
+        gradient-based policy
+    """
     h = np.matmul(x, g.T) # (N, D).(D, 3)
     yhat = np.argmax(h, axis=1)
     return (y == yhat).sum()
