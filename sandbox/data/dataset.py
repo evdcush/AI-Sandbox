@@ -164,7 +164,7 @@ class IrisDataset:
             batch ground truth labels (or class)
         """
         assert batch_size > 0 and isinstance(batch_size, int)
-        X = self.X_train if not test else self.X_test
+        X = self.X_test if test else self.X_train
 
         # Get dimensions and indices
         #-------------------------------

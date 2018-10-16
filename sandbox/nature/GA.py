@@ -76,6 +76,7 @@ from data.dataset import IrisDataset
 POPULATION_SIZE = 128
 TOURNAMENT_SIZE = 78
 MUTATION_RATE = 0.05
+_dtype = np.float16
 
 def init_genome(size=(3,4)):
     """ Genomes are:
@@ -87,14 +88,15 @@ def init_genome(size=(3,4)):
              for another time.
     """
     scale = np.sqrt(2 / sum(size))
-    return np.random.normal(scale=scale, size=size).astype(np.float16)
+    return np.random.normal(scale=scale, size=size).astype(_dtype)
 
 
 def init_population():
     # initially diverse, the population should become
     # highly specialized over generations
     population = [init_genome() for _ in range(POPULATION_SIZE)]
-    return np.array(population) # (POPULATION_SIZE, 3, 4)
+    #return np.array(population) # (POPULATION_SIZE, 3, 4)
+    return population
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -150,7 +152,7 @@ def fitness(x, y, g):
     score : int
         number of correct class predictions made by genome
     """
-    h = np.matmul(x, g.T)        # (N, D).(D, 3) ---> (N, 3)
+    h     = np.matmul(x, g.T)    # (N, D).(D, 3) ---> (N, 3)
     yhat  = np.argmax(h, axis=1) # (N,)
     score = (y == yhat).sum()
     return score
@@ -165,16 +167,10 @@ def selection(x, y, population):
 
     """
     idx = np.random.choice(POPULATION_SIZE, TOURNAMENT_SIZE, replace=False)
-    def _tournament(idx):
-        selected  = population[idx]
-        fitnesses = fitness_mat(x, y, selected)
-        fittest = selected[np.argmax(fitnesses)]
-        return fittest
-    return _tournament(idx)
-    #tournament = list(np.array(population)[idx])
-    #fitnesses = [fitness(x,y,g) for g in tournament]
-    #fittest = tournament[np.argmax(fitnesses)]
-    #return fittest
+    tournament = list(np.array(population)[idx])
+    fitnesses = [fitness(x,y,g) for g in tournament]
+    fittest = tournament[np.argmax(fitnesses)]
+    return fittest
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -186,14 +182,10 @@ def reproduce(p1, p2):
     parent genomes to child genomes
     """
     gene_mask = np.random.randint(0, 2, p1.shape, dtype=np.bool)
-    #==== for very rare edge case of no transfer points
-    while gene_mask.sum() < 1:
-        gene_mask = np.random.randint(0, 2, p1.shape, dtype=np.bool)
-
     #==== offspring from parent genomes
     c1 = (p1 *  gene_mask) + (p2 * ~gene_mask)
     c2 = (p1 * ~gene_mask) + (p2 *  gene_mask)
-    return c1.astype(np.float16), c2.astype(np.float16)
+    return c1.astype(_dtype), c2.astype(_dtype)
 
 def mutate(g):
     """ Mutation defined here as randomly replacing a certain
@@ -202,7 +194,8 @@ def mutate(g):
     if np.random.random() < MUTATION_RATE:
         mut_seq = init_genome((1,4)).squeeze()
         seq_idx = np.random.choice(3)
-        g[seq_idx, :] = mut_seq
+        #g[seq_idx, :] = mut_seq
+        g[seq_idx] = mut_seq
     return g
 
 
@@ -214,7 +207,7 @@ def mutate(g):
 dataset = IrisDataset()
 B = 12 # batch-size
 population = init_population()
-num_gens = 500
+num_gens = 50
 
 for step in range(num_gens):
     x, t = dataset.get_batch(step, B)
@@ -225,10 +218,8 @@ for step in range(num_gens):
         p2 = selection(x, t, population)
         #==== crossover
         child1, child2 = reproduce(p1, p2)
-        next_gen.append(mutate(child1))
-        next_gen.append(mutate(child2))
-
-    population = np.array(next_gen)
+        next_gen.extend([mutate(child1), mutate(child2)])  # this sounds bad, change var naem
+    population = next_gen
 
 
 
@@ -248,24 +239,20 @@ def predict_mat(x, genomes):
     yhats = np.argmax(h, axis=1) # (N,POPULATION_SIZE)
     return yhats
 
-def query_gene_pool(test_set, pool):
-    #yhats = np.zeros((len(pool), test_set.shape[0])).astype(np.int32)
-    ##x, t = utils.IrisDataset(np.copy(Y), 1, test=True)
-    #x, t = test_set[...,:-1], test_set[...,-1]
-    #t = t.astype(np.int32)
-    #for gidx, gene in enumerate(pool):
-    #    yhats[gidx] = predict(x, gene)
-    #return yhats
-    yhats = predict_mat(test_set, pool)
+def query_gene_pool(x, pool):
+    yhats = np.zeros((len(pool), x.shape[0])).astype(np.int32)
+    for gidx, gene in enumerate(pool):
+        yhats[gidx] = predict(x, gene)
     return yhats
 
+#==== split test set
 X_test = dataset.X_test
-X, Y = X_test[...,:-1], X_test[...,-1]
-#test_preds = query_gene_pool(X, population) #(num_test, POPULATION_SIZE)
-test_preds = predict_mat(X, population)
-#Y_pred = np.median(test_preds, axis=0).astype(np.int32)
-Y_pred = np.median(test_preds, axis=1).astype(np.int32) # (num_test,)
-accuracy = np.sum(Y_pred == Y)
+x_test, y_test = X_test[...,:-1], X_test[...,-1]
+
+test_preds = query_gene_pool(x_test, population) #(num_test, POPULATION_SIZE)
+
+Y_pred   = np.median(test_preds, axis=0).astype(np.int32)
+accuracy = np.sum(Y_pred == y_test) / len(y_test)
 
 print(f'Y_pred: {Y_pred}')
 print(f'Accuracy: {accuracy}')
