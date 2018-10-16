@@ -13,13 +13,12 @@ import sys
 
 import numpy
 
-
 #------------------------------------------------------------------------------
 #                               Constants
 #------------------------------------------------------------------------------
 # dir paths
 # =========
-PATH_DATA_DIR = os.path.abspath(sys.path[0])
+PATH_DATA_DIR = str(os.path.abspath(os.path.dirname(__file__)))
 PATH_IRIS_DIR = PATH_DATA_DIR + '/Iris/'
 
 # file paths
@@ -77,8 +76,8 @@ class IrisDataset:
             # otherwise just load train/test sets
             x_train = load_dataset(PATH_IRIS_TRAIN)
             x_test  = load_dataset(PATH_IRIS_TEST)
-        self.x_train = x_train
-        self.x_test  = x_test
+        self.X_train = x_train
+        self.X_test  = x_test
 
 
     # Split into Train/Test sets

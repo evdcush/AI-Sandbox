@@ -59,10 +59,17 @@ The process of evolution for this GA is as follows:
   taking the median label predictions across all genomes
 
 """
+import os
+import sys
 
 import numpy as np
 
-import utils
+# gross
+cwd = str(os.path.abspath(os.path.dirname(__file__)))
+dpath = cwd.replace('/nature/evolutionary', '/data')
+sys.path.append(dpath)
+
+from dataset import IrisDataset as IS
 
 
 
