@@ -64,18 +64,23 @@ import sys
 
 import numpy as np
 
-# gross
+# gross hackky pathing for simple imports
 cwd = str(os.path.abspath(os.path.dirname(__file__)))
 dpath = cwd.replace('/nature/evolutionary', '/data')
 sys.path.append(dpath)
 
-from dataset import IrisDataset as IS
+from dataset import IrisDataset
 
 
+
+# GA constants
+#---------------------------------
 
 POPULATION_SIZE = 128
 TOURNAMENT_SIZE = 78
 MUTATION_RATE = 0.05
+
+
 
 def init_genome(size=(3,4)): # glorot normal
     scale = np.sqrt(2 / sum(size))
