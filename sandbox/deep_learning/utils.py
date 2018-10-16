@@ -126,7 +126,7 @@ def INSPECT(f):
 #------------------------------------------------------------------------------
 # Data pathing
 # ========================================
-DATA_DIR = './data/'
+DATA_DIR = '../data/'
 #==== Iris dataset
 IRIS_DIR = f'{DATA_DIR}Iris/'
 IRIS_DATASET_PATH = f'{IRIS_DIR}iris.npy'
