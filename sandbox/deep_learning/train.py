@@ -73,7 +73,6 @@ np.random.seed(utils.RNG_SEED_DATA)
 prev_x = None
 
 for step in range(num_iters):
-    plt.clf()
     # batch data
     #------------------
     x, y = iris_data.get_batch(X_train, step, batch_size)
