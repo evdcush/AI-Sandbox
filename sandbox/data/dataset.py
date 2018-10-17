@@ -116,7 +116,7 @@ def get_batch(X, step, batch_size=1, test=False):
     # Get batch and split
     #-------------------------------
     batch = numpy.copy(X[i:j])
-    x, y = numpy.split(batch, [IRIS.feature_split_idx], axis=1)
+    x, y = numpy.split(batch, [IRIS['feature_split_idx']], axis=1)
     y = y.astype(numpy.int32)
     #==== Squeeze Y to 1D
     y = numpy.squeeze(y) if b > 1 else y[:,0]

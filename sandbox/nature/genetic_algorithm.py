@@ -62,25 +62,35 @@ The process of evolution for this GA is as follows:
 """
 import os
 import sys
+import code
 
 import numpy as np
 
-sys.path.insert(1, '..')
-from data.dataset import IrisDataset
-
-#==============================================================================
+# unfortunate relative pathing hack
 #
-#==============================================================================
+fpath = os.path.abspath(os.path.dirname(__file__))
+path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
+if not os.path.exists(path_to_dataset):
+    print('ERROR: Unable to locate project data directory')
+    print(f'Please restore the data directory to its original path at {path_to_dataset}',
+          f'or symlink it to {fpath}',
+          f'or specify the updated absolute path to the sandbox submodule scripts')
+    sys.exit()
 
-#------------------------------------------------------------------------------
+sys.path.append(path_to_dataset)
+#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+from dataset import IrisDataset
+
+
+#=============================================================================#
+
+
 # Constants
-#------------------------------------------------------------------------------
-
+#----------
 POPULATION_SIZE = 128
 TOURNAMENT_SIZE = 78
 MUTATION_RATE = 0.05
 _dtype = np.float16
-
 
 #=============================================================================#
 #                              GA Functions                                   #
@@ -251,6 +261,10 @@ class GeneticAlgorithm:
         return accuracy
 
 
+dataset = IrisDataset()
+GA = GeneticAlgorithm(dataset)
+GA.run()
+GA.evaluate_population()
 
 
 '''
