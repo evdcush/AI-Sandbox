@@ -68,81 +68,65 @@ import numpy as np
 sys.path.insert(1, '..')
 from data.dataset import IrisDataset
 
+#==============================================================================
+#
+#==============================================================================
 
-
-# GA constants
-#---------------------------------
+#------------------------------------------------------------------------------
+# Constants
+#------------------------------------------------------------------------------
 
 POPULATION_SIZE = 128
 TOURNAMENT_SIZE = 78
 MUTATION_RATE = 0.05
 _dtype = np.float16
 
+
+#=============================================================================#
+#                              GA Functions                                   #
+#=============================================================================#
+
+
+#-----------------------------------------------------------------------------#
+#                           Initialization                                    #
+#-----------------------------------------------------------------------------#
+
 def init_genome(size=(3,4)):
     """ Genomes are:
          - (3,4) ndarray
          - sampled from Glorot random normal distribution
          - with low FP precision (to keep representation simple)
-     # NOTE: not sure this is the sensical distibution to sample from,
-             nor even whether the genomes should be sampled. Consideration
-             for another time.
+    # NOTE: Not sure this is the sensical distibution to sample from,
+            nor even whether the genomes should be sampled.
+            But it works, so consideration for another time.
     """
     scale = np.sqrt(2 / sum(size))
     return np.random.normal(scale=scale, size=size).astype(_dtype)
 
-
-def init_population():
-    # initially diverse, the population should become
-    # highly specialized over generations
-    population = [init_genome() for _ in range(POPULATION_SIZE)]
-    #return np.array(population) # (POPULATION_SIZE, 3, 4)
-    return population
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def fitness_mat(x, y, sel):
-    """ Essentially accuracy objective function
+def init_population(population_size=POPULATION_SIZE):
+    """ Initializes population of genomes """
+    population = [init_genome() for _ in range(population_size)]
+    return population
 
-    Evaluates fitness over entire selection (ndarray) of genomes
-
-    NB: The last step is non-differentiable, which is
-        not a constraint on a GA as it would be with
-        gradient-based policy
-
-    Params
-    ------
-    x : ndarray.float16, (N, D)
-        input features
-    y : ndarray.int32, (N,)
-        ground truth labels (iris classes) for input x
-    sel : ndarray.float16, (S, 3, D)
-        randomly selected genomes from population
-
-    Returns
-    -------
-    score : ndarray.int, (S,)
-        number of correct class predictions made by genome
-    """
-    #h = np.matmul(x, sel.T)
-    h = np.einsum('nd,dks->nks', np.copy(x), sel.T)
-    yhat = np.argmax(h, axis=1) # (N,S)
-    scores = np.sum(yhat[:, None] == yhat, axis=0)
-    return scores
-
+#-----------------------------------------------------------------------------#
+#                             Selection                                       #
+#-----------------------------------------------------------------------------#
 
 def fitness(x, y, g):
-    """ Essentially accuracy objective function.
-    Evaluates how well adapted is the genome to its env?
-
-    NB: The last step is non-differentiable, which is
-        not a constraint on a GA as it would be with
-        gradient-based policy
+    """ Genetic fitness function (objective function for GAs)
+    Evaluates how well adapted a genome is to its env by simply
+    measuring predictive accuracy
+    * NB: The last step is non-differentiable, which is
+          not a constraint on a GA as it would be with
+          gradient-based policy
 
     Params
     ------
     x : ndarray.float16, (N, D)
         input features
-    y : ndarray.int32, (N,)
+    y : ndarray.int32, (N,), values in [0,2]
         ground truth labels (iris classes) for input x
     g : ndarray.float16, (3, D)
         'genome' represention
@@ -158,21 +142,26 @@ def fitness(x, y, g):
     return score
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+rand_sel = lambda p, t: np.random.choice(p, t, replace=False)
 
-def selection(x, y, population):
+def selection(x, y, population, population_size=POPULATION_SIZE,
+                               tournament_size=TOURNAMENT_SIZE):
     """ Tournament style selection routine
-
-    A fixed number of genomes are selected from the population at random
-    and the fittest genome from that selection goes on to reproduce
-
+      A fixed number of genomes are selected from the population at random
+      and the fittest genome from that selection goes on to reproduce.
     """
-    idx = np.random.choice(POPULATION_SIZE, TOURNAMENT_SIZE, replace=False)
+    #==== random selection
+    idx = rand_sel(population_size, tournament_size)
     tournament = list(np.array(population)[idx])
+    #==== evaluate fitness
     fitnesses = [fitness(x,y,g) for g in tournament]
     fittest = tournament[np.argmax(fitnesses)]
     return fittest
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#-----------------------------------------------------------------------------#
+#                            Crossover                                        #
+#-----------------------------------------------------------------------------#
 
 def reproduce(p1, p2):
     """ Crossover routine for two genomes
@@ -181,24 +170,90 @@ def reproduce(p1, p2):
     array is used to select multi-point transfer from
     parent genomes to child genomes
     """
+    #==== crossover points
     gene_mask = np.random.randint(0, 2, p1.shape, dtype=np.bool)
     #==== offspring from parent genomes
     c1 = (p1 *  gene_mask) + (p2 * ~gene_mask)
     c2 = (p1 * ~gene_mask) + (p2 *  gene_mask)
     return c1.astype(_dtype), c2.astype(_dtype)
 
-def mutate(g):
-    """ Mutation defined here as randomly replacing a certain
-    part of the genome with a new sample
-    """
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def mutate(g, mutation_rate=MUTATION_RATE):
+    """ Mutation defined here as randomly resampling part of the genome"""
     if np.random.random() < MUTATION_RATE:
         mut_seq = init_genome((1,4)).squeeze()
         seq_idx = np.random.choice(3)
-        #g[seq_idx, :] = mut_seq
         g[seq_idx] = mut_seq
     return g
 
 
+#=============================================================================#
+#                          Genetic Algorithm                                  #
+#=============================================================================#
+class GeneticAlgorithm:
+    """ GA function class """
+    def __init__(self, dataset, num_gens=200, batch_size=12,
+                 population_size=POPULATION_SIZE,
+                 tournament_size=TOURNAMENT_SIZE,
+                 mutation_rate=MUTATION_RATE,
+                 fp_precision=_dtype):
+        #==== auto-attr
+        for k, v in locals().items():
+            if k == 'self': continue
+            setattr(self, k, v)
+        self.population = init_population(population_size)
+
+    def run(self):
+        """ Run algorithm """
+        B = self.batch_size
+        p_size = self.population_size
+        t_size = self.tournament_size
+        m_rate = self.mutation_rate
+        #==== algo loop
+        for step in range(self.num_gens):
+            x, t = self.dataset.get_batch(step, B)
+            next_gen = []
+            for i in range(p_size // 2):
+                #==== selection
+                p1 = selection(x, t, self.population)
+                p2 = selection(x, t, self.population)
+                #==== crossover
+                c1, c2 = reproduce(p1, p2)
+                next_gen.extend([mutate(c1, m_rate), mutate(c2, m_rate)])
+            #==== update generation
+            self.population = next_gen
+
+    def evaluate_population(self, X_test=None):
+        #==== Split test-set into features and labels
+        X_test = X_test if X_test is not None else np.copy(self.dataset.X_test)
+        X, Y = X_test[...,:-1], X_test[...,-1]
+
+        #==== Get population
+        population = self.population
+        r_size = (len(population), X.shape[0])
+        population_response = np.zeros(r_size, np.int32)
+
+        #==== partial fitness func
+        def _respond(x, g):
+            h = np.matmul(np.copy(x), g.T) # (N,D).(D,K)
+            return np.argmax(h, axis=1)    # (N,)
+
+        #==== Iterate through population
+        for idx, genome in enumerate(population):
+            population_response[idx] = _respond(X, genome)
+
+        #==== Summary population fitness
+        population_fitness = np.median(population_response, axis=0)
+        accuracy = np.sum(population_fitness == Y) / len(Y)
+        print('GA median fitness: {}'.format(population_fitness))
+        print('         accuracy: {:.4f}'.format(accuracy))
+        return accuracy
+
+
+
+
+'''
 #===============================================================
 # Evolving a population
 
@@ -256,3 +311,4 @@ accuracy = np.sum(Y_pred == y_test) / len(y_test)
 
 print(f'Y_pred: {Y_pred}')
 print(f'Accuracy: {accuracy}')
+'''
