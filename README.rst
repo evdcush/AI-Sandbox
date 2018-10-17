@@ -62,36 +62,39 @@ You should have seen the training results for the Iris classifier model, trained
 Something like::
 
     # Model Summary:
+
     NeuralNetwork
       Layers:
          1 : Dense (4, 64)
-              : Sigmoid
+              : SeLU
          2 : Dense (64, 3)
 
     - OPTIMIZER : SGD
-    - OBJECTIVE : LogisticCrossEntropy
+    - OBJECTIVE : SoftmaxCrossEntropy
 
-    # Training results, 2000 iterations
+    # Training results, 500 iterations
     #------------------------------
                 Error  |  Accuracy
-    * Average: 0.60531 | 0.72833
-    *  Median: 0.60607 | 0.75000
+    * Average: 0.56749 | 0.73167
+    *  Median: 0.55854 | 0.75000
     #------------------------------
 
     # Test results, 30 samples
     #------------------------------
                 Error  |  Accuracy
-    * Average: 0.59610 | 0.76667
-    *  Median: 0.59487 | 1.00000
+    * Average: 0.41998 | 0.96667
+    *  Median: 0.44154 | 1.00000
     #------------------------------
+
 
 
 
 The default train settings are configured as follows:
 
-- Training iterations: 2000
+- Training iterations: 500
 - Batch size: 6
 - Channels (network depth): [4, 64, 3]
+- Activation: SeLU
 - Optimizer: SGD
 - Objective function: Softmax Cross Entropy
 
