@@ -88,8 +88,9 @@ from dataset import IrisDataset
 # Constants
 #----------
 POPULATION_SIZE = 128
-TOURNAMENT_SIZE = 78
-MUTATION_RATE = 0.05
+TOURNAMENT_SIZE = 36
+MUTATION_RATE   = 0.1
+NUM_GENERATIONS = 200
 _dtype = np.float16
 
 #=============================================================================#
@@ -152,7 +153,7 @@ def fitness(x, y, g):
     return score
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-rand_sel = lambda p, t: np.random.choice(p, t, replace=False)
+
 
 def selection(x, y, population, population_size=POPULATION_SIZE,
                                tournament_size=TOURNAMENT_SIZE):
@@ -161,7 +162,7 @@ def selection(x, y, population, population_size=POPULATION_SIZE,
       and the fittest genome from that selection goes on to reproduce.
     """
     #==== random selection
-    idx = rand_sel(population_size, tournament_size)
+    idx = np.random.choice(population_size, tournament_size, replace=False)
     tournament = list(np.array(population)[idx])
     #==== evaluate fitness
     fitnesses = [fitness(x,y,g) for g in tournament]
@@ -203,7 +204,8 @@ def mutate(g, mutation_rate=MUTATION_RATE):
 #=============================================================================#
 class GeneticAlgorithm:
     """ GA function class """
-    def __init__(self, dataset, num_gens=200, batch_size=12,
+    def __init__(self, dataset, batch_size=12,
+                 num_gens=NUM_GENERATIONS,
                  population_size=POPULATION_SIZE,
                  tournament_size=TOURNAMENT_SIZE,
                  mutation_rate=MUTATION_RATE,
@@ -238,6 +240,7 @@ class GeneticAlgorithm:
         #==== Split test-set into features and labels
         X_test = X_test if X_test is not None else np.copy(self.dataset.X_test)
         X, Y = X_test[...,:-1], X_test[...,-1]
+        print(f'Y: {Y}')
 
         #==== Get population
         population = self.population
