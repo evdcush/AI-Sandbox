@@ -72,8 +72,8 @@ fpath = os.path.abspath(os.path.dirname(__file__))
 path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
 if not os.path.exists(path_to_dataset):
     print('ERROR: Unable to locate project data directory')
-    print(f'Please restore the data directory to its original path at {path_to_dataset}',
-          f'or symlink it to {fpath}',
+    print(f'Please restore the data directory to its original path at {path_to_dataset}\n',
+          f'or symlink it to {fpath}\n',
           f'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
@@ -240,7 +240,7 @@ class GeneticAlgorithm:
         #==== Split test-set into features and labels
         X_test = X_test if X_test is not None else np.copy(self.dataset.X_test)
         X, Y = X_test[...,:-1], X_test[...,-1]
-        print(f'Y: {Y}')
+        #print(f'Y: {Y}')
 
         #==== Get population
         population = self.population
@@ -258,9 +258,10 @@ class GeneticAlgorithm:
 
         #==== Summary population fitness
         population_fitness = np.median(population_response, axis=0)
-        accuracy = np.sum(population_fitness == Y) / len(Y)
-        print('GA median fitness: {}'.format(population_fitness))
-        print('         accuracy: {:.4f}'.format(accuracy))
+        sum_correct = np.sum(population_fitness == Y)
+        accuracy = sum_correct / len(Y)
+        #print('GA median fitness: {}'.format(population_fitness))
+        print('GA test accuracy: {:.4f}; {}/{} correct'.format(accuracy, sum_correct, len(Y)))
         return accuracy
 
 

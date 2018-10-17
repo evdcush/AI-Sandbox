@@ -57,14 +57,16 @@ NeuralNetwork : fully-connected, feed-forward network
 import sys
 import code
 import numpy as np
-import layers as L
+import layers
+from layers import Dense
 import functions as F
 
 
 
 class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
-    connection = L.Dense # all NeuralNetwork instances have dense connections
+    #connection = L.Dense # all NeuralNetwork instances have dense connections
+    connection = Dense # all NeuralNetwork instances have dense connections
 
     # Network initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

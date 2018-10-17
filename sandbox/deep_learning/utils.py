@@ -46,6 +46,20 @@ import network
 import functions
 import optimizers
 
+#==== ugly relative pathing hack to dataset
+fpath = os.path.abspath(os.path.dirname(__file__))
+path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
+if not os.path.exists(path_to_dataset):
+    print('ERROR: Unable to locate project data directory')
+    print(f'Please restore the data directory to its original path at {path_to_dataset}\n',
+          f'or symlink it to {fpath}\n',
+          f'or specify the updated absolute path to the sandbox submodule scripts')
+    sys.exit()
+
+sys.path.append(path_to_dataset)
+import dataset
+from dataset import IrisDataset
+
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -267,129 +281,7 @@ def load_dataset(path):
     dataset = np.load(path)
     return dataset
 
-#==============================================================================
-# Dataset utils
-#==============================================================================
 
-class IrisDataset:
-    """ Maintains all info and utils related to the Iris dataset
-    Attributes are simply extracted from IRIS
-    """
-    label = 'iris'
-    path = IRIS_DATASET_PATH
-    features_per_sample = 4
-    feature_split_idx = 4
-    classes = {0 : 'Iris-setosa', 1 : 'Iris-versicolor', 2 : 'Iris-virginica'}
-    def __init__(self, X=None, split_size=.8, seed=RNG_SEED_DATA):
-        X = X if X is not None else load_dataset(self.path)
-        self.X_train, self.X_test = self.split_dataset(X, split_size, seed)
-
-
-    # Split into Train/Test sets
-    #-----------------------------
-    @staticmethod
-    def split_dataset(X, split_size=.8, seed=RNG_SEED_DATA):
-        """ Splits a dataset X into training and testing sets.
-
-        Note: RNG_SEED_DATA value was chosen because it evenly distributes
-              the number of Iris classes between train and test sets,
-              at split_size=.8
-              (eg, for both train and test, the number of samples for
-               num_setosa == num_versicolor == num_virginica)
-        Params
-        ------
-        X : ndarray
-            Primary dataset. split indices are instantiated
-            on the first axis of X.shape, which is assumed to be
-            the number of samples.
-        split_size : float
-            split percentage where N * split_size total samples are used
-            for training, and the remaining for testing.
-        seed : int
-            used for seeding numpy's random module for consistent splits
-            on X to produce training and testing sets
-
-        Returns
-        -------
-        X_train, X_test : ndarray,
-            train and test shapes, respectively are
-            (N * split_size, D), (N * (1 - split_size), D)
-            eg, for .8 split on 150-sample set:
-                (120, D), (30, D)
-        """
-        assert 0.0 < split_size < 1.0
-        # Spliting index
-        #---------------------------
-        N = X.shape[0]
-        split_idx = [int(N * split_size)]
-
-        # Seed, permute, split
-        #--------------------------
-        #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
-        np.random.seed(seed)
-        X_shuffled = np.random.permutation(X)
-        X_train, X_test = np.split(X_shuffled, split_idx)
-        return X_train, X_test
-
-    # Batching on dataset
-    #-----------------------------
-    @staticmethod
-    def get_batch(X, step, batch_size=1, test=False, feature_split_idx=4):
-        """ Batches samples from dataset X
-        ASSUMED: batch_size is a factor of the number of samples in X
-
-        #==== Training
-        - Batches are selected randomly *and without replacement* wrt
-          the previous batches.
-          This is done based on current step:
-            When current step has become a multiple of the number
-            of samples in X, the samples positions in X are
-            randomly shuffled.
-        #==== Testing
-        - Batches are selected sequentially, with no randomness
-
-        Params
-        ------
-        X : ndarray, (features & labels)
-            X is an array containing both the features (x) and the labels
-            or classes (y). split(X) ---> x, y
-        step : int
-            current training iteration
-        batch_size : int
-            number of samples in minibatch
-        test : bool
-            whether X is a test set. If test, no random ops.
-
-        Returns
-        -------
-        x : ndarray, (batch_size, ...)
-            batch data features
-        y : ndarray.int32, (batch_size,)
-            batch ground truth labels (or class)
-        """
-        assert batch_size > 0 and isinstance(batch_size, int)
-
-        # Get dimensions and indices
-        #-------------------------------
-        N = X.shape[0]
-        b = batch_size if batch_size <= N else batch_size % N
-        #==== Batching indices
-        i = (b * step) % N  # start index [inclusive]
-        j = i + b           # end   index (exclusive)
-
-        # Check if need for reshuffle
-        #-------------------------------
-        if i == 0 and not test: # test never shuffled
-            np.random.shuffle(X)
-
-        # Get batch and split
-        #-------------------------------
-        batch = np.copy(X[i:j])
-        x, y = np.split(batch, [feature_split_idx], axis=1)
-        y = y.astype(np.int32)
-        #==== Squeeze Y to 1D
-        y = np.squeeze(y) if b > 1 else y[:,0]
-        return x, y
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -631,57 +523,6 @@ class SessionStatus:
             print('\n\n{}'.format(title))
         print(status)
         self.status_call_count += 1
-
-    def plot_results(self, train=True, test=False):
-        # Get plot info and subplots
-        #------------------------------
-        nplots = train + test # either 1 or 2
-        assert nplots in [1,2]
-        fig, axes = plt.subplots(nplots, 2)
-
-
-        # Train and Test
-        if nplots == 2:
-            x = self.train_history
-            y = self.test_history
-            #==== Training plot
-            axes[0, 0].plot(x[:,0], label=self.obj_name + ' Error')
-            axes[0, 1].plot(x[:,1], label='Accuracy')
-            #==== Test histogram
-            axes[1, 0].hist(y[:,0], label=self.obj_name + ' Error')
-            axes[1, 1].hist(y[:,1], label='Accuracy')
-
-        # Train or Test
-        else:
-            if train:
-                x = self.train_history
-                num_samp = x.shape[0]
-
-                # Curve smoothing
-                #------------------------
-                err_min, acc_min = x.min(axis=0)
-                err_max, acc_max = x.max(axis=0)
-                lsp_err = np.linspace(err_min, err_max, num_samp)
-                lsp_acc = np.linspace(acc_min, acc_max, num_samp)
-                #==== fit polynomial
-                poly = np.poly1d(np.polyfit(np.arange(num_samp), x, 3))
-
-                #====
-            #   _____     ___     ___      ___     #
-            #  |_   _|   / _ \   |   \    / _ \    #
-            #    | |    | (_) |  | |) |  | (_) |   #
-            #    |_|     \___/   |___/    \___/    #
-
-            #y = self.test_history
-            #fig, (train_ax, test_ax) = plt.subplots(2, 2)
-            fig, (eax, aax) = plt.subplots(1,2)
-            #==== Training plot
-            eax.plot(x[:,0], label=self.obj_name + ' Error')
-            aax.plot(x[:,1], label=self.obj_name + ' Accuracy')
-            ##==== Test histogram
-            #test_ax[1, 0].hist(y[:,0], label=self.obj_name + ' Error')
-            #test_ax[1, 1].hist(y[:,1], label=self.obj_name + ' Accuracy')
-        plt.show()
 
     def __call__(self, step, err, acc, show=True, freq=100, test=False):
         loss_hist = self.test_history if test else self.train_history

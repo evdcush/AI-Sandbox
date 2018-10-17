@@ -25,8 +25,8 @@ arg_parser.print_args()
 # Load data
 #------------------
 iris_data = utils.IrisDataset()
-X_train, X_test = iris_data.X_train, iris_data.X_test
-num_test_samples = X_test.shape[0]
+#X_train, X_test = iris_data.X_train, iris_data.X_test
+num_test_samples = iris_data.X_test.shape[0]
 
 
 #==============================================================================
@@ -75,7 +75,8 @@ prev_x = None
 for step in range(num_iters):
     # batch data
     #------------------
-    x, y = iris_data.get_batch(X_train, step, batch_size)
+    #x, y = iris_data.get_batch(X_train, step, batch_size)
+    x, y = iris_data.get_batch(step, batch_size)
 
     # forward pass
     #------------------
@@ -108,7 +109,8 @@ px = None
 # Test
 #------------------
 for i in range(num_test_samples):
-    x, y = iris_data.get_batch(X_test, i, test=True)
+    #x, y = iris_data.get_batch(X_test, i, test=True)
+    x, y = iris_data.get_batch(i, test=True)
 
     # forward pass
     #------------------
