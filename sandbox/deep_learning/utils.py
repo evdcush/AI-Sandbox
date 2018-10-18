@@ -207,14 +207,14 @@ DEFAULT_CONFIGURATION = [
 ('p', 'data_path',  DATA_DIR,  'relative path to dataset file'),
 ('s', 'seed',       RNG_SEED_PARAMS, 'int used for seeding random state'),
 # ==== Model variables
-('a', 'activation', 'selu', '(lower-cased) activation func name'),
+('a', 'activation', 'sigmoid', '(lower-cased) activation func name'),
 ('d', 'dropout',    False, 'Whether to use dropout'),
 ('o', 'optimizer',  'sgd', '(lower-cased) optimizer name'),
 ('j', 'objective',  'softmax_cross_entropy', '(lower-cased) loss func name'),
 ('c', 'channels',   CHANNELS, 'list(int) layer sizes; more channels-->deeper'),
 ('l', 'learn_rate', LEARNING_RATE, 'optimizer learning rate'),
 # ==== Training/session variables
-('i', 'num_iters',  500, 'number of training iterations'),
+('i', 'num_iters',  1500, 'number of training iterations'),
 ('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
 ('v', 'verbose',    False, 'print model error while actively training'),
 ('_', 'dummy', False, 'dummy var workaround for notebook error'),
