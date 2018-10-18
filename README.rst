@@ -4,7 +4,7 @@ Simple and clean NumPy implementations of various methods and models within AI.
 
 Well, that's the goal. But, as the project name implies, this is a space for me to **build** and **explore** the core structures and algorithms involved in AI. Things could get *messy*.
 
-
+****
 
 Project Contents
 ----------------
@@ -47,6 +47,7 @@ Environment
 ...........
 All project code has been developed on Linux *(Ubuntu 16.04, 18.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_
 
+****
 
 Running the model
 -----------------
@@ -88,25 +89,24 @@ Something like::
 
 
 
-
-The default train settings are configured as follows:
-
-- Training iterations: 500
-- Batch size: 6
-- Channels (network depth): [4, 64, 3]
-- Activation: SeLU
-- Optimizer: SGD
-- Objective function: Softmax Cross Entropy
+Default model settings
+======================
+:Training iterations: 500
+:Batch size: 6
+:Channels: [4, 64, 3]
+:Activation: SeLU
+:Optimizer: SGD
+:Objective function: Softmax Cross Entropy
 
 
 Model Options
 -------------
 The model, as defined on this dataset, can be configured for other settings that can be specified in ``train.py`` or simply passed as arguments through STDIN, for example, the following line:
 
-``python train.py -i 500 -o adam -a tanh -c 4 32 16 3``
+``python train.py -i 200 -o adam -a tanh -c 4 32 16 3``
 
 
-Will train the model for 500 iterations, using hyperbolic-tangent activations, the Adam optimizer, and channels [4, 32, 16, 3].
+Will train the model for 200 iterations, using hyperbolic-tangent activations, the Adam optimizer, and channels [4, 32, 16, 3].
 
 |
 
@@ -130,15 +130,17 @@ Training options quick-reference
     Available optimizers: ``sgd, adam``
 
 
+
+****
+
+
 Known issues
 ------------
-None...yet
+None...yet. Please let me know if you have issues running the code!
 
 The model performs as expected on the Iris dataset, but there are some intra-module inconsistencies, missing features, and cleanup required.
 
 The most notable lacking feature currently is the inability to serialize or save the model parameters. A lot of that plumbing is in place, such as how parameters are stored and accessed in layers, and the model pathing and constants in utils, but it has not been implemented yet.
-
-Please let me know if you have any issues with the code!
 
 
 License

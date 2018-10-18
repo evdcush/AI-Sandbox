@@ -1,6 +1,5 @@
 """ Training script for iris model
 """
-import time
 import numpy as np
 
 import utils
@@ -57,7 +56,6 @@ sess_status = SessionStatus(model, opt, objective, num_iters, num_test_samples)
 #==============================================================================
 # Train
 #==============================================================================
-t_start = time.time()
 np.random.seed(utils.RNG_SEED_DATA)
 
 for step in range(num_iters):
@@ -81,9 +79,7 @@ for step in range(num_iters):
 
 # Finished training
 #------------------------------------------------------------------------------
-# Summary info
-t_finish = time.time()
-elapsed_time = (t_finish - t_start)
+
 
 #==============================================================================
 # Validation
