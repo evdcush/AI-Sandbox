@@ -78,7 +78,6 @@ if not os.path.exists(path_to_dataset):
     sys.exit()
 
 sys.path.append(path_to_dataset)
-#code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
 from dataset import IrisDataset
 
 

@@ -37,9 +37,10 @@ from functools import wraps
 
 import numpy as np
 
-import layers
-import network
-import functions
+from deep_learning.layers import PARAMETRIC_FUNCTIONS
+from deep_learning.network import NeuralNetwork
+from deep_learning.functions import ACTIVATIONS, OBJECTIVES
+#import deep_learning.optimizers
 import optimizers
 
 #==== ugly relative pathing hack to dataset
