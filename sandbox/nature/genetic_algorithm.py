@@ -77,7 +77,8 @@ if not os.path.exists(path_to_dataset):
           'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
-sys.path.append(path_to_dataset)
+if path_to_dataset not in sys.path:
+    sys.path.append(path_to_dataset)
 from dataset import IrisDataset
 
 
@@ -269,10 +270,10 @@ class GeneticAlgorithm:
         return accuracy
 
 
-dataset = IrisDataset()
-GA = GeneticAlgorithm(dataset)
-GA.run()
-GA.evaluate_population()
+#dataset = IrisDataset()
+#GA = GeneticAlgorithm(dataset)
+#GA.run()
+#GA.evaluate_population()
 
 
 '''

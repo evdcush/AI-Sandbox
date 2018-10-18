@@ -52,7 +52,8 @@ if not os.path.exists(path_to_dataset):
           'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
-sys.path.append(path_to_dataset)
+if path_to_dataset not in sys.path:
+    sys.path.append(path_to_dataset)
 import dataset
 from dataset import IrisDataset
 
