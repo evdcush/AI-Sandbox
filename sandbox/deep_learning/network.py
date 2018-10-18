@@ -52,12 +52,8 @@ NeuralNetwork : fully-connected, feed-forward network
       hyperbolic tangent.
     - Typically shallower than other types of networks (though this
       implementation is of arbitrary depth)
-
 """
-import sys
-import code
 import numpy as np
-import layers
 from layers import Dense
 import functions as F
 
@@ -65,12 +61,11 @@ import functions as F
 
 class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
-    #connection = L.Dense # all NeuralNetwork instances have dense connections
     connection = Dense # all NeuralNetwork instances have dense connections
 
     # Network initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __init__(self, channels, activation=F.Sigmoid, use_dropout=False, **kwargs):
+    def __init__(self, channels, activation=F.SeLU, use_dropout=False, **kwargs):
         """ Initializes an arbitrarily deep neural network
         Params
         ------

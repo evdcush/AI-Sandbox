@@ -21,7 +21,6 @@ Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
 
 
 """
-#import code
 import functions
 import initializers
 
