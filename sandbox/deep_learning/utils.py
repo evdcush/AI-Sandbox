@@ -31,15 +31,11 @@ Module components
 
 import os
 import sys
-import time
 import code
-import shutil
 import argparse
-import subprocess
 from functools import wraps
 
 import numpy as np
-from matplotlib import pyplot as plt
 
 import layers
 import network
@@ -51,9 +47,9 @@ fpath = os.path.abspath(os.path.dirname(__file__))
 path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
 if not os.path.exists(path_to_dataset):
     print('ERROR: Unable to locate project data directory')
-    print(f'Please restore the data directory to its original path at {path_to_dataset}\n',
-          f'or symlink it to {fpath}\n',
-          f'or specify the updated absolute path to the sandbox submodule scripts')
+    print('Please restore the data directory to its original path at {}\n'.format(path_to_dataset),
+          'or symlink it to {}\n'.format(fpath),
+          'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
 sys.path.append(path_to_dataset)
@@ -142,11 +138,11 @@ def INSPECT(f):
 # ========================================
 DATA_DIR = '../data/'
 #==== Iris dataset
-IRIS_DIR = f'{DATA_DIR}Iris/'
-IRIS_DATASET_PATH = f'{IRIS_DIR}iris.npy'
+IRIS_DIR = DATA_DIR + 'Iris/'
+IRIS_DATASET_PATH = IRIS_DIR + 'iris.npy'
 #---- Iris train/test files
-IRIS_TRAIN = f'{IRIS_DIR}iris_train.npy'
-IRIS_TEST  = f'{IRIS_DIR}iris_test.npy'
+IRIS_TRAIN = IRIS_DIR + 'iris_train.npy'
+IRIS_TEST  = IRIS_DIR + 'iris_test.npy'
 
 
 
@@ -408,7 +404,7 @@ class Parser:
 
 # Status and results
 #------------------------------------------------------------------------------
-class SessionStatus:
+class SessionStatus: # TODO: really need to clean this up / split
     """ Provides information to user on current status and results of model
 
     In addition to helpful status updates, SessionStatus maintains
@@ -509,7 +505,6 @@ class SessionStatus:
         print(d1)
 
     def get_loss_history(self):
-        #print('Returning: train_history, test_history')
         return self.train_history, self.test_history
 
     def print_status(self, step, err, acc):
@@ -710,7 +705,6 @@ class Trainer:
     def __call__(self):
         self.train()
         self.evaluate()
-        #self.session_status.summarize_model(True, True)
         self.train_history, self.test_history = self.session_status.get_loss_history()
         self.summarize_results()
 
@@ -758,5 +752,4 @@ def save_loss_curves(save_path, lh, mname, val=False):
     plt.plot(lh[pstart:], c=color, label=label)
     plt.legend()
     plt.savefig(spath, bbox_inches='tight')
-    #code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
     plt.close('all')

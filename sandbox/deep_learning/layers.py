@@ -97,7 +97,7 @@ class ParametricLayer:
             #------------------------------
             # var key
             setattr(self, '{}_key'.format(tag), key_val.format(tag))
-            #if tag == 'B': code.interact(local=dict(globals(), **locals())) # DEBUGGING-use
+
             # variable
             setattr(self, tag, initializer(dims))# = initializer(dims)
 
