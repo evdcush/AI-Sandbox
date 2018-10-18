@@ -21,7 +21,6 @@ Adam: Optimizer, Adaptive moment estimation algorithm
     squared v, and and average gradients m
 
 """
-import code
 import numpy as np
 
 #==============================================================================

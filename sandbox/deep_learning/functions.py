@@ -47,12 +47,7 @@ LSTM : stub and fully-atomic gradient reference (eg, by hand)
 
 """
 import code
-from functools import wraps
-from pprint import PrettyPrinter
 import numpy as np
-
-pretty_printer = PrettyPrinter()
-pprint = lambda x: pretty_printer.pprint(x)
 
 
 #------------------------------------------------------------------------------
