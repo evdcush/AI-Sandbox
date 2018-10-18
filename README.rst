@@ -45,15 +45,15 @@ NumPy can be installed via pip: ``pip install numpy``
 
 Environment
 ...........
-All project code has been developed on Linux *(Ubuntu 16.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_
+All project code has been developed on Linux *(Ubuntu 16.04, 18.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_
 
 
 Running the model
 -----------------
 First, clone this repo:
     ``git clone --depth=1 https://github.com/evdcush/AI-Sandbox.git``
-Navigate to the DeepLearning folder:
-    ``cd DeepLearning``
+Navigate to the deep_learning folder:
+    ``cd sandbox/deep_learning``
 Run the model via ``train.py``:
     ``python train.py``
 
@@ -62,38 +62,41 @@ You should have seen the training results for the Iris classifier model, trained
 Something like::
 
     # Model Summary:
+
     NeuralNetwork
       Layers:
          1 : Dense (4, 64)
-              : Sigmoid
+              : SeLU
          2 : Dense (64, 3)
 
     - OPTIMIZER : SGD
-    - OBJECTIVE : LogisticCrossEntropy
+    - OBJECTIVE : SoftmaxCrossEntropy
 
-    # Training results, 2000 iterations
+    # Training results, 500 iterations
     #------------------------------
                 Error  |  Accuracy
-    * Average: 0.60531 | 0.72833
-    *  Median: 0.60607 | 0.75000
+    * Average: 0.56749 | 0.73167
+    *  Median: 0.55854 | 0.75000
     #------------------------------
 
     # Test results, 30 samples
     #------------------------------
                 Error  |  Accuracy
-    * Average: 0.59610 | 0.76667
-    *  Median: 0.59487 | 1.00000
+    * Average: 0.41998 | 0.96667
+    *  Median: 0.44154 | 1.00000
     #------------------------------
+
 
 
 
 The default train settings are configured as follows:
 
-- Training iterations: 2000
+- Training iterations: 500
 - Batch size: 6
 - Channels (network depth): [4, 64, 3]
+- Activation: SeLU
 - Optimizer: SGD
-- Objective function: Logistic Cross Entropy
+- Objective function: Softmax Cross Entropy
 
 
 Model Options
@@ -120,7 +123,7 @@ Training options quick-reference
 -a ACTIVATION, --activation
               Activation function used in the network.
 
-              Available activations: ``relu, elu, selu, sigmoid, tanh, swish, softmax``
+              Available activations: ``relu, elu, selu, softplus, sigmoid, tanh, swish, softmax``
 
 -o OPTIMIZER, --optimizer  Model optimizer.
 
@@ -146,19 +149,19 @@ Except where noted otherwise, this project is licensed under the `BSD-3-Clause-C
 .. Substitutions:
 
 .. PROJECT FILES:
-.. _functions.py: DeepLearning/functions.py
-.. _layers.py: DeepLearning/layers.py
-.. _network.py: DeepLearning/network.py
-.. _initializers.py: DeepLearning/initializers.py
-.. _optimizers.py: DeepLearning/optimizers.py
-.. _utils.py: DeepLearning/utils.py
-.. _train.py: DeepLearning/train.py
+.. _functions.py: sandbox/deep_learning/functions.py
+.. _layers.py: sandbox/deep_learning/layers.py
+.. _network.py: sandbox/deep_learning/network.py
+.. _initializers.py: sandbox/deep_learning/initializers.py
+.. _optimizers.py: sandbox/deep_learning/optimizers.py
+.. _utils.py: sandbox/deep_learning/utils.py
+.. _train.py: sandbox/deep_learning/train.py
 
 .. LOCAL FILES:
 .. _BSD-3-Clause-Clear: LICENSE
 .. _Iris dataset: https://en.wikipedia.org/wiki/Iris_flower_data_set
 .. _|Iris dataset| replace :: `Iris dataset`
-.. _data directory: DeepLearning/data/Iris
+.. _data directory: sandbox/data/Iris
 
 .. OTHER:
 .. _pyenv: https://github.com/pyenv/pyenv

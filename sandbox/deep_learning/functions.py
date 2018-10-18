@@ -4,7 +4,7 @@ This module provides the foundation of functions and operations
 to build a network and optimize models.
 
 It contains only the units that would used within a model.
-Other functions, for training or data processing, can be found in `utils.py`
+Other functions, for training or data processing, can be found in `to_
 
 Module components
 =================
@@ -16,11 +16,11 @@ atomic functions : elementary functions and factors
 connection functions : functions using learnable variables
     Bias, Matmul, Linear
 
-X ReductionFunction : functions that reduce dimensionality
-X     Sum, Mean, Prod, Max, Min
+ReductionFunction : functions that reduce dimensionality
+     Sum, Mean, Prod, XMax, XMin
 
 activation functions : nonlinearities
-    ReLU, ELU, SeLU, Sigmoid, Tanh, Softmax, Swish
+    ReLU, ELU, SeLU, Softplus, Sigmoid, Tanh, Softmax, Swish
 
 loss functions : objectives for gradient descent
     LogisticCrossEntropy, SoftmaxCrossEntropy
@@ -29,10 +29,10 @@ loss functions : objectives for gradient descent
 
 STILL PENDING REWORK FROM v1
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[ ] ReductionFunction
-    [ ] Sum
-    [ ] Mean
-    [ ] Prod
+[X] ReductionFunction
+    [X] Sum
+    [X] Mean
+    [X] Prod
     [ ] Max/Min
 
 IN PIPELINE:
@@ -51,7 +51,7 @@ from functools import wraps
 from pprint import PrettyPrinter
 import numpy as np
 
-import utils
+#import utils
 
 pretty_printer = PrettyPrinter()
 pprint = lambda x: pretty_printer.pprint(x)
@@ -67,23 +67,47 @@ class AttrDict(dict):
     __setattr__ = dict.__setitem__
 
 
-def restore_axis_shape(x, ax, d):
-    """ Restores an axis ax that was reduced from x
-    to it's original shape d
-    Just a wrapper for the tedious
-    broadcast_to(expand_dims(...)...) op
+def to_one_hot(Y, num_classes=3):
+    """ make one-hot encoding for truth labels
 
-    Assumes
+    Encodes a 1D vector of integer class labels into
+    a sparse binary 2D array where every sample has
+    length num_classes, with a 1 at the index of its
+    constituent label and zeros elsewhere.
+
+    Example
     -------
-        x.ndim >= 1
-        ax : int  (only one dim being restored through ax)
+    Y = [3, 1, 1, 0, 2, 3, 2, 2, 2, 1]
+    Y.shape = (10,)
+    num_classes = 4
+    one_hot shape == (10, 4)
+
+    to_one_hot(Y) = [[0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 1
+                     [0, 1, 0, 0], # 1
+                     [1, 0, 0, 0], # 0
+                     [0, 0, 1, 0], # 2
+                     [0, 0, 0, 1], # 3
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [0, 1, 0, 0], # 2
+                     [1, 0, 0, 0], # 1
+                    ]
     """
-    assert x.ndim >= 1 and isinstance(ax, int)
+    # Dimensional integrity check on Y
+    #  handles both ndim = 0 and ndim > 1 cases
+    if Y.ndim != 1:
+        Y = np.squeeze(Y)
+    assert Y.ndim == 1
 
-    # Restore shape
-    bcast_shape = x.shape[:ax] + (d,) + x.shape[ax:]
-    return np.broadcast_to(np.expand_dims(x, ax), bcast_shape)
+    # dims for one-hot
+    n = Y.shape[0]
+    d = num_classes
 
+    # make one-hot
+    one_hot = np.zeros((n, d))
+    one_hot[np.arange(n), Y] = 1
+    return one_hot.astype(np.int32)
 
 
 #==============================================================================
@@ -146,7 +170,8 @@ class Function:
     def __repr__(self):
         # repr : functions.$classname
         #    eg "functions.MatMul"
-        return "functions.{}".format(self.name)
+        rep = '"functions.{}()"'.format(self.__class__.__name__)
+        return rep
 
     @property
     def cache(self):
@@ -164,9 +189,14 @@ class Function:
             self._cache = fvars if len(fvars) > 1 else fvars[0]
 
     def forward(self, X, *args):
-        """ Forward serves as an interface to a staticmethod for most Functions
+        """ forward serves as an interface to a staticmethod
+        for most Functions (ALL functions, currently).
+
         These methods are purely functional, and perform the function
         represented by the class.
+
+        for the majority of functions, 'forward' simply caches
+        the input, and calls it's class' staticmethod.
 
         Function, as the base class, provides a simple implementation
         of this behavior.
@@ -175,26 +205,30 @@ class Function:
         the methods are generally the lower-case version of the class name,
         and the derivative functions have '_prime' concatenated.
 
-        For example, the following Functions have staticmethods:
+        For example:
             Tanh : tanh, tanh_prime
             Sqrt : sqrt, sqrt_prime
-
             MatMul : matmul, matmul_prime
 
-        However, many Functions have forward or backward processes
+        Some Functions, however, have forward or backward processes
         that have more significant side-effects or other constraints
-        that would not be complete by the pure functions alone.
+        that would not be complete by the pure functions alone, the
+        most common being additional input arguments
           - LogisticCrossEntropy, for instance, cannot use its
             functions alone (and, incidentally, does not have
-            conforming function names)
+            conforming function names).
 
-        For any function where this is the case, they will override the
-        forward and backward methods to meet their constraints
+        While Function's base forward and backward functions cover
+        the majority of functions' needs, I keep the boilerplate
+        there anyway, because I think it makes things clearer,
+        especially to those unfamiliar with chaining.
+
         """
         # in this case, self.name = 'Function'
         fn_name = self.name.lower()
-        if hasattr(self, fn_name): # is there a 'self.function' ?
+        if hasattr(self, fn_name): # has a 'self.function' ?
             fn = getattr(self, fn_name)
+            self.cache = X
             return fn(X, *args)
         else:
             raise NotImplementedError
@@ -203,14 +237,16 @@ class Function:
         fn_name = self.name.lower() + '_prime'
         if hasattr(self, fn_name):
             fn = getattr(self, fn_name)
-            return fn(gY, *args)
+            X = self.cache
+            gX = gY * fn(X, *args)
+            return gX
         else:
             raise NotImplementedError
 
-    def __call__(self, *args, backprop=False, test=False):
+    def __call__(self, *args, backprop=False, test=False, **kwargs):
         self.test = test
         func = self.backward if backprop else self.forward
-        return func(*args)
+        return func(*args, **kwargs)
 
 
 #==============================================================================
@@ -329,6 +365,8 @@ class Power(Function): #
         gX = gY * self.power_prime(X, p)
         return gX
 
+
+
 #------------------------------------------------------------------------------
 # Connection functions :
 #     Functions using learnable variables
@@ -413,7 +451,6 @@ class MatMul(Function): # #
 
 class Linear(Function): ##
     """ Affine transformation function, Y = X.W + B
-
     See also: MatMul and Bias, which Linear composes
 
     Params
@@ -436,13 +473,6 @@ class Linear(Function): ##
         z = Bias.bias(y, b)
         return z
 
-    ''' # NOT V2 COMPLIANT
-    @staticmethod
-    def linear_prime(y, x, w, b):
-        dx, dw = MatMul.matmul_prime(np.copy(y), x, w)
-        _, db = Bias.bias_prime(y, b) # bias just identity func on gradient
-        return dx, dw, db
-    '''
     @staticmethod
     def linear_prime(x, w, b):
         dX, dW = MatMul.matmul_prime(x, w)
@@ -456,8 +486,6 @@ class Linear(Function): ##
 
     def backward(self, gZ, W, B):
         X = self.cache
-        #gX, gW, gB = self.linear_prime(gY, X, W, B)
-        #return gX, gW, gB
         dX, dW, dB = self.linear_prime(X, W, B)
         gX = MatMul.matmul(gZ, dX) # (N, K).(K, D)
         gW = MatMul.matmul(dW, gZ) # (D, N).(N, K)
@@ -571,10 +599,183 @@ class LSTM(Function):
 
 '''
 
+#==============================================================================
+#------------------------------------------------------------------------------
+#                            ReductionFunctions
+#------------------------------------------------------------------------------
+#==============================================================================
+
+# ReductionFunction
+# -----------------
+# inherits : Function
+# derives  : Sum, Mean, Prod, Max Min
+class ReductionFunction(Function): # #
+    """ Function class for op that reduce dimensionality
+
+    Due to some extra complexity in broadcasting algebra wrt
+    reduced or missing dimensions, reduction functions have an
+    extra instance attribute for the reduction kwargs (axis, keepdims).
+        This allows for easy dimensionality restoration during
+        backprop
+    """
+    def __init__(self, *args, **kwargs):
+        self.flags = None
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def tupleify(x):
+        return (x,) if isinstance(x, int) else tuple(x)
+
+    def format_axes(self, axes, shape):
+        if axes is None: #==== same as applying along all axes
+            axes = range(len(shape))
+        return self.tupleify(axes)
+
+    def restore_dims(self, Y):
+        """ Restore any non-leading missing dims from Y
+        There are a few constraints to NumPy broadcasting,
+        which defines how operations involving arrays with
+        different dimensions can still be applied.
+
+        For automatic broadcasting, the arrays
+        involved must satisfy one of the following
+        3 properties:
+
+        Properties
+        ==========
+        1 - exactly same shape
+        >>----->  X.shape == Y.shape
+
+        2 - Same num of dims, and len of each dim is either
+            the same, or 1
+        >>-----> X.ndim == Y.ndim; (N, M, D) & (N, 1, D)
+
+        3 - array(s) with too few dims can have their
+            shapes **prepended** with a dim of len 1
+            to satisfy property 2
+            A few examples:
+        >>-----> (N, M, D) & (M, D); OKAY! ===> (M, D) --> (1, M, D)
+                 (N, M, D) & (N, D);  BAD! ####  restore to (N,1,D)
+                 (N, M, D) & (D,);   OKAY! ===> (1, 1, D)
+                 (N, M, D) & (N,);    BAD! #### restore to (N,1,1)
+                 (N, M, D) & (M,);    BAD! #### restore to (1,M,1)
+                 (N, M, D) & ();     OKAY! ===> (1,1,1)
+                                          (and scalars always broadcastable)
+        Restoration func
+        ================
+        ASSUME: Property 1 is not a consideration here, given
+                this func only called during backprop. Valid inputs
+                will necessarily have reduced dimensions.
+
+        RETURN: Y (the input), if property 2 is satisfied or
+                Y with length 1 dims inserted until property 2 is satisfied
+                * NB: Y rarely needs inserted dims, since most functions
+                      preserve dimensions (keepdims=True)
+
+        """
+        # Get reduction flags
+        axes, keep = self.flags
+
+        # Check Property 2, or if Y scalar
+        if keep or Y.ndim == 0:
+            return Y
+
+        # Insert dims until property 2 satisfied
+        for ax in sorted(axes): # sort, to avoid deprecation warnings
+            Y = np.expand_dims(Y, ax)
+        return Y
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Sum(ReductionFunction): # #
+    """ Compute sum along axis or axes """
+    @staticmethod
+    #def sum(x, axis=None, keepdims=False):
+    def sum(x, **kwargs):
+        return x.sum(**kwargs)
+
+    @staticmethod
+    def sum_prime(x, **kwargs):
+        return np.ones(x.shape, x.dtype)
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== Cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== sum X
+        Y = self.sum(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = self.restore_dims(gY) * self.sum_prime(X)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Mean(ReductionFunction): # #
+    """ Compute mean along axis or axes """
+    @staticmethod
+    def mean(x, **kwargs):
+        return x.mean(**kwargs)
+
+    @staticmethod
+    def mean_prime(x, axis=None):
+        # div by number of elems averaged out in forward
+        dims = x.shape
+        num_avgd = np.prod([dims[i] for i in axis])
+        return np.ones(x.shape, x.dtype) / float(num_avgd)
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== average X
+        Y = self.mean(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keep = self.flags
+        gX = self.restore_dims(gY) * self.mean_prime(X, axes)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Prod(ReductionFunction): # #
+    """ Compute product along axis or axes """
+    @staticmethod
+    def prod(x, **kwargs):
+        return x.prod(**kwargs)
+
+    @staticmethod
+    def prod_prime(x, axis=None):
+        # Multiply where elems prod'd out in forward
+        prod_elems = Prod.prod(x, axis=axis, keepdims=True) / x
+        return np.ones(x.shape, x.dtype) * prod_elems
+
+    def forward(self, X, axis=None, keepdims=False):
+        #==== cache inputs
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== prod X
+        Y = self.prod(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keep = self.flags
+        gX = self.restore_dims(gY) * self.prod_prime(X, axes)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 
 
 #==============================================================================
+#------------------------------------------------------------------------------
 #                          Activation Functions
+#------------------------------------------------------------------------------
 #==============================================================================
 
 class Sigmoid(Function): # #
@@ -671,10 +872,34 @@ class ReLU(Function): #
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class SoftPlus(Function): #
+    """ Softplus activation : smooth relu """
+    @staticmethod
+    def softplus(x):
+        return np.log(1 + np.exp(x))
+
+    @staticmethod
+    def softplus_prime(x):
+        exp_x = np.exp(x)
+        return exp_x / (1 + exp_x)
+
+    def forward(self, X):
+        self.cache = np.copy(X)
+        Y = self.softplus(X)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        gX = gY * self.softplus_prime(X)
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 class ELU(Function): #
     """ Exponential Linear Unit """
-    def __init__(self, alpha=1.0):
+    def __init__(self, *args, alpha=1.0, **kwargs):
         self.alpha = alpha
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def elu(x, alpha):
@@ -791,7 +1016,9 @@ class Swish(Function): # #
 
 
 #==============================================================================
-#                          Loss Functions
+#------------------------------------------------------------------------------
+#                             Loss Functions
+#------------------------------------------------------------------------------
 #==============================================================================
 
 
@@ -842,7 +1069,7 @@ class LogisticCrossEntropy(Function): #
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
         # Convert labels to 1-hot
-        t = utils.to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)
+        t = to_one_hot(np.copy(t_vec), X.shape[-1]) # (N,D)
 
         # Sigmoid activation
         #----------------------
@@ -929,7 +1156,7 @@ class SoftmaxCrossEntropy(Function): #
         assert X.ndim == 2 and t_vec.shape[0] == X.shape[0]
 
         # Convert labels to 1-hot
-        t = utils.to_one_hot(np.copy(t_vec)) # (N,D)
+        t = to_one_hot(np.copy(t_vec)) # (N,D)
 
         # Softmax activation
         #----------------------
@@ -1021,6 +1248,10 @@ class Dropout(Function):
 
 
 
+
+
+
+
 #==============================================================================
 #------------------------------------------------------------------------------
 #                            FUNCTION COLLECTIONS
@@ -1029,13 +1260,14 @@ class Dropout(Function):
 
 MATH = {}
 
-ACTIVATIONS = {'sigmoid' : Sigmoid,
-                'tanh'   : Tanh,
-                'softmax': Softmax,
-                'relu'   : ReLU,
-                'elu'    : ELU,
-                'selu'   : SeLU,
-                'swish'  : Swish,
+ACTIVATIONS = {'sigmoid'  : Sigmoid,
+                'tanh'    : Tanh,
+                'softmax' : Softmax,
+                'relu'    : ReLU,
+                'softplus': SoftPlus,
+                'elu'     : ELU,
+                'selu'    : SeLU,
+                'swish'   : Swish,
                 }
 
 CONNECTIONS = {'bias'  : Bias,
@@ -1170,7 +1402,100 @@ class LSTM(Function):
 
 
 
+#------------------------------------------------------------------------------
+# Normalization
+#------------------------------------------------------------------------------
+class LayerNormalization(Function):
+    def __init__(self, *args, **kwargs):
+        self.mean = Mean()
+        self.sqrt = Sqrt()
+        self.square = Square()
+        super().__init__(*args, **kwargs)
 
+    @staticmethod
+    def layer_normalization(x, g, b, std, mu):
+        y = (g / std) * (x - mu) + b
+        return y
+
+    @staticmethod
+    def layer_normalization_prime(x, g, b, dstd, dmu):
+        pass
+
+
+
+
+class LayerNormalization(Function):
+    """ Normalization routine defined on statistics from the summed
+        connections between a layer and a single input case
+    It is designed to overcome several drawbacks of batch normalization,
+    the most significant being the latter's dependence on batch-size
+
+    # see p.3 of orig article for func defs
+    #-----> https://arxiv.org/pdf/1607.06450.pdf
+
+
+    # by hand
+    x : (N, D)
+    g : (D,)
+    b : (D,)
+    #---------
+
+    #===== Fwd
+    mu = np.mean(x, **kw) # (N, 1)
+    diff = x - mu
+    sqr_diff = diff**2
+    var = np.mean(sqr_diff, **kw) # (N, 1)
+    std = np.sqrt(var) # (N, 1)
+    #- - - - - - -
+    gds = g / std  # (N, D)
+    xmu = x - mu   # (N, D)
+    gdxm = gds * xmu
+    y = gdxm + b # (N, D)
+
+    #===== Bwd
+    dgdxm = gY
+    db = gY.sum(0)
+    dgds = dgdxm * xmu
+    dxmu = dgdxm * gds
+    dx  = dxmu
+    dmu = -dxmu
+    dg = dgds * -(1/np.square(std)) # or -1 / var
+    dstd = dgds * g
+
+    dvar = dstd * 1/(2*sqrt(var))
+    dsqr_diff = dvar * np.broadcast_to(sqr_diff, (x.shape)) / x.shape[1]
+    ddiff = dsqr_diff * 2*diff
+    dx += ddiff
+    dmu += -dxmu
+    dx += dmu * np.broadcast_to(mu, x.shape) / x.shape[1]
+
+
+    @staticmethod
+    def get_stats(x):
+        kw = {'axis':1, 'keepdims':True}
+        mu  = np.mean(x, **kw)
+        std = np.std(x, **kw) # (N, 1)
+        return mu, std
+
+    @staticmethod
+    def layer_norm(x, g, b):
+        mu, std = LayerNormalization.get_stats(np.copy(x))
+        y = (g / std) * (x - mu) + b
+        return y
+
+    @staticmethod
+    def layer_norm_prime(x, g, b):
+        pass
+
+
+    def forward(self, X, gain, bias):
+        self.cache = X, gain, bias
+        y = self.layer_norm(X, gain, bias)
+        return y
+
+    def backward(self, gY):
+        pass
+        """
 
 
 #==============================================================================
@@ -1178,6 +1503,68 @@ class LSTM(Function):
 #                            REDUCTION FUNCTIONS
 #------------------------------------------------------------------------------
 #==============================================================================
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Prod(ReductionFunction):
+    """ Compute product along axis or axes """
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = np.prod(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def backward(self, gY):
+        X = self.X
+        Y = self.Y
+        gX = self.restore_shape(gY*Y) / X
+        self.reset_fn_vars()
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class MaxMin(ReductionFunction):
+    """ Base class for max, min funcs """
+    MM_func  = None
+    cmp_func = None
+
+    def reset_fn_vars(self):
+        super().reset_fn_vars()
+        self.X = self.Y = None
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.fn_vars = X.shape, axis
+        Y = self.MM_func(X, axis=axis, keepdims=keepdims)
+        self.X = X
+        self.Y = Y
+        return Y
+
+    def backward(self, gY):
+        X  = self.X
+        Y  = self.restore_shape(self.Y)
+        gY = self.restore_shape(gY)
+        gX = np.where(self.cmp_func(X, Y), gY, 0)
+        self.reset_fn_vars()
+        return gX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class Max(MaxMin):
+    """ Computes max along axis """
+    MM_func  = np.max
+    cmp_func = lambda x, y: x >= y
+
+class Min(MaxMin):
+    """ Computes min along axis """
+    MM_func  = np.min
+    cmp_func = lambda x, y: x < y
+
 #------------------------------------------------------------------------------
 # Reduction functions :
 #  Sum, Mean, Prod, Max, Min
@@ -1316,6 +1703,57 @@ class Prod(ReductionFunction):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class Stdv(ReductionFunction):
+    """ Computes standard deviation """
+    @staticmethod
+    def stdv(x, **kwargs):
+        #==== stats
+        mu  = np.mean(x, **kwargs) # assuming 0th axis is batch
+        diff = x - mu
+        sqr_diff = np.square(diff)
+        var = np.mean(sqr_diff, **kwargs)
+        std = np.sqrt(var)
+        return std
+
+    @staticmethod
+    def stdv_prime(x, axis=None, keepdims=False):
+        kw = {'axis':axis, 'keepdims': keepdims}
+        mu = np.mean(x, **kw)
+        diff = x - mu
+        sqr_diff = np.square(diff)
+        var = np.mean(sqr_diff, **kw)
+        std = np.sqrt(var)
+        #====
+        print(f'var: {var}')
+        dvar = 1 / (2 * np.sqrt(var))
+        #dvar = 1 / (2 * np.sqrt(std))
+        print(f'dvar: {dvar}')
+        dsqr_diff = dvar * Mean.mean_prime(sqr_diff, axis=axis)
+        #dsqr_diff = sqr_diff * Mean.mean_prime(dvar, axis=axis)
+        print(f'dsqr_diff: {dsqr_diff}')
+        ddiff = dsqr_diff * 2 * diff
+        print(f'ddiff: {ddiff}')
+        #dx = ddiff
+        #print(f'dx1: {dx}')
+        dmu = -ddiff
+        #print(f'dmu: {dmu}')
+        dx = dmu * Mean.mean_prime(x, axis=axis) + ddiff
+        print(f'final dx: {dx}')
+        return dx
+
+    def forward(self, X, axis=None, keepdims=False):
+        self.cache = X
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        Y = self.stdv(X, axis=axis, keepdims=keepdims)
+        return Y
+
+    def backward(self, gY):
+        X = self.cache
+        axes, keepdims = self.flags
+        gX = self.restore_dims(gY) * self.stdv_prime(X, axes, keepdims)
+        return gX
+
+
 class MaxMin(ReductionFunction):
     """ Base class for max, min funcs """
     MM_func  = None
@@ -1352,3 +1790,6 @@ class Min(MaxMin):
     cmp_func = lambda x, y: x < y
 
 '''
+
+
+

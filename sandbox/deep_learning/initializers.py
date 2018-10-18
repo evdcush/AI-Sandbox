@@ -1,8 +1,33 @@
+""" Initializers for model parameters
+
+There are 3 types of initializations available:
+
+# Normal
+#----------
+# Array values sampled from a scaled random normal distribution
+Normal Initializers:
+  * HeNormal : gaussian scaled by input channels
+  * GlorotNormal : gaussian scaled by input and output channels
+
+# Uniform
+#----------
+# Array values sampled from a random uniform distribution
+Uniform Initializers:
+  * GlorotUniform : values drawn from within an interval determined
+                    by input and output channels
+
+
+# Constant
+#----------
+# Array values initialized to some constant
+Note: Constant can accept any fill value, but the following initializers
+      are provided for convenience and frequency of use
+Constant Initializers:
+  * Zeros : array of all zeros
+  * Ones : array of all ones
+"""
+
 import numpy as np
-import utils
-#from functools import wraps
-
-
 
 #==============================================================================
 #------------------------------------------------------------------------------

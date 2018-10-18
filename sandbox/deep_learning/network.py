@@ -52,75 +52,20 @@ NeuralNetwork : fully-connected, feed-forward network
       hyperbolic tangent.
     - Typically shallower than other types of networks (though this
       implementation is of arbitrary depth)
-
 """
-import sys
-import code
 import numpy as np
-import layers as L
+from layers import Dense
 import functions as F
 
-'''
-class NeuralNetwork:
-    """ Base network class: establishes fundamental structure of a network
-    """
-
-    # Network ops
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def forward(self, X, test=False):
-        """ Propagates input X through network layers """
-        Y = np.copy(X)
-        for layer in self.layers:
-            Y = layer(Y, test=test)
-        return Y
-
-    def backward(self, gY):
-        """ Backpropagation through layers
-        Params
-        ------
-        gY : ndarray
-            gradient of loss function wrt to network output Y (or Y_hat)
-        """
-        gX = np.copy(gY)
-        for layer in reversed(self.layers):
-            gX = layer(gX, backprop=True)
-
-    def update(self, opt):
-        """ Pass optimizer through parametric units of layers """
-        for unit in self.layers:
-            if unit.__module__ == 'layers':
-                unit.update(opt)
-
-    # Naming formats
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __str__(self):
-        name  = self.__class__.__name__
-        return name
-
-    def __repr__(self):
-        # eval-style repr
-        rep = ("{}('{}, activation={}, use_dropout={}')")
-        name  = self.__class__.__name__
-
-        #==== Get instance vars
-        chans = self.channels
-        act   = self.activation
-        drop  = self.use_dropout
-
-        #==== format repr and return
-        rep = rep.format(name, chans, act, drop)
-        return rep
-'''
 
 
-#class FullyConnected(NeuralNetwork):
 class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
-    connection = L.Dense # all NeuralNetwork instances have dense connections
+    connection = Dense # all NeuralNetwork instances have dense connections
 
     # Network initialization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __init__(self, channels, activation=F.Sigmoid, use_dropout=True, **kwargs):
+    def __init__(self, channels, activation=F.SeLU, use_dropout=False, **kwargs):
         """ Initializes an arbitrarily deep neural network
         Params
         ------
