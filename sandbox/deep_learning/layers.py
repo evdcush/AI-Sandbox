@@ -21,13 +21,14 @@ Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
 
 
 """
-import functions
-import initializers
+from functions import Linear, Swish
+#from deep_learning import initializers
+from initializers import HeNormal, Zeros, Ones
 
 #==== Initializers
-HeNormal = initializers.HeNormal
-Zeros    = initializers.Zeros
-Ones     = initializers.Ones
+#HeNormal = initializers.HeNormal
+#Zeros    = initializers.Zeros
+#Ones     = initializers.Ones
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -164,7 +165,7 @@ class Dense(ParametricLayer):
     """
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
         super().__init__(ID, kdims)
-        self.linear = functions.Linear()
+        self.linear = Linear()
         self.initialize_vars(init_W, init_B)
 
     def initialize_vars(self, init_W, init_B):
@@ -225,7 +226,7 @@ class Swish(ParametricLayer):
     updates = True
     def __init__(self, ID, kdims, init_B=Ones, **kwargs):
         super().__init__(ID, kdims, **kwargs)
-        self.swish = functions.Swish()
+        self.swish = Swish()
         self.initialize_vars(init_B)
 
     def initialize_vars(self, init_B):

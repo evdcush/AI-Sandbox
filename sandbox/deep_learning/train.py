@@ -5,6 +5,8 @@ import numpy as np
 import utils
 from utils import SessionStatus, classification_accuracy
 from network import NeuralNetwork
+#from deep_learning.utils import SessionStatus, classification_accuracy
+#from deep_learning.network import NeuralNetwork
 
 # args parser
 #------------------

@@ -37,10 +37,10 @@ from functools import wraps
 
 import numpy as np
 
-import layers
-import network
-import functions
-import optimizers
+from layers import PARAMETRIC_FUNCTIONS
+from network import NeuralNetwork
+from functions import ACTIVATIONS, OBJECTIVES
+from optimizers import get_optimizer
 
 #==== ugly relative pathing hack to dataset
 fpath = os.path.abspath(os.path.dirname(__file__))
@@ -52,7 +52,8 @@ if not os.path.exists(path_to_dataset):
           'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
-sys.path.append(path_to_dataset)
+if path_to_dataset not in sys.path:
+    sys.path.append(path_to_dataset)
 import dataset
 from dataset import IrisDataset
 
@@ -362,10 +363,10 @@ class Parser:
         #----------------------------
         pact = parsed.activation
         #==== Check if parameterized activation (Swish)
-        activation = layers.PARAMETRIC_FUNCTIONS.get(pact, None)
+        activation = PARAMETRIC_FUNCTIONS.get(pact, None)
         if activation is None:
             #==== Check if valid activation Function
-            activation = functions.ACTIVATIONS.get(pact, None)
+            activation = ACTIVATIONS.get(pact, None)
             if activation is None:
                 # if None again, parsed activation arg is undefined in domain
                 raise NotImplementedError('{} is undefined'.format(pact))
@@ -375,13 +376,13 @@ class Parser:
         # Optimizer
         #----------------------------
         popt = parsed.optimizer
-        opt = optimizers.get_optimizer(popt) # raises ValueError if not defined
+        opt = get_optimizer(popt) # raises ValueError if not defined
         parsed.optimizer = opt
 
         # Objective
         #----------------------------
         pobj = parsed.objective
-        objective = functions.OBJECTIVES.get(pobj, None)
+        objective = OBJECTIVES.get(pobj, None)
         if objective is None: # then objective not in functions
             raise NotImplementedError('{} is undefined'.format(pobj))
         parsed.objective = objective
@@ -448,7 +449,7 @@ class SessionStatus: # TODO: really need to clean this up / split
                 kdims = unit.kdims
                 layer_name, layer_num = unit_name.split('-')
                 #==== Function case
-                if unit_class in layers.PARAMETRIC_FUNCTIONS.values():
+                if unit_class in PARAMETRIC_FUNCTIONS.values():
                     # non-connection functions are not considered discrete
                     # layers within the network like Dense
                     layer_num = ' '
