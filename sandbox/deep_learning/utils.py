@@ -39,7 +39,6 @@ import subprocess
 from functools import wraps
 
 import numpy as np
-from matplotlib import pyplot as plt
 
 import layers
 import network
@@ -51,9 +50,9 @@ fpath = os.path.abspath(os.path.dirname(__file__))
 path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
 if not os.path.exists(path_to_dataset):
     print('ERROR: Unable to locate project data directory')
-    print(f'Please restore the data directory to its original path at {path_to_dataset}\n',
-          f'or symlink it to {fpath}\n',
-          f'or specify the updated absolute path to the sandbox submodule scripts')
+    print('Please restore the data directory to its original path at {}\n'.format(path_to_dataset),
+          'or symlink it to {}\n'.format(fpath),
+          'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
 sys.path.append(path_to_dataset)
