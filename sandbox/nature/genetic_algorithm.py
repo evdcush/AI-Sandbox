@@ -72,9 +72,9 @@ fpath = os.path.abspath(os.path.dirname(__file__))
 path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
 if not os.path.exists(path_to_dataset):
     print('ERROR: Unable to locate project data directory')
-    print(f'Please restore the data directory to its original path at {path_to_dataset}\n',
-          f'or symlink it to {fpath}\n',
-          f'or specify the updated absolute path to the sandbox submodule scripts')
+    print('Please restore the data directory to its original path at {}\n'.format(path_to_dataset),
+          'or symlink it to {}\n'.format(fpath),
+          'or specify the updated absolute path to the sandbox submodule scripts')
     sys.exit()
 
 sys.path.append(path_to_dataset)
@@ -214,10 +214,16 @@ class GeneticAlgorithm:
         for k, v in locals().items():
             if k == 'self': continue
             setattr(self, k, v)
+        print('Initializing GA')
         self.population = init_population(population_size)
 
     def run(self):
         """ Run algorithm """
+        #==== update status
+        r_info = 'Running GA:\n  population_size: {}\n  num_generations: {}'
+        status = r_info.format(self.population_size, self.num_gens)
+        print(status)
+        #==== var shortnames
         B = self.batch_size
         p_size = self.population_size
         t_size = self.tournament_size
@@ -260,7 +266,6 @@ class GeneticAlgorithm:
         population_fitness = np.median(population_response, axis=0)
         sum_correct = np.sum(population_fitness == Y)
         accuracy = sum_correct / len(Y)
-        #print('GA median fitness: {}'.format(population_fitness))
         print('GA test accuracy: {:.4f}; {}/{} correct'.format(accuracy, sum_correct, len(Y)))
         return accuracy
 
