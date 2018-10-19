@@ -38,8 +38,8 @@ from functools import wraps
 import numpy as np
 
 from layers import PARAMETRIC_FUNCTIONS
-from network import NeuralNetwork
 from functions import ACTIVATIONS, OBJECTIVES
+import network
 from optimizers import get_optimizer
 
 #==== ugly relative pathing hack to dataset
@@ -468,9 +468,8 @@ class SessionStatus: # TODO: really need to clean this up / split
         # Format header based on training or test
         if train:
             header = header.format('Training', num_tr, 'iterations')
-            #f20 = int(num_tr * .8)
-            f20 = int(num_tr * .4)
-            loss_hist = self.train_history[f20:]
+            cut = int(num_tr * .2)
+            loss_hist = self.train_history[cut:]
         else:
             header = header.format('Test', num_test, 'samples')
             loss_hist = self.test_history

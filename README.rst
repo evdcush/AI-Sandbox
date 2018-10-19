@@ -81,8 +81,8 @@ Something like::
     # Training results, 1500 iterations
     #------------------------------
                 Error  |  Accuracy
-    * Average: 0.77293 | 0.77333
-    *  Median: 0.78027 | 0.83333
+    * Average: 0.84315 | 0.73097
+    *  Median: 0.86007 | 0.83333
     #------------------------------
 
     # Test results, 30 samples
@@ -91,6 +91,7 @@ Something like::
     * Average: 0.55916 | 0.86667
     *  Median: 0.58926 | 1.00000
     #------------------------------
+
 
 
 

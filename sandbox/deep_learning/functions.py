@@ -58,6 +58,7 @@ class AttrDict(dict):
     """ dict accessed/mutated by attribute instead of index """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 def to_one_hot(Y, num_classes=3):
