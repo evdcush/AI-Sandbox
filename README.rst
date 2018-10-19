@@ -24,7 +24,8 @@ The project codebase for the neural network is split neatly into different modul
 :network: The core component of our classifier model, all neural networks are implemented in the `network.py`_ module. Currently, the only available network implementation is a fully-connected feed-forward network with ``Dense`` layers.
 :optimizer: The optimization routines for the neural network are implemented in this module. Available optimizers are ``SGD``--vanilla Stochastic Gradient Descent, and ``Adam``, a popular and powerful adaptive optimization algorithm based on moment estimation.
 
-  While the default optimizer is set for ``SGD``, I would recommend using ``Adam``, as it is *significantly* more powerful. Both implementations, and all those to come, are located in `optimizers.py`_.
+
+ Both implementations, and all those to come, are located in `optimizers.py`_.
 
 :train: The training routine is essentially an interface to all the modules of the project. It instantiates the network, and its layers by extension, the optimizer, and objective function, and loads the dataset through ``utils``. That being said, the majority of heavy lifting, such parameter initialization, file R/W, network ops, session information, etc. have been extracted to their constituent modules. Training especially relies on the utilities found in `utils.py`_. There is also a Trainer class within `utils.py`_ that performs the same operations as the train script.
 
@@ -51,7 +52,7 @@ NumPy can be installed via pip: ``pip install numpy``
 
 Environment
 ...........
-All project code has been developed on Linux *(Ubuntu 16.04, 18.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_
+All project code has been developed on Linux *(Ubuntu 16.04, 18.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_.
 
 ****
 
@@ -75,22 +76,24 @@ Something like::
          1 : Dense (4, 64)
               : Sigmoid
          2 : Dense (64, 3)
+
     - OPTIMIZER : SGD
     - OBJECTIVE : SoftmaxCrossEntropy
 
     # Training results, 1500 iterations
     #------------------------------
-                Error  |  Accuracy
-    * Average: 0.77293 | 0.77333
-    *  Median: 0.78027 | 0.83333
+                Error   |  Accuracy
+    * Average: 0.77293  |  0.77333
+    *  Median: 0.78027  |  0.83333
     #------------------------------
 
     # Test results, 30 samples
     #------------------------------
-                Error  |  Accuracy
-    * Average: 0.55916 | 0.86667
-    *  Median: 0.58926 | 1.00000
+                Error   |  Accuracy
+    * Average: 0.55916  |  0.86667
+    *  Median: 0.58926  |  1.00000
     #------------------------------
+
 
 
 

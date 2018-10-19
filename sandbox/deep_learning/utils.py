@@ -479,13 +479,18 @@ class SessionStatus: # TODO: really need to clean this up / split
         avg = np.mean(  np.copy(loss_hist), axis=0)
         q50 = np.median(np.copy(loss_hist), axis=0)
 
+        # Format print lines
+        line_key = '            Error   |  Accuracy'
+        line_avg = '* Average: {:.5f}  |  {:.5f}'.format(avg[0], avg[1])
+        line_q50 = '*  Median: {:.5f}  |  {:.5f}'.format(q50[0], q50[1])
+
         # Print results
         print(header)
         if t is not None:
             print('Elapsed time: {}'.format(t))
-        print('            Error  |  Accuracy')
-        print('* Average: {:.5f} | {:.5f}'.format(avg[0], avg[1]))
-        print('*  Median: {:.5f} | {:.5f}'.format(q50[0], q50[1]))
+        print(line_key)
+        print(line_avg)
+        print(line_q50)
         print(d2)
 
     def summarize_model(self, train_results=False, test_results=False):
