@@ -5,8 +5,7 @@ import numpy as np
 import utils
 from utils import SessionStatus, classification_accuracy
 from network import NeuralNetwork
-#from deep_learning.utils import SessionStatus, classification_accuracy
-#from deep_learning.network import NeuralNetwork
+
 
 # args parser
 #------------------
@@ -45,7 +44,7 @@ verbose = config.verbose
 
 # Instantiate model
 #------------------
-np.random.seed(utils.RNG_SEED_PARAMS)
+np.random.seed(config.seed)
 model = NeuralNetwork(channels, activation=activation, use_dropout=dropout)
 opt   = optimizer()
 objective = objective()

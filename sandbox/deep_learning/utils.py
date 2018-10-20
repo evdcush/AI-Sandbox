@@ -195,7 +195,7 @@ RNG_SEED_PARAMS = 12345 # seeding parameter inits
 
 # Hyperparameters
 LEARNING_RATE = 0.01 # unused, opt defaults are good
-CHANNELS = [IRIS['features_per_sample'], 64, len(IRIS['classes'])]
+CHANNELS = [IRIS['features_per_sample'], 163, len(IRIS['classes'])]
 
 
 
@@ -217,7 +217,7 @@ DEFAULT_CONFIGURATION = [
 ('i', 'num_iters',  1500, 'number of training iterations'),
 ('b', 'batch_size', 6, 'training batch size: how many samples per iter'),
 ('v', 'verbose',    False, 'print model error while actively training'),
-('_', 'dummy', False, 'dummy var workaround for notebook error'),
+('_', 'dummy', False, 'dummy var workaround for jupyter notebook error'),
 ]
 
 

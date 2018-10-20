@@ -46,26 +46,24 @@ Available implementations
 NeuralNetwork : fully-connected, feed-forward network
     - The fully-connected, feed-forward  neural network, is one of the most
       elementary types of networks.
+
     - It is composed of fully-connected layers that perform
       linear-transformations on input data, that are then 'activated'
       by nonlinear functions, such as the logistic function or
       hyperbolic tangent.
+
     - Typically shallower than other types of networks (though this
       implementation is of arbitrary depth)
 """
 import numpy as np
-from layers import Dense
+import layers as L
 import functions as F
 
 
 
 class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
-    connection = Dense # all NeuralNetwork instances have dense connections
-
-    # Network initialization
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __init__(self, channels, activation=F.SeLU, use_dropout=False, **kwargs):
+    def __init__(self, channels, activation=F.SeLU, use_dropout=False):
         """ Initializes an arbitrarily deep neural network
         Params
         ------
@@ -85,10 +83,10 @@ class NeuralNetwork:
         #------------------
         self.layers = []
         for ID, kdims in enumerate(self.channels, 1):
-            last_layer = ID == len(self.channels) # layers is 1-indexed
+            last_layer = ID == len(self.channels)
 
             #==== Connection
-            connection = self.connection(ID, kdims, **kwargs) # Dense
+            connection = L.Dense(ID, kdims)
             self.layers.append(connection)
 
             if not last_layer:
@@ -101,7 +99,7 @@ class NeuralNetwork:
                     dropout = F.Dropout()
                     self.layers.append(dropout)
 
-    # Network ops
+    # Network algorithm
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def forward(self, X, test=False):
         """ Propagates input X through network layers """
@@ -121,6 +119,7 @@ class NeuralNetwork:
         for layer in reversed(self.layers):
             gX = layer(gX, backprop=True)
 
+    #==== Optimizer update
     def update(self, opt):
         """ Pass optimizer through parametric units of layers """
         for unit in self.layers:
