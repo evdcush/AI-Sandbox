@@ -73,9 +73,9 @@ Something like::
 
     NeuralNetwork
       Layers:
-         1 : Dense (4, 64)
+         1 : Dense (4, 157)
               : Sigmoid
-         2 : Dense (64, 3)
+         2 : Dense (157, 3)
 
     - OPTIMIZER : SGD
     - OBJECTIVE : SoftmaxCrossEntropy
@@ -83,16 +83,17 @@ Something like::
     # Training results, 1500 iterations
     #------------------------------
                 Error   |  Accuracy
-    * Average: 0.77293  |  0.77333
-    *  Median: 0.78027  |  0.83333
+    * Average: 0.64273  |  0.81241
+    *  Median: 0.63921  |  0.83333
     #------------------------------
 
     # Test results, 30 samples
     #------------------------------
                 Error   |  Accuracy
-    * Average: 0.55916  |  0.86667
-    *  Median: 0.58926  |  1.00000
+    * Average: 0.47390  |  0.90000
+    *  Median: 0.50770  |  1.00000
     #------------------------------
+
 
 
 
@@ -102,7 +103,7 @@ Default model settings are configured as follows:
 
 :Training iterations: 1500
 :Batch size: 6
-:Channels: [4, 64, 3]
+:Channels: [4, 157, 3]
 :Activation: Logistic sigmoid
 :Optimizer: ``SGD``
 :Objective function: Softmax Cross Entropy
@@ -112,9 +113,9 @@ Model Options
 -------------
 The model, as defined on this dataset, can be configured for other settings that can be specified in ``train.py`` or simply passed as arguments through STDIN, for example, the following line:
 
-``python train.py -i 200 -o adam -a tanh -c 4 32 16 3``
+``python train.py -i 500 -o adam -a softplus -c 4 32 16 3``
 
-Will train the model for 500 iterations, using hyperbolic-tangent activations, the Adam optimizer, and channels [4, 32, 16, 3]. While the ``SGD`` optimizer can be sensitive to network configuration (notably with channels), ``adam`` is robust and can converge with almost any network config.
+Will train the model for 500 iterations, using softplus activations, the Adam optimizer, and channels [4, 32, 16, 3]. While the ``SGD`` optimizer can be sensitive to network configuration (notably with channels), ``adam`` is robust and can converge with almost any network config.
 
 
 |
@@ -127,12 +128,11 @@ Training options quick-reference
 -i int, --num_iters  Number of training iterations
 -b int, --batch_size  Training mini-batch sizes.
 
-              This defines how many samples are passed to the model in one training iteration.
+    This defines how many samples are passed to the model in one training iteration.
 
--a ACTIVATION, --activation
-              Activation function used in the network.
+-a ACTIVATION, --activation  Activation function used in the network.
 
-              Available activations: ``relu, elu, selu, softplus, sigmoid, tanh, swish, softmax``
+    Available activations: ``relu, elu, selu, softplus, sigmoid, tanh, swish, softmax``
 
 -o OPTIMIZER, --optimizer  Model optimizer.
 
@@ -172,9 +172,9 @@ Except where noted otherwise, this project is licensed under the `BSD-3-Clause-C
 .. _BSD-3-Clause-Clear: LICENSE
 .. _Iris dataset: https://en.wikipedia.org/wiki/Iris_flower_data_set
 
-.. _|Iris dataset| replace :: `Iris dataset`
+.. |Iris dataset| replace:: Iris dataset
 .. _data directory: sandbox/data/Iris
 
 .. OTHER:
 .. _pyenv: https://github.com/pyenv/pyenv
-.. |pyenv| replace :: pyenv
+.. |pyenv| replace:: pyenv

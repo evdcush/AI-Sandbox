@@ -1,28 +1,19 @@
 """
 The layers that compose the neural network are in this module.
 
-Layers serve as the interface to Functions for the Network.
-They manage any parameters used by the functions, and provide high
-level abstractions for backprop and updates.
+# Layers as an interface
+The Layers class provide an interface for the network and optimizer
+to functions that use learnable parameters.
+    These include the basic connection functions, such as functions.Linear,
+    as well as non-connection functions that use optimizable parameters,
+    such as functions.Swish
 
-There are (currently) two kinds of layers: parametric and static
-
-# Layer types
-#------------
-Parametric layers : [Dense, Swish, ]
-    these layers use variables that receive updates from an optimizer
-
-
-@REMOVED : if there are no parameters, there is no reason you cannot
-           just use the Function as-is
-Static layers : [Sigmoid, Tanh, Softmax, ReLU, ELU, SELU, ]
-    these layers do not utilize variables and do not
-    need updates from optimizer
-
+Layers also allows their respective functions to remain strictly
+functional, managing the parameters and gradients (and the
+constituent initialization and updating).
 
 """
-from functions import Linear, Swish
-#from deep_learning import initializers
+import functions
 from initializers import HeNormal, Zeros, Ones
 
 #==== Initializers
@@ -32,40 +23,36 @@ from initializers import HeNormal, Zeros, Ones
 
 #==============================================================================
 #------------------------------------------------------------------------------
-#                          Parametric Layers
+#                                Layers
 #------------------------------------------------------------------------------
 #==============================================================================
-""" These layers all have parameters that are updated through gradient descent
-"""
 
-class ParametricLayer:
-    """ Layers with learnable variables updated through gradient descent
+
+class Layer:
+    """ Base class defining the structure and representation of layers
 
     Attributes
     ----------
-    updates : bool
-        whether the layer has learnable parameters
     name : str
         layer name, as class-name + ID
     ID : int
         layer instance position in the network
-    kdims : tuple(int)
-        channel sizes (determines dimensions of params)
+    kdims : tuple(int); #---> (num_input_nodes, num_output_nodes)
+        the dimensions for this layer, which determines the shape
+        of the layer parameters
+
     """
-    updates = True
     def __init__(self, ID, kdims, **kwargs):
         self.name = '{}-{}'.format(self.__class__.__name__, ID)
         self.ID = ID
         self.kdims = kdims
 
     def __str__(self,):
-        # str : Dense-$ID
-        #     eg 'Dense-3'
+        # str : Dense-$ID;  (eg 'Dense-3')
         return self.name
 
     def __repr__(self):
-        # repr : Dense($ID, $kdims)
-        #     eg "Dense('3, (32, 16)')"
+        # repr : Dense($ID, $kdims); (eg "Dense('3, (32, 16)')")
         ID = self.ID
         kdims = self.kdims
         cls_name = self.__class__.__name__
@@ -75,16 +62,15 @@ class ParametricLayer:
         return rep
 
     def initialize_params(self, layer_vars):
-        """ Initializes optimizable layer_vars for a ParametricLayer instance
+        """ Initializes optimizable layer_vars for a Layer instance
 
         Params
         ------
         layer_vars : list(dict)
-            Each element in layer_vars is a dictionary specifying
-            the features of a different variable that needs to be
-            initialized.
-                each dict in layer_vars has the following form:
-                {'tag': str, 'dims': tuple(int), 'init': Initializer}
+            dict of form: {'tag': str, 'dims': tuple(int), 'init': Initializer}
+                tag  : unique name for the parameter
+                dims : kdims (dimensions or shape of param)
+                init : Initializer to be used
         """
         key_val = '{}_{{}}'.format(self.name)
         for layer_var in layer_vars:
@@ -100,41 +86,23 @@ class ParametricLayer:
             setattr(self, '{}_key'.format(tag), key_val.format(tag))
 
             # variable
-            setattr(self, tag, initializer(dims))# = initializer(dims)
+            setattr(self, tag, initializer(dims))
 
             # variable grad placeholder
-            setattr(self, '{}_grad'.format(tag), None) #= None
+            setattr(self, '{}_grad'.format(tag), None)
 
 
     # Layer optimization
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def update(self, opt):
-        """ Update weights and bias with gradients from backprop
+        """ Update parameters with gradients from backprop
+
         Params
         ------
         opt : Optimizer instance
             Optimizing algorithm, updates through __call__
         """
-        # WIP
         raise NotImplementedError
-        '''
-        # Make sure grads exist
-        assert self.W_grad is not None and self.B_grad is not None
-
-        # Group vars with their grads, keyed to their respective keys
-        params = {}
-        params[self.W_key] = (self.W, self.W_grad)
-        params[self.B_key] = (self.B, self.B_grad)
-
-        # Get updates
-        updated_params = opt(params)
-        self.W = updated_params[self.W_key]
-        self.B = updated_params[self.B_key]
-
-        # Reset gradsinitialize
-        self.W_grad = None
-        self.B_grad = None
-        '''
 
     def __call__(self, *args, backprop=False, test=False):
         func = self.backward if backprop else self.forward
@@ -143,10 +111,10 @@ class ParametricLayer:
 
 #==============================================================================
 
-class Dense(ParametricLayer):
+class Dense(Layer):
     """ Vanilla fully-connected hidden layer
-    Dense essentially provides the layer interface to functions.Linear,
-    maintaining the connection variables W, and B, in the function:
+    Dense provides the interface to functions.Linear, maintaining the
+    connection variables W, and B, in the function:
         f(X) = X.W + B
     Where
       X : input matrix
@@ -162,10 +130,17 @@ class Dense(ParametricLayer):
         unique string identifier for W
     B_key : str
         unique string identifier for B
+    W : ndarray, of shape kdims
+        weights parameter
+    B : ndarray, of shape kdims[-1]
+        bias parameter
+    W_grad, B_grad : None | ndarray
+        gradient placeholders for their respective parameters
+
     """
     def __init__(self, ID, kdims, init_W=HeNormal, init_B=Zeros):
         super().__init__(ID, kdims)
-        self.linear = Linear()
+        self.linear = functions.Linear()
         self.initialize_vars(init_W, init_B)
 
     def initialize_vars(self, init_W, init_B):
@@ -221,12 +196,11 @@ class Dense(ParametricLayer):
 
 #==============================================================================
 
-class Swish(ParametricLayer):
+class Swish(Layer):
     """ Swish activation layer """
-    updates = True
     def __init__(self, ID, kdims, init_B=Ones, **kwargs):
         super().__init__(ID, kdims, **kwargs)
-        self.swish = Swish()
+        self.swish = functions.Swish()
         self.initialize_vars(init_B)
 
     def initialize_vars(self, init_B):

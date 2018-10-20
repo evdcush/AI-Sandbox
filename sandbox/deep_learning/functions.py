@@ -44,6 +44,10 @@ LSTM : stub and fully-atomic gradient reference (eg, by hand)
          and previous output, in addition to normal caching, makes it make
          more sense as a layer
 
+LayerNorm : working on stdv
+    the actual layernorm func is simple, but requires standard dev func;
+    should be able to just compose the related functions (mean, square, sqrt)
+    to make a stdv function class, then use that for layernorm func
 
 """
 import code
@@ -58,6 +62,7 @@ class AttrDict(dict):
     """ dict accessed/mutated by attribute instead of index """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 def to_one_hot(Y, num_classes=3):
