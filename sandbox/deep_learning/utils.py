@@ -690,7 +690,7 @@ class Trainer:
 
             # backprop and update
             #------------------
-            grad_loss = self.obj(error, backprop=True)
+            grad_loss = self.obj(backprop=True)
             self.model.backward(grad_loss)
             self.model.update(self.opt)
 
@@ -702,7 +702,7 @@ class Trainer:
 
             # forward pass
             #------------------
-            y_hat = self.model.forward(x)
+            y_hat = self.model.forward(x, test=True)
             error, class_scores = self.obj(y_hat, y)
             accuracy = classification_accuracy(class_scores, y)
             self.session_status(i, error, accuracy, show=v, test=True)

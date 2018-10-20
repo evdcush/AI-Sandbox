@@ -63,7 +63,7 @@ import functions as F
 
 class NeuralNetwork:
     """ Fully-connected, feed-forward neural network """
-    def __init__(self, channels, activation=F.SeLU, use_dropout=False):
+    def __init__(self, channels, activation=F.SeLU, use_dropout=True):
         """ Initializes an arbitrarily deep neural network
         Params
         ------
@@ -90,14 +90,15 @@ class NeuralNetwork:
             self.layers.append(connection)
 
             if not last_layer:
-                #==== Activation
-                activation = self.activation(ID, kdims)
-                self.layers.append(activation)
-
                 #==== Dropout
                 if use_dropout:
                     dropout = F.Dropout()
                     self.layers.append(dropout)
+
+                #==== Activation
+                activation = self.activation(ID, kdims)
+                self.layers.append(activation)
+
 
     # Network algorithm
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

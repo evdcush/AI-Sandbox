@@ -10,9 +10,9 @@ from network import NeuralNetwork
 # args parser
 #------------------
 # config contains all model and session setup options
-arg_parser = utils.Parser()
-config = arg_parser.parse_args()
-arg_parser.print_args()
+parser = utils.Parser()
+config = parser.parse_args()
+parser.print_args()
 
 # Load data
 #------------------
@@ -73,7 +73,7 @@ for step in range(num_iters):
 
     # backprop and update
     #------------------
-    grad_loss = objective(error, backprop=True)
+    grad_loss = objective(backprop=True)
     model.backward(grad_loss)
     model.update(opt)
 
@@ -93,7 +93,7 @@ for i in range(num_test_samples):
 
     # forward pass
     #------------------
-    y_hat = model.forward(x)
+    y_hat = model.forward(x, test=True)
     error, class_scores = objective(y_hat, y)
     accuracy = utils.classification_accuracy(class_scores, y)
     sess_status(i, error, accuracy, show=verbose, test=True)

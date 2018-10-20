@@ -73,9 +73,9 @@ Something like::
 
     NeuralNetwork
       Layers:
-         1 : Dense (4, 157)
+         1 : Dense (4, 163)
               : Sigmoid
-         2 : Dense (157, 3)
+         2 : Dense (163, 3)
 
     - OPTIMIZER : SGD
     - OBJECTIVE : SoftmaxCrossEntropy
@@ -103,7 +103,7 @@ Default model settings are configured as follows:
 
 :Training iterations: 1500
 :Batch size: 6
-:Channels: [4, 157, 3]
+:Channels: [4, 163, 3]
 :Activation: Logistic sigmoid
 :Optimizer: ``SGD``
 :Objective function: Softmax Cross Entropy

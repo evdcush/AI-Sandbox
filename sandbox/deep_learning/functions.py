@@ -492,7 +492,7 @@ class Linear(Function): ##
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-'''   # UNTESTED, DO NOT USE
+'''   # WIP, DO NOT USE
 class LSTM(Function):
     """ Stateless Long short-term memory function
 
@@ -1031,10 +1031,6 @@ class LogisticCrossEntropy(Function): #
 
     """
     @staticmethod
-    def sigmoid(x):
-        return Sigmoid.sigmoid(x)
-
-    @staticmethod
     def logistic_cross_entropy(x, t):
         lhs = -(t * np.log(x))
         rhs = (1 - t) * np.log(1 - x)
@@ -1071,7 +1067,7 @@ class LogisticCrossEntropy(Function): #
 
         # Sigmoid activation
         #----------------------
-        p = self.sigmoid(np.copy(X))
+        p = Sigmoid.sigmoid(np.copy(X))
         self.cache = p, t
 
         # Average cross-entropy
@@ -1116,10 +1112,6 @@ class SoftmaxCrossEntropy(Function): #
 
     """
     @staticmethod
-    def softmax(x):
-        return Softmax.softmax(x)
-
-    @staticmethod
     def softmax_cross_entropy(x, t):
         tlog_x = -(t * np.log(x))
         return np.mean(np.sum(tlog_x, axis=1))
@@ -1135,7 +1127,7 @@ class SoftmaxCrossEntropy(Function): #
 
         Params
         ------
-        X : ndarray float32, (N, D)
+        X : ndarray.float32, (N, D)
             output of network's final layer with no activation. *2D assumed*
         t_vec : ndarray int32, (N,) ----> (N, D)
             truth labels for each sample, where int values range [0, D)
@@ -1158,7 +1150,7 @@ class SoftmaxCrossEntropy(Function): #
 
         # Softmax activation
         #----------------------
-        p = self.softmax(X)
+        p = Softmax.softmax(X)
         self.cache = p, t
 
         # Average cross entropy
@@ -1173,7 +1165,7 @@ class SoftmaxCrossEntropy(Function): #
         Params
         ------
         p : ndarray.float32, (N,D)
-            sigmoid activation on network forward output
+            activation on network forward output
         t : ndarray.int32, (N,D), 1-hot
             ground truth labels for this sample set
 
@@ -1211,41 +1203,37 @@ class Dropout(Function):
     detection and context of others, the connections are instead encouraged
     to learn more robust detection of features.
     """
-    def __init__(self, drop_ratio=0.5):
+    def __init__(self, drop_rate=0.5):
         """ 50% drop-rate is suggested default """
-        self.drop_ratio = drop_ratio
+        self.drop_rate = drop_rate
         super().__init__()
 
     def get_mask(self, X):
-        rands = np.random.rand(*X.shape)
-        drop  = self.drop_ratio
-        scale = 1 / (1 - drop)
-        mask  = (rands >= drop) * scale
-        return mask.astype(np.float32)
+        if hasattr(self, 'mask'): return self.mask
+        p  = self.drop_rate
+        drops = np.random.rand(*X.shape) >= p
+        scale = 1 / (1 - p)
+        self.mask = (drops * scale).astype(X.dtype)
+        return self.mask
 
     @staticmethod
     def dropout(x, mask):
         return x * mask
 
     @staticmethod
-    def dropout_prime(y, mask):
-        return y * mask
+    def dropout_prime(x, mask):
+        return mask
 
     def forward(self, X):
         if self.test: return X # don't drop test elements
         mask = self.get_mask(X)
-        self.cache = mask
-        Y = self.dropout(np.copy(X), mask)
+        Y = self.dropout(X, mask)
         return Y
 
     def backward(self, gY):
-        mask = self.cache
-        gX = self.dropout_prime(gY, mask)
+        mask = self.mask
+        gX = gY * mask
         return gX
-
-
-
-
 
 
 
