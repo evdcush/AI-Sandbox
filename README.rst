@@ -51,7 +51,7 @@ NumPy can be installed via pip: ``pip install numpy``
 
 Environment
 ...........
-All project code has been developed on Linux *(Ubuntu 16.04, 18.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_
+All project code has been developed on Linux *(Ubuntu 16.04, 18.04)*, but as long as you have your python environment setup with NumPy and CLI access, it should work on your machine. I would also suggest using a virtualenv manager like pyenv_.
 
 ****
 
@@ -110,9 +110,9 @@ Model Options
 -------------
 The model, as defined on this dataset, can be configured for other settings that can be specified in ``train.py`` or simply passed as arguments through STDIN, for example, the following line:
 
-``python train.py -i 200 -o adam -a tanh -c 4 32 16 3``
+``python train.py -i 500 -o adam -a softplus -c 4 32 16 3``
 
-Will train the model for 500 iterations, using hyperbolic-tangent activations, the Adam optimizer, and channels [4, 32, 16, 3]. While the ``SGD`` optimizer can be sensitive to network configuration (notably with channels), ``adam`` is robust and can converge with almost any network config.
+Will train the model for 500 iterations, using softplus activations, the Adam optimizer, and channels [4, 32, 16, 3]. While the ``SGD`` optimizer can be sensitive to network configuration (notably with channels), ``adam`` is robust and can converge with almost any network config.
 
 
 |
@@ -125,12 +125,11 @@ Training options quick-reference
 -i int, --num_iters  Number of training iterations
 -b int, --batch_size  Training mini-batch sizes.
 
-              This defines how many samples are passed to the model in one training iteration.
+    This defines how many samples are passed to the model in one training iteration.
 
--a ACTIVATION, --activation
-              Activation function used in the network.
+-a ACTIVATION, --activation  Activation function used in the network.
 
-              Available activations: ``relu, elu, selu, softplus, sigmoid, tanh, swish, softmax``
+    Available activations: ``relu, elu, selu, softplus, sigmoid, tanh, swish, softmax``
 
 -o OPTIMIZER, --optimizer  Model optimizer.
 
@@ -170,9 +169,9 @@ Except where noted otherwise, this project is licensed under the `BSD-3-Clause-C
 .. _BSD-3-Clause-Clear: LICENSE
 .. _Iris dataset: https://en.wikipedia.org/wiki/Iris_flower_data_set
 
-.. _|Iris dataset| replace :: `Iris dataset`
+.. |Iris dataset| replace:: `Iris dataset`
 .. _data directory: sandbox/data/Iris
 
 .. OTHER:
 .. _pyenv: https://github.com/pyenv/pyenv
-.. |pyenv| replace :: pyenv
+.. |pyenv| replace:: pyenv
