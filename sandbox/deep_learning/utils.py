@@ -558,6 +558,27 @@ def get_predictions(Y_hat):
     Y_pred = np.argmax(Y_hat, axis=-1)
     return Y_pred
 
+def indifferent_scores(scores):
+    """ Check whether class scores are all close to eachother
+
+    If class scores are all nearly same, it means model
+    is indifferent to class and makes equally distributed
+    values on each.
+
+    This means that, even in the case where the model was
+    unable to learn, it would still get 1/3 accuracy by default
+
+    This function attempts preserve integrity of predictions
+    """
+    N, D = scores.shape
+    if N > 1:
+        mu = np.copy(scores).mean(axis=1, keepdims=True)
+        mu = np.broadcast_to(mu, scores.shape)
+    else:
+        mu = np.full(scores.shape, np.copy(scores).mean())
+    return np.allclose(scores, mu, rtol=1e-2, atol=1e-2)
+
+
 
 def classification_accuracy(Y_hat, Y_truth, strict=False):
     """ Computes classification accuracy over different classes
@@ -575,6 +596,9 @@ def classification_accuracy(Y_hat, Y_truth, strict=False):
         the averaged percentage of matching predictions between
         Y_hat and Y_truth
     """
+    if indifferent_scores(Y_hat):
+        return 0.0
+
     if not strict:
         # Reduce Y_hat to highest scores
         Y_pred = get_predictions(Y_hat)

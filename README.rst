@@ -113,9 +113,12 @@ Model Options
 -------------
 The model, as defined on this dataset, can be configured for other settings that can be specified in ``train.py`` or simply passed as arguments through STDIN, for example, the following line:
 
-``python train.py -i 500 -o adam -a softplus -c 4 32 16 3``
+``python train.py -i 500 -b 12 -o adam -a selu -c 4 29 41 3``
 
-Will train the model for 500 iterations, using softplus activations, the Adam optimizer, and channels [4, 32, 16, 3]. While the ``SGD`` optimizer can be sensitive to network configuration (notably with channels), ``adam`` is robust and can converge with almost any network config.
+Will train the model for 500 **i**\ terations, with **b**\ atch-size 12, using `selu` **a**\ ctivations, the Adam **o**\ ptimizer, and **c**\ hannels [4, 29, 41, 3].
+
+
+While the ``SGD`` optimizer can be sensitive to network configuration (notably with channels), ``adam`` is robust and can converge with almost any network config.
 
 
 |
