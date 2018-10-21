@@ -133,9 +133,6 @@ class Adam(Optimizer):
         arbitrarily small value used to prevent division by zero
 
     """
-    moments = {} # eg, moments['layer2_W1'] = {'m': ndarray, 'v': ndarray}
-    t = 0 # timestep
-
     def __init__(self, alpha=0.001, beta1=0.9, beta2=0.999, eps=1e-8,
                  moments_init=None):
         """ suggested default values (by authors) """
@@ -143,6 +140,8 @@ class Adam(Optimizer):
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps   = eps
+        self.moments = {} # eg, moments['layer2_W1'] = {'m': ndarray, 'v': ndarray}
+        self.t = 0 # timestep
 
         # restore pretrained moments
         if moments_init is not None:
