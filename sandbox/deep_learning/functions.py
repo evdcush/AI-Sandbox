@@ -25,30 +25,6 @@ activation functions : nonlinearities
 loss functions : objectives for gradient descent
     LogisticCrossEntropy, SoftmaxCrossEntropy
 
-
-
-STILL PENDING REWORK FROM v1
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[X] ReductionFunction
-    [X] Sum
-    [X] Mean
-    [X] Prod
-    [ ] Max/Min
-
-IN PIPELINE:
-LSTM : stub and fully-atomic gradient reference (eg, by hand)
-    just walk it back now and consolidate ops; probably only need to cache
-    3~4 things on forward
-      - *even still* this likely won't work as a Function in the same manner
-         as the other connection func Linear does. Having to keep cell-state
-         and previous output, in addition to normal caching, makes it make
-         more sense as a layer
-
-LayerNorm : working on stdv
-    the actual layernorm func is simple, but requires standard dev func;
-    should be able to just compose the related functions (mean, square, sqrt)
-    to make a stdv function class, then use that for layernorm func
-
 """
 import code
 import numpy as np
@@ -490,112 +466,6 @@ class Linear(Function): ##
         gB = np.sum(gZ * dB, axis=0)
         return gX, gW, gB
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-'''   # WIP, DO NOT USE
-class LSTM(Function):
-    """ Stateless Long short-term memory function
-
-    A LSTM is a type of recurrent network unit defined as block of
-    gated operations on external and internal representations.
-
-    It takes in some external input X, which is typically a sample within
-    a sequence, along with weights W, and performs a series of gated
-    operations on these inputs combined with it's own stateful variable
-    (cell-state) C, and "memory" the previous ouput in the sequence H.
-
-    Params
-    ------
-    X : ndarray, (N, D)
-        external input to unit
-
-    W : ndarray, (D+K, 4*K)
-        the weight variables for each of the four gated operations (hence
-        the 4*K output channel)
-        These 4 gates are as follows:
-        i : input gate
-        a : activation gate
-        f : forget gate
-        o : output gate
-
-    H : ndarray, (N, K)
-        previous function output
-
-    C : ndarray, (N, K)
-        cell state
-
-    While the gated operations are typically computed in combination with
-    constituent weight variable, the individual weights are instead
-    concatenated, and matmul against the concatenated X, H
-    """
-    @staticmethod
-    def lstm(x, h, c, w):
-        pass
-
-    def forward(self, X, W, H, C):
-        cache = []
-        # Concat input and previous output
-        Z = np.concatenate([X, H], axis=1) # (N, D+K)
-        cache.append(Z)
-
-        # Transform and split into units
-        #-------------------------------
-        iafo = np.matmul(Z, W) # (N, D+K).(D+K, 4*K)
-        i, a, f, o = np.split(iafo, 4, axis=1) # (N, K)
-
-        # Gate each unit
-        #---------------
-        ai = Sigmoid.sigmoid(i)  # ai --> "[a]ctivated [i]nput" ;]
-        aa = Tanh.tanh(a)
-        af = Sigmoid.sigmoid(1 + f)
-        ao = Sigmoid.sigmoid(o)
-
-        # Cache for backprop
-        cache.extend([ai, aa, af, ao, C])
-
-        # Update cell-state
-        #------------------
-        C_t = ai * aa + af * C
-        aC_t = Tanh.tanh(np.copy(C_t))
-
-        # Cache for backprop
-        cache.append(aC_t)
-        self.cache = cache
-
-        # Calculate output
-        H_t = ao * aC_t
-        return H_t, C_t
-
-    def backward(self, gH, W):
-        # Retrieve intermediate vars from cache
-        Z, ai, aa, af, ao, C, aC_t = self.cache
-
-        # Backprop through gated ops
-        #---------------------------
-        #==== H_t
-        do = gH * aC_t * Sigmoid.sigmoid_prime(ao)
-        dC = gH * ao * Tanh.tanh_prime(aC_t)
-        #==== C_t
-        di = dC * aa * Sigmoid.sigmoid_prime(ai)
-        da = dC * ai * Tanh.tanh_prime(aa)
-        df = dC * C  * Sigmoid.sigmoid_prime(af)
-        gC = dC + af
-
-        # Backprop through transformation
-        #--------------------------------
-        diafo = np.concatenate([di, da, df, do], axis=1) # (N, 4*K)
-        dZ = np.matmul(diafo, W.T) # (N, 4*K).(4*K, D+K)
-        gW = np.matmul(Z.T, diago) # (D*K, N).(N, 4*K)
-
-        # Split inputs
-        gX, gH = np.split(dZ, [-C.shape[-1]], axis=1)
-        return gX, gW, gH, gC
-
-     def __call__(self, *args, **kwargs):
-        print('LSTM WIP, PENDING TESTING, DO NOT CALL')
-        assert False
-
-'''
 
 #==============================================================================
 #------------------------------------------------------------------------------
@@ -1183,7 +1053,44 @@ class SoftmaxCrossEntropy(Function): #
         gX = self.softmax_cross_entropy_prime(p, t)
         return gX
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#------------------------------------------------------------------------------
+# Distance
+#------------------------------------------------------------------------------
+
+class MSE(ReductionFunction): #
+    """ Mean Squared Error loss function 
+    """
+    @staticmethod
+    def mse(x, y, **kwargs): #sum_axis=None): # not yet supported
+        squared_error = Square.square(x - y)
+        z = Mean.mean(squared_error, **kwargs)
+        return z
+
+    @staticmethod
+    def mse_prime(x, y, axis=None):
+        #==== inputs
+        err = x - y
+        se = Square.square(err)
+        #==== derivs
+        dz = Mean.mean_prime(se, axis)
+        dx = 2 * err * dz
+        dy = -dx
+        return dx, dy
+
+    def forward(self, X, Y, axis=None, keepdims=False):
+        #==== cache inputs
+        self.cache = X, Y
+        self.flags = self.format_axes(axis, X.shape), keepdims
+        #==== calculate mse
+        Z = self.mse(X, Y, axis=axis, keepdims=keepdims)
+        return Z
+
+    def backward(self, *args):
+        X, Y = self.cache
+        axes, keep = self.flags
+        gX, gY = self.mse_prime(X, Y, axes)
+        return gX
+
 
 
 #==============================================================================
@@ -1267,16 +1174,31 @@ OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
 
 
 
-#=============================================================================#
-#         ___   ___   _  _   ___    ___   _  _    ___                         #
-#        | _ \ | __| | \| | |   \  |_ _| | \| |  / __|                        #
-#        |  _/ | _|  | .` | | |) |  | |  | .` | | (_ |                        #
-#        |_|   |___| |_|\_| |___/  |___| |_|\_|  \___|                        #
-#                 ___   ___ __      __  ___    ___   _  __                    #
-#                | _ \ | __|\ \    / / / _ \  | _ \ | |/ /                    #
-#                |   / | _|  \ \/\/ / | (_) | |   / | ' <                     #
-#                |_|_\ |___|  \_/\_/   \___/  |_|_\ |_|\_\                    #
+
 """===========================================================================#
+
+STILL PENDING REWORK FROM v1
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[X] ReductionFunction
+    [X] Sum
+    [X] Mean
+    [X] Prod
+    [ ] Max/Min
+
+
+IN PIPELINE:
+LSTM : stub and gradient reference
+    just walk it back now and consolidate ops; probably only need to cache
+    3~4 things on forward
+      - *even still* this likely won't work as a Function in the same manner
+         as the other connection func Linear does. Having to keep cell-state
+         and previous output, in addition to normal caching, makes it make
+         more sense as a layer
+
+LayerNorm : working on stdv
+    the actual layernorm func is simple, but requires standard dev func;
+    should be able to just compose the related functions (mean, square, sqrt)
+    to make a stdv function class, then use that for layernorm func
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"""
 
@@ -1291,96 +1213,111 @@ OBJECTIVES = {'logistic_cross_entropy': LogisticCrossEntropy,
 
 # NAIVE, BY-HAND GRADIENT VERSION
 @TODO
+
+# WIP
 class LSTM(Function):
-    """ LSTM connection function
+    """ Stateless Long short-term memory function
 
-    It may be difficult to do this function with the pure-function, func-deriv
-    format.
+    A LSTM is a type of recurrent network unit defined as block of
+    gated operations on external and internal representations.
 
-    A lot needs to be cached during the process, at least now since I had to
-    step out the gradient chaining.
+    It takes in some external input X, which is typically a sample within
+    a sequence, along with weights W, and performs a series of gated
+    operations on these inputs combined with it's own stateful variable
+    (cell-state) C, and "memory" the previous ouput in the sequence H.
 
-    Just do forward and backward for now, then when we reduce the redundancy
-    we might be able to do it purely by functions.
+    Params
+    ------
+    X : ndarray, (N, D)
+        external input to unit
 
-    And if not, who cares. Just make it into a layer that uses all the
-    other Functions used along the way
+    W : ndarray, (D+K, 4*K)
+        the weight variables for each of the four gated operations (hence
+        the 4*K output channel)
+        These 4 gates are as follows:
+        i : input gate
+        a : activation gate
+        f : forget gate
+        o : output gate
 
+    H : ndarray, (N, K)
+        previous function output
+
+    C : ndarray, (N, K)
+        cell state
+
+    While the gated operations are typically computed in combination with
+    constituent weight variable, the individual weights are instead
+    concatenated, and matmul against the concatenated X, H
     """
     @staticmethod
-    def lstm(z, c, w):
-        #return h, c
+    def lstm(x, h, c, w):
         pass
 
-    @staticmethod
-    def lstm_prime(h):
-        #return dx, dh, dc, dw
-        pass
+    def forward(self, X, W, H, C):
+        cache = []
+        # Concat input and previous output
+        Z = np.concatenate([X, H], axis=1) # (N, D+K)
+        cache.append(Z)
 
-    def forward(self, X, H, C, W):
-        """
-        Params
-        ------
-        X : (N, D)
-            Input
-        H : (N, K)
-            Previous output
-        C : (N, K)
-            Cell state
-        W : (N, 4*K)
-            LSTM gate weights:
-                input
-                activation
-                forget
-                output
-        """
-        sigmoid = Sigmoid.sigmoid
-        tanh = Tanh.tanh
+        # Transform and split into units
+        #-------------------------------
+        iafo = np.matmul(Z, W) # (N, D+K).(D+K, 4*K)
+        i, a, f, o = np.split(iafo, 4, axis=1) # (N, K)
 
-        Z = np.concatenate([X, H], axis=1)
-        iafo = np.matmul(Z, W)
-        i, a, f, o = np.split(iafo, 4, axis=1)
+        # Gate each unit
+        #---------------
+        ai = Sigmoid.sigmoid(i)  # ai --> "[a]ctivated [i]nput" ;]
+        aa = Tanh.tanh(a)
+        af = Sigmoid.sigmoid(1 + f)
+        ao = Sigmoid.sigmoid(o)
 
-        si = sigmoid(i)
-        sf = sigmoid(1 + f)
-        so = sigmoid(o)
-        ta = tanh(a)
+        # Cache for backprop
+        cache.extend([ai, aa, af, ao, C])
 
-        si_ta = si * ta
-        sfC = sf * C
-        c = si_ta + sfC
-        tc = tanh(c)
-        h = so * tc
-        return h, c
-        pass
+        # Update cell-state
+        #------------------
+        C_t = ai * aa + af * C
+        aC_t = Tanh.tanh(np.copy(C_t))
 
-    def backward(self,):
-        """ THIS WONT WORK, FORWARD COMPUTATION WILL NOT ALL BE CACHED
-        JUST WRITING THE SCRATCH FOR REFERENCE
-        """
-        print('LSTM.BACKWARD JUST FOR REFERENCE')
+        # Cache for backprop
+        cache.append(aC_t)
+        self.cache = cache
+
+        # Calculate output
+        H_t = ao * aC_t
+        return H_t, C_t
+
+    def backward(self, gH, W):
+        # Retrieve intermediate vars from cache
+        Z, ai, aa, af, ao, C, aC_t = self.cache
+
+        # Backprop through gated ops
+        #---------------------------
+        #==== H_t
+        do = gH * aC_t * Sigmoid.sigmoid_prime(ao)
+        dC = gH * ao * Tanh.tanh_prime(aC_t)
+        #==== C_t
+        di = dC * aa * Sigmoid.sigmoid_prime(ai)
+        da = dC * ai * Tanh.tanh_prime(aa)
+        df = dC * C  * Sigmoid.sigmoid_prime(af)
+        gC = dC + af
+
+        # Backprop through transformation
+        #--------------------------------
+        diafo = np.concatenate([di, da, df, do], axis=1) # (N, 4*K)
+        dZ = np.matmul(diafo, W.T) # (N, 4*K).(4*K, D+K)
+        gW = np.matmul(Z.T, diago) # (D*K, N).(N, 4*K)
+
+        # Split inputs
+        gX, gH = np.split(dZ, [-C.shape[-1]], axis=1)
+        return gX, gW, gH, gC
+
+     def __call__(self, *args, **kwargs):
+        print('LSTM WIP, PENDING TESTING, DO NOT CALL')
         assert False
-        dso = tc
-        dtc = so
-        dc = dtc * tanh_prime(c)
-        dsfc = dc
-        dsi_ta = dc
-        dsf = c * dsfc
-        dc += sf
-        dsi = dsi_ta * ta
-        dta = dsi_ta * si
 
-        da = dta * tanh_prime(a)
-        do = dso * sigmoid_prime(o)
-        df = dsf * sigmoid_prime(1 + f)
-        di = dsi * sigmoid_prime(i)
-        diafo = np.concatenate([di, da, df, do], axis=1)
-
-        dW = diafo * Z
-        dZ = diafo * W
-        dX, dH = np.split(dZ, 2, axis=1)
-        return dX, dH, dC, dW
-        pass
+'''
 
 
 
@@ -1388,6 +1325,7 @@ class LSTM(Function):
 #------------------------------------------------------------------------------
 # Normalization
 #------------------------------------------------------------------------------
+'''
 class LayerNormalization(Function):
     def __init__(self, *args, **kwargs):
         self.mean = Mean()
@@ -1481,57 +1419,6 @@ class LayerNormalization(Function):
         """
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-class Stdv(ReductionFunction):
-    """ Computes standard deviation """
-    @staticmethod
-    def stdv(x, **kwargs):
-        #==== stats
-        mu  = np.mean(x, **kwargs) # assuming 0th axis is batch
-        diff = x - mu
-        sqr_diff = np.square(diff)
-        var = np.mean(sqr_diff, **kwargs)
-        std = np.sqrt(var)
-        return std
-
-    @staticmethod
-    def stdv_prime(x, axis=None, keepdims=False):
-        kw = {'axis':axis, 'keepdims': keepdims}
-        mu = np.mean(x, **kw)
-        diff = x - mu
-        sqr_diff = np.square(diff)
-        var = np.mean(sqr_diff, **kw)
-        std = np.sqrt(var)
-        #====
-        print(f'var: {var}')
-        dvar = 1 / (2 * np.sqrt(var))
-        #dvar = 1 / (2 * np.sqrt(std))
-        print(f'dvar: {dvar}')
-        dsqr_diff = dvar * Mean.mean_prime(sqr_diff, axis=axis)
-        #dsqr_diff = sqr_diff * Mean.mean_prime(dvar, axis=axis)
-        print(f'dsqr_diff: {dsqr_diff}')
-        ddiff = dsqr_diff * 2 * diff
-        print(f'ddiff: {ddiff}')
-        #dx = ddiff
-        #print(f'dx1: {dx}')
-        dmu = -ddiff
-        #print(f'dmu: {dmu}')
-        dx = dmu * Mean.mean_prime(x, axis=axis) + ddiff
-        print(f'final dx: {dx}')
-        return dx
-
-    def forward(self, X, axis=None, keepdims=False):
-        self.cache = X
-        self.flags = self.format_axes(axis, X.shape), keepdims
-        Y = self.stdv(X, axis=axis, keepdims=keepdims)
-        return Y
-
-    def backward(self, gY):
-        X = self.cache
-        axes, keepdims = self.flags
-        gX = self.restore_dims(gY) * self.stdv_prime(X, axes, keepdims)
-        return gX
-
 
 class MaxMin(ReductionFunction):
     """ Base class for max, min funcs """

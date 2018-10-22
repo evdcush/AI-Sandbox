@@ -5,24 +5,8 @@ AVAILABLE DATASETS :
 
 Module components
 =================
-# Dataset acquisition
-#--------------------
- - Small (file-size) datasets can be stored in the project 'data' directory,
-   but larger datasets will need to be sourced by user
- - Some basic utilties (like `sub_wget_data`) can help acquire a
-   dataset from source
 
-# Dataset management
-#-------------------
-- Dataset : base class for managing a dataset
-    How data is read, processed, serialized, split, normalized, etc is
-    most likely going to be per-dataset, per-task process.
-    Dataset is a simple class that can be extended for the unique
-    constraints of your dataset.
-    - It has the following functionalities :
-      - loads dataset or a subset of a dataset
-      - shuffles samples within dataset
-      - split train/test sets (if not already split)
+
 
 # Data processing
 #----------------
@@ -45,12 +29,12 @@ from optimizers import get_optimizer
 #==== ugly relative pathing hack to dataset
 fpath = os.path.abspath(os.path.dirname(__file__))
 path_to_dataset = fpath.rstrip(fpath.split('/')[-1]) + 'data'
-if not os.path.exists(path_to_dataset):
-    print('ERROR: Unable to locate project data directory')
-    print('Please restore the data directory to its original path at {}\n'.format(path_to_dataset),
-          'or symlink it to {}\n'.format(fpath),
-          'or specify the updated absolute path to the sandbox submodule scripts')
-    sys.exit()
+#if not os.path.exists(path_to_dataset):
+#    print('ERROR: Unable to locate project data directory')
+#    print('Please restore the data directory to its original path at {}\n'.format(path_to_dataset),
+#          'or symlink it to {}\n'.format(fpath),
+#          'or specify the updated absolute path to the sandbox submodule scripts')
+#    sys.exit()
 
 if path_to_dataset not in sys.path:
     sys.path.append(path_to_dataset)
@@ -64,14 +48,33 @@ from dataset import IrisDataset
 #------------------------------------------------------------------------------
 #==============================================================================
 
+#------------------------------------------------------------------------------
+# Errors
+#------------------------------------------------------------------------------
+def verify_path(data_path, utils_path):
+    """ """
+    if not os.path.exists(path):
+        h  = 'ERROR: Unable to locate project data directory'
+        e1 = ('Please restore the data directory to ',
+             'its original path at {}\n'.format(data_path))
+        e2 = 'or symlink it to {}\n'.format(utils_path),
+        e3 = 'OR specify the updated absolute path to the sandbox'
+        print(h)
+        print('{}{}{}'.format(h, e1, e2, e3))
+        sys.exit()
+    
+    elif path_to_dataset not in sys.path:
+        sys.path.append(path_to_dataset)
+
+
 
 #------------------------------------------------------------------------------
-# Classes
+# Data objects
 #------------------------------------------------------------------------------
 
 class AttrDict(dict):
     """ simply a dict accessed/mutated by attribute instead of index
-    Warning: cannot be pickled like normal dict/object
+    WARNING: cannot be pickled like normal dict/object
     """
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
@@ -736,49 +739,3 @@ class Trainer:
         self.evaluate()
         self.train_history, self.test_history = self.session_status.get_loss_history()
         self.summarize_results()
-
-#==============================================================================
-#------------------------------------------------------------------------------
-#                             Visualization
-#------------------------------------------------------------------------------
-#==============================================================================
-
-
-
-def plot_curve(y, step, c='b', accuracy=True, fsize=(12,6), title=None):
-    fig = plt.figure(figsize=fsize)
-    ax = fig.add_subplot(111)
-    ax.set_xlabel('Iterations')
-    ylabel = 'Accuracy' if accuracy else 'Error'
-    ax.set_ylabel(ylabel)
-
-    cur = str(cur_iter)
-    plt.grid(True)
-    ax.plot(y, c=c)
-    if title is None:
-        title = 'Iteration: {}, loss: {.4f}'.format(step, y[-1])
-    ax.set_title(title)
-    return fig
-
-
-def save_loss_curves(save_path, lh, mname, val=False):
-    plt.close('all')
-    plt.figure(figsize=(16,8))
-    plt.grid()
-    if val:
-        pstart = 0
-        color = 'r'
-        title = '{}: {}'.format(mname, 'Validation Error')
-        label = 'median: {}'.format(np.median(lh))
-        spath = save_path + '_plot_validation'
-    else:
-        pstart = 200
-        color = 'b'
-        title = '{}: {}'.format(mname, 'Training Error')
-        label = 'median: {}'.format(np.median(lh[-150:]))
-        spath = save_path + '_plot_train'
-    plt.title(title)
-    plt.plot(lh[pstart:], c=color, label=label)
-    plt.legend()
-    plt.savefig(spath, bbox_inches='tight')
-    plt.close('all')

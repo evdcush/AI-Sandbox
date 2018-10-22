@@ -1,5 +1,21 @@
 """ Utilities for working with datasets
 
+# Dataset acquisition
+#--------------------
+ - Small (file-size) datasets can be stored in this data directory,
+   but larger datasets will need to be sourced by user
+ - Some basic utilties (like `sub_wget_data`) can help acquire a
+   dataset from source
+
+# Dataset management
+#-------------------
+How data is read, processed, serialized, split, normalized, etc is
+most likely going to be per-dataset, per-task process. Datasets have
+the following functionality : 
+  - loads dataset or a subset of a dataset
+  - shuffles samples within dataset
+  - split train/test sets (if not already split)
+
 # Dataset class
 #--------------
 Given that the iris dataset is currently the only available dataset,
@@ -7,6 +23,7 @@ the IrisDataset is the most atomic or base dataset to work with.
 
 When more datasets are added, if there is need for a standard interface
 or too much boilerplate, a base class may be added.
+
 """
 import os
 import sys
@@ -109,10 +126,12 @@ def get_batch(X, step, batch_size=1, test=False):
     #==== Batching indices
     i = (b * step) % N  # start index [inclusive]
     j = i + b           # end   index (exclusive)
+    
     # Check if need for reshuffle
     #-------------------------------
     if i == 0 and not test: # test never shuffled
         numpy.random.shuffle(X)
+    
     # Get batch and split
     #-------------------------------
     batch = numpy.copy(X[i:j])
@@ -121,6 +140,14 @@ def get_batch(X, step, batch_size=1, test=False):
     #==== Squeeze Y to 1D
     y = numpy.squeeze(y) if b > 1 else y[:,0]
     return x, y
+
+# Check equal distribution classes
+#----------------------------------
+def equally_distributed_classes(X):
+    # Assumes X of shape (N,...,D), where D is class labels
+    _, counts = numpy.unique(X[...,-1], return_counts=True)
+    return numpy.all(counts == (X.shape[0] // IRIS['num_classes']))
+
 
 
 # Split into Train/Test sets
@@ -185,17 +212,18 @@ class IrisDataset:
     feature_split_idx = 4
     num_classes = 3
     classes = {0 : 'Iris-setosa', 1 : 'Iris-versicolor', 2 : 'Iris-virginica'}
-    def __init__(self, X=None, split_size=.8, seed=RNG_SEED_IRIS):
+    def __init__(self, split_size=.8, seed=RNG_SEED_IRIS, resplit=False):
         self.split_size = split_size
         self.split_seed = seed
-        self.process_input_data(X)
+        self.resplit = resplit
+        self.load_dataset()
 
     # Load datasets
     #-----------------------------
-    def process_input_data(self, X_in):
-        if X_in is not None:
-            # sometimes resplit original
-            x_train, x_test = self.split_dataset(X_in)
+    def load_dataset(self):
+        if self.resplit:
+            X = load_dataset_iris_full()
+            x_train, x_test = self.split_dataset(X)
         else:
             # otherwise just load train/test sets
             x_train = load_dataset(PATH_IRIS_TRAIN)
@@ -205,8 +233,20 @@ class IrisDataset:
 
     # Data processing
     #---------------------------
-    def split_dataset(self, X, **kwargs):
-        return split_dataset(X, self.split_size, self.split_seed)
+    def split_dataset(self, X):
+        Y = numpy.copy(X)
+        tr, ev = split_dataset(Y, self.split_size, self.split_seed)
+
+        # Check whether equal distrib classes possible with split
+        if int(Y.shape[0] * self.split_size) % self.num_classes != 0:
+            return tr, ev
+
+        # Even distrib possible, split until satisfied
+        cap = 100
+        while not equally_distributed_classes(ev) and cap > 0:
+            tr, ev = split_dataset(Y, self.split_size, None)
+            cap -= 1
+        return tr, ev
 
     def get_batch(self, step, batch_size=1, test=False):
         X = self.X_test if test else self.X_train

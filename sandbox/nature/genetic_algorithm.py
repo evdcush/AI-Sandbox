@@ -204,7 +204,7 @@ def mutate(g, mutation_rate=MUTATION_RATE):
 #=============================================================================#
 class GeneticAlgorithm:
     """ GA function class """
-    def __init__(self, dataset, batch_size=12,
+    def __init__(self, dataset=None, batch_size=12,
                  num_gens=NUM_GENERATIONS,
                  population_size=POPULATION_SIZE,
                  tournament_size=TOURNAMENT_SIZE,
@@ -214,6 +214,9 @@ class GeneticAlgorithm:
         for k, v in locals().items():
             if k == 'self': continue
             setattr(self, k, v)
+
+        if self.dataset is None:
+            self.dataset = IrisDataset()
         print('Initializing GA')
         self.population = init_population(population_size)
 
@@ -264,10 +267,11 @@ class GeneticAlgorithm:
 
         #==== Summary population fitness
         population_fitness = np.median(population_response, axis=0)
+        self.population_score = population_fitness == Y
         sum_correct = np.sum(population_fitness == Y)
         accuracy = sum_correct / len(Y)
         print('GA test accuracy: {:.4f}; {}/{} correct'.format(accuracy, sum_correct, len(Y)))
-        return accuracy
+        return self.population_score
 
 
 #dataset = IrisDataset()
