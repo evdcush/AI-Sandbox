@@ -1,11 +1,16 @@
-""" This module contains all optimization routines
-available to the model.
-
-Currently only SGD and Adam are available.
+""" This module contains all optimization routines related to the model.
 
 
 # Module components
 #------------------
+Parameter : variable that receives updates
+    Generally an ndarray used in a connection function, parameters
+    have the following components:
+    tag  : str, unique identifier for this parameter
+    kdim : tuple(int), dimensions of variable
+    (data) : ndarray, parameter data, keyed to "tag"
+    grad : ndarray | None, gradient for the parameter
+
 Optimizer : base class for gradient-based optimizers
     Receives a parameter, the gradient wrt to that parameter
     via a stochastic objective function, and updates the
@@ -22,6 +27,24 @@ Adam: Optimizer, Adaptive moment estimation algorithm
 
 """
 import numpy as np
+
+#==============================================================================
+# Parameter
+#==============================================================================
+class Parameter:
+    """ Base class for parameters in the model
+    Helps standardize how parameters are represented and
+    used by layers. 
+
+    All parameters will have a numpy ndarray variable
+    """
+    tag = ''
+    def __init__(self, ID, kdims):
+        self.kdims = kdims
+        self.assign_tag(ID)
+        self.grad = None
+
+
 
 #==============================================================================
 # Base Optimizer
