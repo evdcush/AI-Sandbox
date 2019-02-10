@@ -24,7 +24,7 @@ Project Contents
 
 License
 -------
-Except where noted otherwise, this project is licensed under the `BSD-3-Clause-Clear`_.
+Except where noted otherwise, this project is licensed under the `LGPL-3.0`_.
 
 
 .. Substitutions:
@@ -51,7 +51,7 @@ Except where noted otherwise, this project is licensed under the `BSD-3-Clause-C
 
 
 .. LOCAL FILES:
-.. _BSD-3-Clause-Clear: LICENSE
+.. _LGPL-3.0: LICENSE
 
 
 .. OTHER:
