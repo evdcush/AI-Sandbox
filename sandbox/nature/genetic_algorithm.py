@@ -193,8 +193,9 @@ def reproduce(p1, p2):
 def mutate(g, mutation_rate=MUTATION_RATE):
     """ Mutation defined here as randomly resampling part of the genome"""
     if np.random.random() < MUTATION_RATE:
-        mut_seq = init_genome((1,4)).squeeze()
-        seq_idx = np.random.choice(3)
+        d = g.shape[-1]
+        mut_seq = init_genome((1,d)).squeeze()
+        seq_idx = np.random.choice(d-1)
         g[seq_idx] = mut_seq
     return g
 
