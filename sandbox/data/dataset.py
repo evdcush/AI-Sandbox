@@ -30,12 +30,13 @@ class Dataset:
     def desc(self):
         print(self.DESCR)
 
-    def split_dataset(self, num_test, num_val=0, shuffle=True, seed=None):
+    def split_dataset(self, num_test=0, num_val=0, shuffle=True, seed=None):
         """ split dataset in train, test, and optionally validation sets
         Params
         ------
         num_test : int; (0, N)
-            number of test samples to split from data
+            number of test samples to split from data,
+            a value of 0 will default to num_test = N // 10  (10% of samples)
 
         num_val : int; [0, N - num_test)
             number of validation samples, a value of 0 == no validation set
@@ -45,11 +46,11 @@ class Dataset:
         """
         N, D = self.shape
         # arg checks
-        assert isinstance(num_test, int) and 0 < num_test < N
+        assert isinstance(num_test, int) and 0 <= num_test < N
         assert isinstance(num_val,  int) and 0 <= num_val < N - num_test
 
-        # split data
-        # ==========
+        # Process args
+        # ============
         # indexing
         indices = np.arange(N)
         if shuffle:
@@ -57,9 +58,13 @@ class Dataset:
             np.random.seed(seed)
             np.random.shuffle(indices)
 
-        # split sections
+        # interpret num test and val
         v = [num_val] if num_val else []
+        num_test = num_test if num_test else N // 10
         sections = v + [num_test + num_val]
+
+        # Split data
+        # ==========
         x_sets = np.split(self.data,   sections, axis=0)[::-1]
         y_sets = np.split(self.target, sections, axis=0)[::-1]
         self.x_train, self.x_test = x_sets[:2]
@@ -67,6 +72,16 @@ class Dataset:
         if num_val:
             self.x_validation = x_sets[-1]
             self.y_validation = y_sets[-1]
+
+    def feature_set(self, feature_idx):
+        """ return copy of train, test data for given feature """
+        # train
+        xtrain = np.copy(self.x_train[..., feature_idx])
+        ytrain = np.copy(self.y_train)
+        # test
+        xtest  = np.copy(self.x_test[..., feature_idx])
+        ytest  = np.copy(self.y_test)
+        return xtrain, ytrain, xtest, ytest
 
 
     def get_batch(self, batch_size):
