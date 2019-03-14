@@ -9,6 +9,7 @@ and batching.
 import os
 import sys
 import code
+from functools import partial
 import sklearn.datasets
 import numpy as np
 
@@ -126,3 +127,40 @@ class BreastCancer(Dataset):
     load = staticmethod(sklearn.datasets.load_breast_cancer)
 
 
+#-----------------------------------------------------------------------------#
+#                                   getters                                   #
+#-----------------------------------------------------------------------------#
+
+def load_dataset(dataset, data_only=False):
+    dset = dataset()
+    if data_only:
+        return dset.data, dset.target
+    return dset
+
+#=== classification datasets
+load_iris   = partial(load_dataset, Iris)
+load_wine   = partial(load_dataset, Wine)
+load_digits = partial(load_dataset, Digits)
+load_breast_cancer = partial(load_dataset, BreastCancer)
+
+#=== regression datasets
+load_boston   = partial(load_dataset, Boston)
+load_diabetes = partial(load_dataset, Diabetes)
+load_linnerud = partial(load_dataset, Linnerud)
+
+# wrapper
+# =======
+class AttrDict(dict):
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+DATASETS = AttrDict(
+    iris=load_iris,
+    wine=load_wine,
+    digits=load_digits,
+    breast_cancer=load_breast_cancer,
+    boston=load_boston,
+    diabetes=load_diabetes,
+    linnerud=load_linnerud,
+    )
