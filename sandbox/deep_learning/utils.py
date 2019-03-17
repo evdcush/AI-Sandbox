@@ -5,6 +5,9 @@ import argparse
 
 import numpy as np
 
+fpath = os.path.abspath(os.path.dirname(__file__))
+sys.path.append('/'.join(fpath.split('/')[:-1]))
+import utilities
 
 #-----------------------------------------------------------------------------#
 #                                   config                                    #
@@ -19,61 +22,119 @@ PARAMS_SEED = 123   # rng seed for variable initialization
 LEARNING_RATE = 0.01
 CHANNELS = [64, 128] # hidden layer sizes
 
+
 #-----------------------------------------------------------------------------#
 #                                    Data                                     #
 #-----------------------------------------------------------------------------#
-
-def load_dataset(dset='iris'):
-    """ Loads a Dataset from data.dataset
-
-    Available datasets:
-        classification : iris, wine, digits, breast_cancer
-        regression : boston, diabetes, linnerud
-
-    if invalid dset arg passed, iris dataset will be loaded
-
-    """
-    assert isinstance(dset, str) and dset
-    #=== pathing
-    fpath = os.path.abspath(os.path.dirname(__file__))
-    dpath = '/'.join(fpath.split('/')[:-1]) + 'data'
-    if dpath not in sys.path:
-        sys.path.append(dpath)
-    #=== import
-    from data.dataset import DATASETS
-    if dset not in DATASETS:
-        return DATASETS.iris()
-    return DATASETS[dset]
-
-
-def to_one_hot(Y, num_classes):
-    """ make one-hot encoding for truth labels
-
-    Encodes a 1D vector of integer class labels into
-    a sparse binary 2D array where every sample has
-    length num_classes, with a 1 at the index of its
-    constituent label and zeros elsewhere.
-    """
-    # Dimensional integrity check on Y
-    #  handles both ndim = 0 and ndim > 1 cases
-    if Y.ndim != 1:
-        Y = np.squeeze(Y)
-        assert Y.ndim == 1
-
-    # dims for one-hot
-    n = Y.shape[0]
-    d = num_classes
-
-    # make one-hot
-    one_hot = np.zeros((n, d))
-    one_hot[np.arange(n), Y] = 1
-    return one_hot.astype(np.int32)
-
+DATASET = utilities.DATASET
+datasets_available = list(DATASET.keys())
 
 #-----------------------------------------------------------------------------#
 #                                   Parser                                    #
 #-----------------------------------------------------------------------------#
 
+CLI = utilities.CLI
+adg = CLI.add_argument
+adg('-i', '--iters', type=int, default=2000,
+    help='number of training iterations')
+adg('-b', '--batch_size', type=int, default=5, metavar='B',
+    help='training minibatch size')
+adg('-d', '--dataset', type=str, default='iris', choices=datasets_available,
+    help='dataset choice')
+adg('-r', '--rand', type=int, default=PARAMS_SEED, metavar='seed',
+    help='random seed for parameter initialization')
+
+def parse_args():
+    args = CLI.parse_args()
+    if args.batch_size < 1 or args.iters < 1:
+        CLI.error('Only positive integers are permitted')
+    return args
+
+
+
 #-----------------------------------------------------------------------------#
 #                                   Logger                                    #
 #-----------------------------------------------------------------------------#
+
+
+#-----------------------------------------------------------------------------#
+#                                 model utils                                 #
+#-----------------------------------------------------------------------------#
+# need to make a model class, classifier subclass, and these funcs shhould
+# be instance methods
+
+def get_predictions(Y_hat):
+    """ Select the highest valued class labels in prediction from
+    network output distribution
+    We can approximate a single label prediction from a distribution
+    of prediction values over the different classes by selecting
+    the largest value (value the model is most confident in)
+
+    Params
+    ------
+    Y_hat : ndarray.float32, (N, D)
+        network output, "predictions" or scores on the D classes
+    Returns
+    -------
+    Y_pred : ndarray.int32, (N,)
+        the maximal class score, by index, per sample
+    """
+    Y_pred = np.argmax(Y_hat, axis=-1)
+    return Y_pred
+
+
+def indifferent_scores(scores):
+    """ Check whether class scores are all close to eachother
+
+    If class scores are all nearly same, it means model
+    is indifferent to class and makes equally distributed
+    values on each.
+
+    This means that, even in the case where the model was
+    unable to learn, it would still get 1/3 accuracy by default
+
+    This function attempts preserve integrity of predictions
+    """
+    N, D = scores.shape
+    if N > 1:
+        mu = np.copy(scores).mean(axis=1, keepdims=True)
+        mu = np.broadcast_to(mu, scores.shape)
+    else:
+        mu = np.full(scores.shape, np.copy(scores).mean())
+    return np.allclose(scores, mu, rtol=1e-2, atol=1e-2)
+
+
+
+def classification_accuracy(Y_hat, Y_truth, strict=False):
+    """ Computes classification accuracy over different classes
+
+    Params
+    ------
+    Y_pred : ndarray.float32, (N, D)
+        raw class "scores" from network output for the D classes
+    Y_truth : ndarray.int32, (N,)
+        ground truth
+
+    Returns
+    -------
+    accuracy : float
+        the averaged percentage of matching predictions between
+        Y_hat and Y_truth
+    """
+    if indifferent_scores(Y_hat):
+        return 0.0
+
+    if not strict:
+        # Reduce Y_hat to highest scores
+        Y_pred = get_predictions(Y_hat)
+
+        # Take average match
+        accuracy = np.mean(Y_pred == Y_truth)
+
+    else:
+        # Show raw class score
+        Y = to_one_hot(Y_truth)
+        scores = np.amax(Y * Y_hat, axis=1)
+        accuracy = np.mean(scores)
+
+    return accuracy

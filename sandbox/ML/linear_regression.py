@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 import sklearn
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,8 +55,7 @@ def fit_line(x, w1, w0):
     """
     return w1 * x + w0
 
-
-if __name__ == '__main__':
+def main():
     """ Sample plot over a feature using ordinary least squares regression """
 
     # Select feature of interest
@@ -76,6 +76,18 @@ if __name__ == '__main__':
     plt.xlabel(feature_name)
     plt.ylabel('diseason progression')
     plt.show()
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        ret = main()
+    except:
+        traceback.print_exc()
+    sys.exit(ret)
+
+
+
 
 
 

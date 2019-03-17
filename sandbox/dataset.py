@@ -21,12 +21,16 @@ class Dataset:
     """
     seed = 0
     load = None  # sklearn.datasets.load_* func
+    __dlabels = dict(data='X', target='Y')
     def __init__(self, split=True): # **kwargs):  # for now, ignore kwargs
         bunch = self.load()
         for key in dir(bunch):
             val = getattr(bunch, key)
+            if key in self.__dlabels:
+                setattr(self, self.__dlabels[key], val)
+                continue
             setattr(self, key, val)
-        self.shape = self.data.shape
+        self.shape = self.X.shape
 
     def desc(self):
         print(self.DESCR)
@@ -66,8 +70,8 @@ class Dataset:
 
         # Split data
         # ==========
-        x_sets = np.split(self.data,   sections, axis=0)[::-1]
-        y_sets = np.split(self.target, sections, axis=0)[::-1]
+        x_sets = np.split(self.X,   sections, axis=0)[::-1]
+        y_sets = np.split(self.Y, sections, axis=0)[::-1]
         self.x_train, self.x_test = x_sets[:2]
         self.y_train, self.y_test = y_sets[:2]
         if num_val:
@@ -88,7 +92,7 @@ class Dataset:
     def get_batch(self, batch_size):
         """ get training batch x, y """
         if not hasattr(self, 'x_train'): # then dataset was not split
-            X, Y = self.data, self.target
+            X, Y = self.X, self.Y
         else:
             X, Y = self.x_train, self.y_train
         n = X.shape[0]
