@@ -8,6 +8,40 @@ import argparse
 import numpy as np
 import dataset
 
+#-----------------------------------------------------------------------------#
+#                                 Init stuff                                  #
+#-----------------------------------------------------------------------------#
+
+def glorot_normal(size, scale=1.0, dtype=np.float32):
+    """ Inititalizes array from scaled Gaussian
+
+    Values drawn independently from a Gaussian distrib.
+    with mean 0, and stddev:
+      scale * sqrt(2/(fan_in + fan_out))
+
+    where
+    fan_in  = number of input units (input channels)
+    fan_out = number of output units (output channels)
+
+    """
+    assert sum(size) > 0
+    stdv = scale * np.sqrt(2 / sum(size))
+    return np.random.normal(scale=stdv, size=size).astype(dtype)
+
+
+def glorot_uniform(size, scale=1.0, dtype=np.float32):
+    """ Initializes an array with a uniform distribution
+
+    Values are drawn uniformly from the interval [-m, m), where
+
+    m = scale * sqrt(6/(fan_in + fan_out))
+    fan_in  = number of input units (input channels)
+    fan_out = number of output units (output channels)
+    """
+    assert sum(size) > 0
+    m = scale * np.sqrt(6 / sum(size))
+    return np.random.uniform(-m, m, size=size).astype(dtype)
+
 
 #-----------------------------------------------------------------------------#
 #                                 DATA UTILS                                  #
