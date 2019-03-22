@@ -26,8 +26,8 @@ CHANNELS = [64, 128] # hidden layer sizes
 #-----------------------------------------------------------------------------#
 #                                    Data                                     #
 #-----------------------------------------------------------------------------#
-DATASET = utilities.DATASET
-datasets_available = list(DATASET.keys())
+DATASETS = utilities.DATASETS
+datasets_available = list(DATASETS.keys())
 
 #-----------------------------------------------------------------------------#
 #                                   Parser                                    #
@@ -55,6 +55,12 @@ def parse_args():
 #-----------------------------------------------------------------------------#
 #                                   Logger                                    #
 #-----------------------------------------------------------------------------#
+
+def print_results(error, axis=None, title=''):
+    avg = np.mean(error,   axis=axis)
+    q50 = np.median(error, axis=axis)
+    print(f'ERROR {title}:\n\taverage :{avg:.5f}\n\t median : {q50:.5f}\n')
+
 
 
 #-----------------------------------------------------------------------------#

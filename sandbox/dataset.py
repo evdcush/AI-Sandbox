@@ -63,15 +63,18 @@ class Dataset:
             np.random.seed(seed)
             np.random.shuffle(indices)
 
+
         # interpret num test and val
         v = [num_val] if num_val else []
+        if not num_test:
+            num_test = N // 10
         num_test = num_test if num_test else N // 10
         sections = v + [num_test + num_val]
 
         # Split data
         # ==========
-        x_sets = np.split(self.X,   sections, axis=0)[::-1]
-        y_sets = np.split(self.Y, sections, axis=0)[::-1]
+        x_sets = np.split(self.X[indices], sections, axis=0)[::-1]
+        y_sets = np.split(self.Y[indices], sections, axis=0)[::-1]
         self.x_train, self.x_test = x_sets[:2]
         self.y_train, self.y_test = y_sets[:2]
         if num_val:
