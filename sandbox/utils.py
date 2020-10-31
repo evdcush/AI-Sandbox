@@ -44,11 +44,8 @@ def glorot_uniform(size, scale=1.0, dtype=np.float32):
 
 
 #-----------------------------------------------------------------------------#
-#                                 DATA UTILS                                  #
+#                                 transforms                                  #
 #-----------------------------------------------------------------------------#
-
-# Make DATASETS available in this namespace
-DATASETS = dataset.DATASETS
 
 def to_one_hot(Y, num_classes):
     """ make one-hot encoding for truth labels
