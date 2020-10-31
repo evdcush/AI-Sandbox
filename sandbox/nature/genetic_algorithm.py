@@ -33,7 +33,8 @@ fpath = os.path.abspath(os.path.dirname(__file__))
 sys.path.append('/'.join(fpath.split('/')[:-1]))
 import utilities as utils
 
-datasets = utils.DATASETS # interface to dataset loader
+raise FileNotFoundError, 'dataset stuff was removed from this project, just use sklearn'
+datasets = utils.DATASETS
 
 
 #-----------------------------------------------------------------------------#
