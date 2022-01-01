@@ -17,7 +17,7 @@ class Trainer:
         self.device = None
         self.task_id = None
 
-    def _set_id(self, num):
+    def set_id(self, num):
         self.task_id = num
 
     def save_checkpoint(self, checkpoint_path):

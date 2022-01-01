@@ -1,5 +1,5 @@
 from torch import nn
-import toch.nn.functional as F
+import torch.nn.functional as F
 
 class Net(nn.Module):
     """ Simple convnet for classification. """
